@@ -1,0 +1,18 @@
+{
+    "name": "playerarm123/laravel-workflow-kit",
+    "description": "The rules, generators and checks that keep every Laravel project built the same way.",
+    "type": "library",
+    "version": "0.1.0",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.4",
+        "laravel/framework": "^13.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Playerarm123\\LaravelWorkflowKit\\": "src/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
