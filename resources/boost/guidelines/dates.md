@@ -13,14 +13,14 @@ PHP row / props
     → the text on the page, the same on the server and in the browser
 ```
 
-Enforced by the package's `tests/Architecture/DatesTest.php` and by the ESLint rules in `tests/ESLint/dates.js`, which `eslint.config.js` spreads in. The spec in `datesSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/DatesEslintTest.php` proves the ESLint rules against fixtures. Items marked *review only* cannot be read from the code, so a reviewer checks them.
+Enforced by the package's `tests/Architecture/DatesTest.php` and by the package's ESLint rules in `tests/ESLint/dates.js`, which `eslint.config.js` imports from `vendor/` and spreads in. The spec in `datesSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/DatesEslintTest.php` proves the ESLint rules against fixtures. Items marked *review only* cannot be read from the code, so a reviewer checks them.
 
 ## Kit files
 
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). Copy the rest into a new project as they are.
 - `resources/js/lib/dates.ts`, the only file that formats a date
-- `tests/ESLint/dates.js`, imported by `eslint.config.js` (*check `eslint`*)
-- `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through
+- *package:* `tests/ESLint/dates.js`, imported by `eslint.config.js` (*check `eslint`*), and the fixtures its proof lints in `tests/ESLint/Fixtures/`
+- *package:* `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through
 
 ## Formatting
 

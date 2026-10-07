@@ -8,16 +8,16 @@ props (rows, sort, filters) → query → useDataTable / useListQuery → fetch(
 
 The URL owns the state. The page passes the current query in, and every change (sort, page size, search, filter) goes out through the one `visit` it declares.
 
-Enforced by the package's `tests/Architecture/ListPagesTest.php` and by the ESLint rules in `tests/ESLint/list-pages.js`, which `eslint.config.js` spreads in. The spec in `listPagesSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/ListPagesEslintTest.php` proves the ESLint rules against fixtures.
+Enforced by the package's `tests/Architecture/ListPagesTest.php` and by the package's ESLint rules in `tests/ESLint/list-pages.js`, which `eslint.config.js` imports from `vendor/` and spreads in. The spec in `listPagesSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/ListPagesEslintTest.php` proves the ESLint rules against fixtures.
 
 ## Kit files
 
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). Copy the rest into a new project as they are.
 - `resources/js/hooks/use-list-query.ts`, `use-data-table.tsx`, `use-data-table-toolbar.ts`, `use-actions.ts`, `use-dialog.ts`, `use-translation.ts`
 - `resources/js/components/dt-table.tsx`, `dt-toolbar.tsx`, `dialog.tsx`, `buttons.tsx`, `icons.tsx`, `heading.tsx`, `ui/date-range-picker.tsx`
 - `resources/js/types/data-table.ts`, `pagination.ts`
-- `tests/ESLint/list-pages.js`, imported by `eslint.config.js` (*check `eslint`*)
-- `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through. Its `internalAlias`, spread in first, ranks an unresolved `@/` import as internal, so a generated page passes import/order before `wayfinder:generate` runs
+- *package:* `tests/ESLint/list-pages.js`, imported by `eslint.config.js` (*check `eslint`*), and the fixtures its proof lints in `tests/ESLint/Fixtures/`
+- *package:* `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through. Its `internalAlias`, spread in first, ranks an unresolved `@/` import as internal, so a generated page passes import/order before `wayfinder:generate` runs
 
 The kit builds on these shadcn components, added with `npx shadcn add`: badge, button, calendar, checkbox, dialog, dropdown-menu, input, label, pagination, popover, select, table, tooltip.
 

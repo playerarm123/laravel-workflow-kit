@@ -48,15 +48,15 @@ function listPagesSpec(): array
             'resources/js/components/ui/date-range-picker.tsx',
             'resources/js/types/data-table.ts',
             'resources/js/types/pagination.ts',
-            'tests/ESLint/list-pages.js',
-            'tests/ESLint/Support/rules.js',
+            'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/list-pages.js',
+            'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/Support/rules.js',
         ],
         'shadcn_components' => [
             'badge', 'button', 'calendar', 'checkbox', 'dialog', 'dropdown-menu', 'input',
             'label', 'pagination', 'popover', 'select', 'table', 'tooltip',
         ],
         'eslint_config' => 'eslint.config.js',
-        'eslint_rules' => './tests/ESLint/list-pages.js',
+        'eslint_rules' => './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/list-pages.js',
         'kit_lang_keys' => [
             'common.action_delete',
             'common.action_edit',

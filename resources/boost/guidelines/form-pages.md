@@ -8,17 +8,17 @@ props.defaults ({X}FormValues) → <Form {...action}> → Store/Update{X}Request
 
 The server owns the values on both ends. It sends the form its starting values, and it turns what comes back into a Command. The page and the form component only render.
 
-Enforced by the package's `tests/Architecture/FormPagesTest.php` and by the ESLint rules in `tests/ESLint/form-pages.js`, which `eslint.config.js` spreads in. The spec in `formPagesSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/FormPagesEslintTest.php` proves the ESLint rules against fixtures.
+Enforced by the package's `tests/Architecture/FormPagesTest.php` and by the package's ESLint rules in `tests/ESLint/form-pages.js`, which `eslint.config.js` imports from `vendor/` and spreads in. The spec in `formPagesSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/FormPagesEslintTest.php` proves the ESLint rules against fixtures.
 
 ## Kit files
 
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). Copy the rest into a new project as they are.
 - `app/Http/FlashToast.php`, the one shape of a flash toast (`FlashToast::KEY`, `success()`, `error()`)
 - `resources/js/hooks/use-flash-toast.ts` and `resources/js/components/flash-toast.tsx`, rendered once in `app.tsx` beside sonner's `<Toaster>`
 - `resources/js/components/input-error.tsx`
 - `resources/js/types/ui.ts`, which declares the `FlashToast` type
-- `tests/ESLint/form-pages.js`, imported by `eslint.config.js` (*check `eslint`*)
-- `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through. Its `internalAlias`, spread in first, ranks an unresolved `@/` import as internal, so a generated page passes import/order before `wayfinder:generate` runs
+- *package:* `tests/ESLint/form-pages.js`, imported by `eslint.config.js` (*check `eslint`*), and the fixtures its proof lints in `tests/ESLint/Fixtures/`
+- *package:* `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through. Its `internalAlias`, spread in first, ranks an unresolved `@/` import as internal, so a generated page passes import/order before `wayfinder:generate` runs
 
 The kit builds on these shadcn components: button, card, checkbox, input, label, select, spinner. Every `lang/*.json` carries the keys the kit speaks: `common.save`, `common.cancel`, `common.back`, `common.toast_success_title`, `common.toast_error_title`. *Check `lang-keys`.*
 

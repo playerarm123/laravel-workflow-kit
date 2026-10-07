@@ -10,7 +10,7 @@ require_once __DIR__.'/Support/rules.php';
  * `ignores` apply exactly as they do to real code. Only the `[dates:…]` messages are read,
  * sorted by line and check.
  */
-const DATES_ESLINT_FIXTURES = 'tests/ESLint/Fixtures/Dates';
+const DATES_ESLINT_FIXTURES = __DIR__.'/../ESLint/Fixtures/Dates';
 
 /**
  * @param  array<string, string>  $env
@@ -30,7 +30,7 @@ function datesLint(string $fixture, string $pretendPath, array $env = []): array
         throw new RuntimeException('Could not start ESLint');
     }
 
-    fwrite($pipes[0], (string) file_get_contents(ruleProjectPath(DATES_ESLINT_FIXTURES.'/'.$fixture)));
+    fwrite($pipes[0], (string) file_get_contents(DATES_ESLINT_FIXTURES.'/'.$fixture));
     fclose($pipes[0]);
     $output = (string) stream_get_contents($pipes[1]);
     $errors = (string) stream_get_contents($pipes[2]);

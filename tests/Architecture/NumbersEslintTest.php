@@ -10,7 +10,7 @@ require_once __DIR__.'/Support/rules.php';
  * `ignores` apply exactly as they do to real code. Only the `[numbers:…]` messages are read,
  * sorted by line and check.
  */
-const NUMBERS_ESLINT_FIXTURES = 'tests/ESLint/Fixtures/Numbers';
+const NUMBERS_ESLINT_FIXTURES = __DIR__.'/../ESLint/Fixtures/Numbers';
 
 /**
  * @param  array<string, string>  $env
@@ -30,7 +30,7 @@ function numbersLint(string $fixture, string $pretendPath, array $env = []): arr
         throw new RuntimeException('Could not start ESLint');
     }
 
-    fwrite($pipes[0], (string) file_get_contents(ruleProjectPath(NUMBERS_ESLINT_FIXTURES.'/'.$fixture)));
+    fwrite($pipes[0], (string) file_get_contents(NUMBERS_ESLINT_FIXTURES.'/'.$fixture));
     fclose($pipes[0]);
     $output = (string) stream_get_contents($pipes[1]);
     $errors = (string) stream_get_contents($pipes[2]);

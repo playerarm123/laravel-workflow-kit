@@ -5,9 +5,10 @@ namespace Playerarm123\LaravelWorkflowKit\Tests\Architecture;
 use PHPStan\Reflection\ReflectionProvider;
 use PHPStan\Rules\Rule;
 use PHPStan\Testing\RuleTestCase;
-use Tests\PHPStan\DatabaseWriteOutsideInfraRule;
+use Playerarm123\LaravelWorkflowKit\Tests\PHPStan\DatabaseWriteOutsideInfraRule;
 
 require_once __DIR__.'/Support/rules.php';
+require_once __DIR__.'/../PHPStan/DatabaseWriteOutsideInfraRule.php';
 
 /**
  * Proves tests/PHPStan/DatabaseWriteOutsideInfraRule, the enforcement of
@@ -18,7 +19,7 @@ require_once __DIR__.'/Support/rules.php';
  */
 final class WritePathRuleTest extends RuleTestCase
 {
-    private const string FIXTURES = 'tests/PHPStan/Fixtures/WritePath';
+    private const string FIXTURES = __DIR__.'/../PHPStan/Fixtures/WritePath';
 
     /**
      * Larastan boots the Laravel app — and with it the app's error and exception handlers — when
@@ -47,23 +48,23 @@ final class WritePathRuleTest extends RuleTestCase
 
     public function test_it_reports_every_database_write_outside_the_infrastructure(): void
     {
-        $this->analyse([ruleProjectPath(self::FIXTURES.'/EntryPointWrites.php')], [
-            [$this->message('deletesAModel', 'App\Models\Customer::delete()'), 13],
+        $this->analyse([self::FIXTURES.'/EntryPointWrites.php'], [
+            [$this->message('deletesAModel', 'App\Models\User::delete()'), 13],
             [$this->message('updatesThroughTheQueryBuilder', 'Illuminate\Database\Eloquent\Builder::update()'), 18],
             [$this->message('insertsThroughTheDbFacade', 'Illuminate\Database\Query\Builder::insert()'), 23],
             [$this->message('runsARawStatement', 'DB::statement()'), 28],
-            [$this->message('createsStatically', 'App\Models\Customer::create()'), 33],
+            [$this->message('createsStatically', 'App\Models\User::create()'), 33],
         ]);
     }
 
     public function test_it_lets_the_infrastructure_write(): void
     {
-        $this->analyse([ruleProjectPath(self::FIXTURES.'/InfraWrites.php')], []);
+        $this->analyse([self::FIXTURES.'/InfraWrites.php'], []);
     }
 
     public function test_it_lets_an_exempted_class_write(): void
     {
-        $this->analyse([ruleProjectPath(self::FIXTURES.'/ExemptWrites.php')], []);
+        $this->analyse([self::FIXTURES.'/ExemptWrites.php'], []);
     }
 
     private function message(string $method, string $call): string

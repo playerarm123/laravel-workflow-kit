@@ -20,11 +20,11 @@ function datesSpec(): array
     return [
         'kit_files' => [
             'resources/js/lib/dates.ts',
-            'tests/ESLint/dates.js',
-            'tests/ESLint/Support/rules.js',
+            'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/dates.js',
+            'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/Support/rules.js',
         ],
         'eslint_config' => 'eslint.config.js',
-        'eslint_rules' => './tests/ESLint/dates.js',
+        'eslint_rules' => './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/dates.js',
     ];
 }
 

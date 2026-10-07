@@ -16,17 +16,17 @@ form input '1500.50' → FormRequest (decimal:0,2) → Command: the string or th
   → value object ::from…('1500.50') → the integer the database stores
 ```
 
-Enforced by the package's `tests/Architecture/NumbersTest.php` and by the ESLint rules in `tests/ESLint/numbers.js`, which `eslint.config.js` spreads in. The spec in `numbersSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/NumbersEslintTest.php` proves the ESLint rules against fixtures. Items marked *review only* cannot be read from the code, so a reviewer checks them.
+Enforced by the package's `tests/Architecture/NumbersTest.php` and by the package's ESLint rules in `tests/ESLint/numbers.js`, which `eslint.config.js` imports from `vendor/` and spreads in. The spec in `numbersSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/NumbersEslintTest.php` proves the ESLint rules against fixtures. Items marked *review only* cannot be read from the code, so a reviewer checks them.
 
 ## Kit files
 
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). Copy the rest into a new project as they are.
 - `app/Domain/Shared/ValueObjects/Money.php` and `Percent.php`, with `Concerns/ParsesScaledDecimal.php`, which reads a decimal string into their integer
 - `app/Domain/Shared/Exceptions/InvalidMoneyException.php` and `InvalidPercentException.php`
 - `tests/Unit/Domain/Shared/ValueObjects/MoneyTest.php` and `PercentTest.php`
 - `resources/js/lib/numbers.ts`, the only file that formats a number
-- `tests/ESLint/numbers.js`, imported by `eslint.config.js` (*check `eslint`*)
-- `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through
+- *package:* `tests/ESLint/numbers.js`, imported by `eslint.config.js` (*check `eslint`*), and the fixtures its proof lints in `tests/ESLint/Fixtures/`
+- *package:* `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through
 
 ## Value objects
 

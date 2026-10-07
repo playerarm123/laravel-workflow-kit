@@ -14,13 +14,13 @@ bulk, from a list page's selection:
   → {Model}Bulk{Verb}Controller({Model}Bulk{Verb}Request) → the row action's handler
 ```
 
-Enforced by the package's `tests/Architecture/ActionsTest.php` and by the ESLint rules in `tests/ESLint/actions.js`, which `eslint.config.js` spreads in. The spec in `actionsSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/ActionsEslintTest.php` proves the ESLint rules against fixtures. Items marked *review only* cannot be read from the code, so a reviewer checks them.
+Enforced by the package's `tests/Architecture/ActionsTest.php` and by the package's ESLint rules in `tests/ESLint/actions.js`, which `eslint.config.js` imports from `vendor/` and spreads in. The spec in `actionsSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/ActionsEslintTest.php` proves the ESLint rules against fixtures. Items marked *review only* cannot be read from the code, so a reviewer checks them.
 
 ## Kit files
 
 These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`), and a stub there is replaced by a file of the same name in the project's `stubs/`. Copy the rest into a new project as they are.
-- `tests/ESLint/actions.js`, imported by `eslint.config.js` (*check `eslint`*)
-- `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through
+- *package:* `tests/ESLint/actions.js`, imported by `eslint.config.js` (*check `eslint`*), and the fixtures its proof lints in `tests/ESLint/Fixtures/`
+- *package:* `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through
 - *package:* `src/Console/Commands/MakeActionCommand.php` with `src/Console/Commands/Concerns/BuildsRequestFields.php`, which it shares with `make:form-request`
 - *package:* `stubs/action-controller.stub`, `stubs/action-bulk-controller.stub`, `stubs/action-request.stub` and `stubs/action-test.stub`
 

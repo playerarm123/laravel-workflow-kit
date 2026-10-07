@@ -31,8 +31,8 @@ function actionsSpec(): array
 {
     return [
         'kit_files' => [
-            'tests/ESLint/actions.js',
-            'tests/ESLint/Support/rules.js',
+            'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/actions.js',
+            'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/Support/rules.js',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/MakeActionCommand.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Concerns/BuildsRequestFields.php',
             'vendor/playerarm123/laravel-workflow-kit/stubs/action-controller.stub',
@@ -41,7 +41,7 @@ function actionsSpec(): array
             'vendor/playerarm123/laravel-workflow-kit/stubs/action-test.stub',
         ],
         'eslint_config' => 'eslint.config.js',
-        'eslint_rules' => './tests/ESLint/actions.js',
+        'eslint_rules' => './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/actions.js',
         'controllers_path' => 'app/Http/Controllers',
         'requests_namespace' => 'App\Http\Requests',
         'self_service' => ['App\Http\Controllers\Settings'],
