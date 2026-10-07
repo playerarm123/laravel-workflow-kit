@@ -1,0 +1,25 @@
+import { Card, CardContent } from '@/components/ui/card';
+import { useTranslation } from '@/hooks/use-translation';
+import type { {{ row }} } from '@/types';
+
+type Props = {
+    {{ itemVar }}: {{ row }};
+};
+
+/**
+ * One item of the {{ prefix }} grid. Format money, rates and dates through `@/lib/numbers` and
+ * `@/lib/dates`, and put the item's actions here, never on the page (actions.md).
+ */
+export function {{ card }}({ {{ itemVar }} }: Props) {
+    const { t } = useTranslation();
+
+    return (
+        <Card>
+            <CardContent>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+{{ fields }}
+                </dl>
+            </CardContent>
+        </Card>
+    );
+}

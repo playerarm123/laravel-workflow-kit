@@ -1,0 +1,17 @@
+<?php
+
+namespace {{ namespace }};
+
+use Spatie\LaravelData\Attributes\WithCast;
+use Spatie\LaravelData\Casts\EnumCast;
+use Spatie\LaravelData\Data;
+
+final class {{ class }} extends Data
+{
+    public function __construct(
+        // define the result payload here, e.g.
+        // public readonly string $id,
+        // #[WithCast(EnumCast::class)]
+        // public readonly CountryCode $countryCode,
+    ) {}
+}

@@ -1,0 +1,11 @@
+<?php
+
+use {{ namespacedAdapter }};
+
+beforeEach(function () {
+    $this->adapter = app({{ adapter }}::class);
+});
+
+describe('{{ adapter }}', function () {
+{{ cases }}
+});

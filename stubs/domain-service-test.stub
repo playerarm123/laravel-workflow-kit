@@ -1,0 +1,11 @@
+<?php
+
+use {{ namespacedService }};
+
+beforeEach(function () {
+    $this->service = app({{ service }}::class);
+});
+
+describe('{{ service }}', function () {
+    it('enforces the rule the service is named after')->todo();
+});

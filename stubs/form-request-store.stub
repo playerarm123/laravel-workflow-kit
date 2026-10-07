@@ -1,0 +1,22 @@
+<?php
+
+namespace {{ namespace }};
+
+{{ imports }}
+
+class Store{{ subject }}Request extends FormRequest
+{
+    use Validates{{ subject }};
+
+    public function authorize(): bool
+    {
+        return Gate::allows('create', {{ model }}::class);
+    }
+
+    public function toCommand(): {{ command }}
+    {
+        return new {{ command }}(
+{{ arguments }}
+        );
+    }
+}

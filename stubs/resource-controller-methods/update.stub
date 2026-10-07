@@ -1,0 +1,18 @@
+    /**
+     * Update the specified resource in storage.
+     *
+     * Authorized and validated by Update{{ model }}Request, which reads the id from the bound
+     * model. Catch here, by name, each refusal the user can act on, and answer it with
+     * FlashToast::error() (exceptions.md).
+     */
+    public function update(
+        Update{{ model }}Request $request,
+        {{ model }} ${{ variable }},
+        {{ updateHandler }} ${{ updateVariable }},
+    ): RedirectResponse {
+        ${{ updateVariable }}($request->toCommand());
+
+        Inertia::flash(FlashToast::KEY, FlashToast::success(__('{{ prefix }}.updated')));
+
+        return {{ redirect }};
+    }

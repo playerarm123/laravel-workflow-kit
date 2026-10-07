@@ -1,0 +1,13 @@
+<?php
+
+namespace {{ namespace }};
+
+{{ useStatements }}
+/**
+ * {{ port }} built on {{ prefix }}. Bound to the port in a service provider, so the core
+ * never names it (layers.md).
+ */
+class {{ class }} implements {{ port }}
+{
+{{ methods }}
+}

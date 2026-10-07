@@ -1,0 +1,20 @@
+<?php
+
+namespace {{ namespace }};
+
+{{ imports }}
+
+class {{ stem }}Controller extends Controller
+{
+    /**
+     * Authorized and validated by {{ stem }}Request. Catch here, by name, each refusal the user
+     * can act on, and answer it with FlashToast::error() (exceptions.md).
+     */
+    public function __invoke(
+        {{ stem }}Request $request,
+        {{ model }} ${{ variable }},
+        {{ handler }} ${{ handlerVariable }},
+    ): RedirectResponse {
+{{ body }}
+    }
+}

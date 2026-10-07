@@ -1,0 +1,93 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Domain\Shared\DomainEntity;
+use {{ namespacedEntity }};
+use {{ namespacedLogPayload }};
+use {{ namespacedModel }};
+use {{ namespacedNotFoundException }};
+use {{ namespacedRepositoryException }};
+use {{ namespacedRepositoryInterface }};
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Override;
+
+/**
+ * @extends EloquentRepository<{{ model }}, {{ entity }}>
+ */
+class {{ class }} extends EloquentRepository implements {{ repositoryInterface }}
+{
+    #[Override]
+    public function save({{ entity }} $entity): void
+    {
+        $this->saveEntity($entity);
+    }
+
+    #[Override]
+    public function saveMany(array $entities): void
+    {
+        $this->saveEntities($entities);
+    }
+
+    #[Override]
+    public function update({{ entity }} $entity): void
+    {
+        $this->updateEntity($entity);
+    }
+
+    #[Override]
+    public function findById(string $id): ?{{ entity }}
+    {
+        return $this->findEntity($id);
+    }
+
+    #[Override]
+    public function getById(string $id): {{ entity }}
+    {
+        return $this->getEntity($id);
+    }
+
+    #[Override]
+    protected function newQuery(): Builder
+    {
+        return {{ model }}::query();
+    }
+
+    #[Override]
+    protected function exceptionClass(): string
+    {
+        return {{ repositoryException }}::class;
+    }
+
+    #[Override]
+    protected function notFoundClass(): string
+    {
+        return {{ notFoundException }}::class;
+    }
+
+    #[Override]
+    protected function logPayloadClass(): string
+    {
+        return {{ logPayload }}::class;
+    }
+
+    #[Override]
+    protected function toModel(DomainEntity $entity): Model
+    {
+        $model = new {{ model }};
+        $model->id = $entity->id();
+        // map entity attributes to model columns here
+
+        return $model;
+    }
+
+    #[Override]
+    protected function toEntity(Model $model): DomainEntity
+    {
+        return {{ entity }}::reconstitute(
+            id: $model->id,
+            // map model columns to entity attributes here
+        );
+    }
+}

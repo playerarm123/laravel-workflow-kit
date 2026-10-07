@@ -1,0 +1,45 @@
+<?php
+
+namespace {{ namespace }};
+
+{{ imports }}
+
+/**
+ * The starting values of the {{ words }} form, as its inputs show them and its requests take them back.
+ *
+ * @implements Arrayable<string, mixed>
+ */
+final class {{ subject }}FormValues implements Arrayable
+{
+{{ constructorDoc }}    public function __construct(
+{{ properties }}
+    ) {}
+
+    /**
+     * The create page's starting values.
+     */
+    public static function empty(): self
+    {
+        return new self(
+{{ emptyArguments }}
+        );
+    }
+
+    /**
+     * The stored row as the form shows it.
+     */
+    public static function of({{ model }} ${{ variable }}): self
+    {
+        throw new LogicException('{{ subject }}FormValues::of() is not written yet.');
+    }
+
+    /**
+     * @return array{{{ shape }}}
+     */
+    public function toArray(): array
+    {
+        return [
+{{ entries }}
+        ];
+    }
+}

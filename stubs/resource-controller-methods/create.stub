@@ -1,0 +1,11 @@
+    /**
+     * Show the form for creating a new resource.
+     */
+    public function create(): Response
+    {
+        Gate::authorize('create', {{ model }}::class);
+
+        return Inertia::render('{{ prefix }}/create', [
+            'defaults' => {{ model }}FormValues::empty(),
+        ]);
+    }

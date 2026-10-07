@@ -1,0 +1,18 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Domain\Shared\DomainEntity;
+use {{ namespacedEntity }};
+
+final class {{ class }} extends EntityLogPayload
+{
+    protected function map(DomainEntity $entity): array
+    {
+        /** @var {{ entity }} $entity */
+
+        return [
+            // map entity attributes to the log payload here
+        ];
+    }
+}

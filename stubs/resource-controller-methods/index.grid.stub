@@ -1,0 +1,20 @@
+    /**
+     * Display a listing of the resource, as a grid that loads the next page as the user scrolls.
+     *
+     * The query string goes into the Command raw and unvalidated: the handler settles every
+     * value, so a hand-edited url still gets a page, not a 422 (list-queries.md). A grid sends
+     * no sort, because the user cannot pick one (list-pages.md).
+     */
+    public function index(Request $request, {{ listHandler }} ${{ listVariable }}): Response
+    {
+        Gate::authorize('viewAny', {{ model }}::class);
+
+        $result = ${{ listVariable }}(new {{ listCommand }}(
+{{ listArguments }}
+        ));
+
+        return Inertia::render('{{ prefix }}/index', [
+            '{{ rows }}' => Inertia::scroll($result->{{ rows }}),
+            'filters' => $result->filters,{{ can }}
+        ]);
+    }

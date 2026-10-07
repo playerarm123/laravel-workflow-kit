@@ -1,0 +1,25 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Domain\Shared\DomainException;
+
+/**
+ * A failure of this service itself. A rule one entity can check on its own throws that
+ * entity's exception instead.
+ */
+final class {{ class }} extends DomainException
+{
+    // one code and one named constructor per failure, e.g.
+    // public const int ALREADY_OPEN = 101;
+    //
+    // public static function alreadyOpen(string $id, ?Throwable $previous = null): self
+    // {
+    //     return new self(
+    //         message: "Already open [{$id}].",
+    //         code: self::ALREADY_OPEN,
+    //         context: ['id' => $id],
+    //         previous: $previous,
+    //     );
+    // }
+}

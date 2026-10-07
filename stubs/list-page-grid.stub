@@ -1,0 +1,71 @@
+import { Head, InfiniteScroll, router, setLayoutProps } from '@inertiajs/react';
+{{ componentImports }}
+import { useListQuery } from '@/hooks/use-list-query';
+import { useTranslation } from '@/hooks/use-translation';
+import { index } from '@/routes/{{ plural }}';
+import type { {{ typeImports }} } from '@/types';
+
+type Props = {
+    {{ prop }}: Paginated<{{ row }}>;
+    filters: {{ filters }};
+};
+
+export default function Index({ {{ prop }}, filters }: Props) {
+    const { t } = useTranslation();
+    const title: string = t('{{ prefix }}.title');
+
+    setLayoutProps({
+        breadcrumbs: [{ title, href: index() }],
+    });
+
+    /** A grid has no sort or page size, so the query is the filters alone; a new visit starts the scroll prop again from page one. */
+    const list = useListQuery<{{ filters }}>({
+        query: filters,
+        visit: (query) => {
+            router.get(
+                index.url({ query }),
+                {},
+                { preserveState: true, replace: true },
+            );
+        },
+    });
+
+    return (
+        <>
+            <Head title={title} />
+
+            <div className="space-y-6 px-4 py-6">
+                <Heading title={title} description={t('{{ prefix }}.description')} />
+
+                <{{ toolbar }} dt={list} />
+
+                <InfiniteScroll
+                    data="{{ prop }}"
+                    buffer={300}
+                    loading={<Spinner className="mx-auto my-4" />}
+                >
+                    {{{ prop }}.data.length === 0 ? (
+                        <div className="rounded-lg border border-dashed p-8 text-center">
+                            <p className="font-medium">
+                                {list.hasFilters
+                                    ? t('{{ prefix }}.no_results_title')
+                                    : t('{{ prefix }}.empty_title')}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                {list.hasFilters
+                                    ? t('{{ prefix }}.no_results_description')
+                                    : t('{{ prefix }}.empty_description')}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {{{ prop }}.data.map(({{ itemVar }}) => (
+                                <{{ card }} key={{{ itemVar }}.id} {{ itemVar }}={{{ itemVar }}} />
+                            ))}
+                        </div>
+                    )}
+                </InfiniteScroll>
+            </div>
+        </>
+    );
+}

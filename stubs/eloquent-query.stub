@@ -1,0 +1,56 @@
+<?php
+
+namespace {{ namespace }};
+
+use {{ namespacedCriteria }};
+use {{ namespacedQuery }};
+use {{ namespacedRow }};
+use Illuminate\Pagination\LengthAwarePaginator;
+use Override;
+use RuntimeException;
+
+/**
+ * See list-queries.md for the shape this adapter must take.
+ */
+class {{ class }} extends EloquentListQuery implements {{ query }}
+{
+    /**
+     * Qualified columns the free-text search runs across — literals only.
+     *
+     * @var list<literal-string>
+     */
+    private const SEARCHABLE_COLUMNS = [
+        // 'table.column',
+    ];
+
+    #[Override]
+    public function paginate({{ criteria }} $criteria): LengthAwarePaginator
+    {
+        // Build the scoped, filtered, sorted query, then finish with paginateRows():
+        //
+        //     $query = Model::query()
+        //         ->with([/* every relation toRow() reads */])
+        //         ->where('table.scope_column', $criteria->scopeValue)
+        //         ->tap(fn (Builder $query) => $this->applySearch($query, $criteria->search, self::SEARCHABLE_COLUMNS))
+        //         ->when(! $criteria->createdAt->isEmpty(), fn (Builder $query) => $this->applyCreatedBetween(
+        //             $query,
+        //             $criteria->createdAt,
+        //             'table.created_at',
+        //         ))
+        //         ->orderBy($this->sortColumn($criteria->sort), $criteria->direction);
+        //
+        //     return $this->paginateRows($query, $criteria->perPage, fn (Model $model): {{ rowType }} => $this->toRow($model));
+        //
+        // sortColumn() matches every case of {{ sort }}, so a new case without a column is
+        // a PHPStan error rather than a 500:
+        //
+        //     private function sortColumn({{ sort }} $sort): string
+        //     {
+        //         return match ($sort) {
+        //             {{ sort }}::CreatedAt => 'table.created_at',
+        //         };
+        //     }
+
+        throw new RuntimeException('{{ class }}::paginate() is not implemented yet.');
+    }
+}

@@ -1,0 +1,67 @@
+import { router, setLayoutProps } from '@inertiajs/react';
+import { createColumnHelper } from '@tanstack/react-table';
+import { Inbox, SearchX } from 'lucide-react';
+{{ componentImports }}
+import type {
+    DataTableFeatures,
+    DataTableOptions,
+} from '@/hooks/use-data-table';
+import useDataTable from '@/hooks/use-data-table';
+import { useTranslation } from '@/hooks/use-translation';
+import { index } from '@/routes/{{ plural }}';
+import type { {{ typeImports }} } from '@/types';
+
+type Props = {
+    {{ prop }}: Paginated<{{ row }}>;
+    sort: SortState;
+    filters: {{ filters }};
+};
+
+export default function Index({ {{ prop }}, sort, filters }: Props) {
+    const { t } = useTranslation();
+    const title: string = t('{{ prefix }}.title');
+
+    setLayoutProps({
+        breadcrumbs: [{ title, href: index() }],
+    });
+
+    const columnHelper = createColumnHelper<DataTableFeatures, {{ row }}>();
+    const columns = columnHelper.columns([
+{{ columns }}
+    ]);
+
+    const dtOptions: DataTableOptions<{{ row }}, {{ query }}> = {
+        title,
+        description: t('{{ prefix }}.description'),
+        columns,
+        paginated: {{ prop }},
+        query: {
+            ...filters,
+            sort: sort.column,
+            direction: sort.direction,
+            per_page: {{ prop }}.per_page,
+        },
+        visit: (query) => {
+            router.get(
+                index.url({ query }),
+                {},
+                { preserveScroll: true, preserveState: true, replace: true },
+            );
+        },
+        perPageOptions: [10, 25, 50],
+        emptyState: {
+            icon: Inbox,
+            title: t('{{ prefix }}.empty_title'),
+            description: t('{{ prefix }}.empty_description'),
+        },
+        noResultsState: {
+            icon: SearchX,
+            title: t('{{ prefix }}.no_results_title'),
+            description: t('{{ prefix }}.no_results_description'),
+        },
+    };
+
+    const dt = useDataTable(dtOptions);
+
+    return <DataTable dt={dt} toolbar={<{{ toolbar }} dt={dt} />} />;
+}

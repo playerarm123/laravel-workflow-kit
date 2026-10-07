@@ -1,0 +1,10 @@
+<?php
+
+/**
+ * {{ verb }} {{ uri }} ({{ routeName }}), answered by {{ class }}::{{ action }}().
+ */
+it('redirects a guest to the login page')->todo();
+
+it('forbids a user the policy refuses')->todo();
+
+{{ cases }}

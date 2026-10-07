@@ -1,0 +1,20 @@
+<?php
+
+require_once __DIR__.'/../RepositoryContract.php';
+
+use {{ namespacedEntity }};
+use {{ namespacedModel }};
+use {{ namespacedRepositoryInterface }};
+
+/**
+ * Fill in the hooks, then add the cases specific to this aggregate below the contract.
+ * See repositories.md, "Tests".
+ */
+repositoryContract(
+    repository: {{ repositoryInterface }}::class,
+    model: {{ model }}::class,
+    make: fn (): {{ entity }} => throw new LogicException('Return a valid, never-saved {{ entity }}.'),
+    change: fn ({{ entity }} $entity) => throw new LogicException('Change a persisted field through the entity.'),
+    unwritable: fn (): {{ entity }} => throw new LogicException('Return a {{ entity }} the database refuses.'),
+    corrupt: fn ({{ entity }} $entity) => throw new LogicException('Damage the saved row, e.g. dropRepositoryContractColumn().'),
+);

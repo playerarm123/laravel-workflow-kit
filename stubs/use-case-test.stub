@@ -1,0 +1,11 @@
+<?php
+
+use {{ namespacedHandler }};
+
+beforeEach(function () {
+    $this->handler = app({{ handler }}::class);
+});
+
+describe('{{ handler }}', function () {
+    it('does what the use case is named after')->todo();{{ writeTodos }}
+});

@@ -1,0 +1,12 @@
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit({{ model }} ${{ variable }}): Response
+    {
+        Gate::authorize('update', ${{ variable }});
+
+        return Inertia::render('{{ prefix }}/edit', [
+            '{{ variable }}' => ${{ variable }},
+            'defaults' => {{ model }}FormValues::of(${{ variable }}),
+        ]);
+    }

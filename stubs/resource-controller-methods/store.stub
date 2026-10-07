@@ -1,0 +1,10 @@
+    /**
+     * Store a newly created resource in storage.
+     *
+     * Authorized and validated by Store{{ model }}Request. Catch here, by name, each refusal the
+     * user can act on, and answer it with FlashToast::error() (exceptions.md).
+     */
+    public function store(Store{{ model }}Request $request, {{ createHandler }} ${{ createVariable }}): RedirectResponse
+    {
+{{ body }}
+    }

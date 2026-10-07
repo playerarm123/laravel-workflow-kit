@@ -1,0 +1,7 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Domain\Shared\Exceptions\EntityNotFoundException;
+
+class {{ class }} extends EntityNotFoundException {}

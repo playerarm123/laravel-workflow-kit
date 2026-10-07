@@ -1,0 +1,34 @@
+<?php
+
+namespace {{ namespace }};
+
+{{ imports }}
+
+class {{ stem }}Controller extends Controller
+{
+    /**
+     * Authorized and validated by {{ stem }}Request. The handler skips each row it may no longer
+     * change and returns how many it did change, so the toast names both numbers.
+     */
+    public function __invoke(
+        {{ stem }}Request $request,
+        {{ handler }} ${{ handlerVariable }},
+    ): RedirectResponse {
+        $command = $request->toCommand();
+        $changed = ${{ handlerVariable }}($command);
+        $skipped = count($command->ids) - $changed;
+
+        if ($changed === 0) {
+            return Inertia::flash(
+                FlashToast::KEY,
+                FlashToast::error(__('{{ langPrefix }}_unchanged', ['count' => $skipped])),
+            )->back();
+        }
+
+        $message = $skipped > 0
+            ? __('{{ langPrefix }}_partial', ['changed' => $changed, 'skipped' => $skipped])
+            : __('{{ langPrefix }}_succeeded', ['changed' => $changed]);
+
+        return Inertia::flash(FlashToast::KEY, FlashToast::success($message))->back();
+    }
+}

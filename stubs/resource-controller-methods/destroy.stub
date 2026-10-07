@@ -1,0 +1,14 @@
+    /**
+     * Remove the specified resource from storage.
+     *
+     * The rule that forbids a delete lives in the entity. Catch its refusal here, by name, and
+     * answer it with FlashToast::error() (write-path.md, exceptions.md).
+     */
+    public function destroy({{ model }} ${{ variable }}, {{ deleteHandler }} ${{ deleteVariable }}): RedirectResponse
+    {
+        Gate::authorize('delete', ${{ variable }});
+
+        ${{ deleteVariable }}(${{ variable }}->id);
+
+        return Inertia::flash(FlashToast::KEY, FlashToast::success(__('{{ prefix }}.deleted')))->back();
+    }

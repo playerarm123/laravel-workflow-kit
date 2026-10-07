@@ -1,0 +1,25 @@
+<?php
+
+namespace {{ namespace }};
+
+{{ useStatements }}/**
+ * {{ summary }}
+ */
+final class {{ class }} extends {{ base }}
+{
+    // one code and one named constructor per reason, e.g.
+    // public const int ALREADY_CLOSED = 100;
+    //
+    // public static function alreadyClosed(string $id, ?Throwable $previous = null): self
+    // {
+    //     return new self(
+    //         message: "Already closed [{$id}].",
+    //         code: self::ALREADY_CLOSED,
+    //         context: ['id' => $id],
+    //         previous: $previous,
+    //     );
+    // }
+    //
+    // The context carries ids, enums, amounts and codes only, never personal data, and the
+    // message is written for the log. A controller picks the words the user reads.
+}

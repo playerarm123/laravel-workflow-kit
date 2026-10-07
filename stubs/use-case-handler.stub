@@ -1,0 +1,11 @@
+<?php
+
+namespace {{ namespace }};
+{{ useStatements }}
+final class {{ class }}
+{{{ constructor }}
+    public function __invoke({{ invokeParameters }}): {{ returnType }}
+    {
+{{ handlerBody }}
+    }
+}

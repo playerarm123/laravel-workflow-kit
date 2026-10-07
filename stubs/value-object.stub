@@ -1,0 +1,18 @@
+<?php
+
+namespace {{ namespace }};
+{{ imports }}
+final class {{ class }}
+{
+    private function __construct({{ parameters }}) {}
+
+    public static function from({{ arguments }}): self
+    {
+        return new self{{ names }};
+    }
+{{ getters }}
+    public function equals(self $other): bool
+    {
+        return {{ comparison }};
+    }
+}

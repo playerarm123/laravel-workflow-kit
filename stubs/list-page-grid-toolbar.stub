@@ -1,0 +1,26 @@
+import { DataTableToolbar } from '@/components/dt-toolbar';
+import type { DtFilterField } from '@/hooks/use-data-table-toolbar';
+import type { ListQuery } from '@/hooks/use-list-query';
+import { useTranslation } from '@/hooks/use-translation';
+import type { {{ filters }} } from '@/types';
+
+const FIELDS: DtFilterField<{{ filters }}>[] = [
+{{ fields }}
+];
+
+type Props = {
+    dt: ListQuery<{{ filters }}>;
+};
+
+/** Search, the filter dialog and the chips come from `DataTableToolbar`; this file only names the fields. */
+export function {{ toolbar }}({ dt }: Props) {
+    const { t } = useTranslation();
+
+    return (
+        <DataTableToolbar
+            dt={dt}
+            searchPlaceholder={t('{{ prefix }}.search_placeholder')}
+            fields={FIELDS}
+        />
+    );
+}

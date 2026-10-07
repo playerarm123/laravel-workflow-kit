@@ -1,0 +1,13 @@
+<?php
+
+/**
+ * The {{ words }} edit page (resources/js/pages/{{ prefix }}/edit.tsx) in a real browser: the
+ * form starts from the stored values and posts the change. Sign in, in a beforeEach, a user the
+ * page's policy allows, through a helper named after this file. Run `npm run build` first: the
+ * suite runs on public/build.
+ */
+it('renders the form with the stored values and without javascript errors')->todo();
+
+it('saves the change and lands with the success toast')->todo();
+
+it('shows each validation error under its field')->todo();

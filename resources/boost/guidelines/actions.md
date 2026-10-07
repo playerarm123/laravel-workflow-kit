@@ -18,11 +18,11 @@ Enforced by `tests/Architecture/ActionsTest.php` and by the ESLint rules in `tes
 
 ## Kit files
 
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`), and a stub there is replaced by a file of the same name in the project's `stubs/`. Copy the rest into a new project as they are.
 - `tests/ESLint/actions.js`, imported by `eslint.config.js` (*check `eslint`*)
 - `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through
-- `app/Console/Commands/MakeActionCommand.php` with `app/Console/Commands/Concerns/BuildsRequestFields.php`, which it shares with `make:form-request`
-- `stubs/action-controller.stub`, `stubs/action-bulk-controller.stub`, `stubs/action-request.stub` and `stubs/action-test.stub`
+- *package:* `src/Console/Commands/MakeActionCommand.php` with `src/Console/Commands/Concerns/BuildsRequestFields.php`, which it shares with `make:form-request`
+- *package:* `stubs/action-controller.stub`, `stubs/action-bulk-controller.stub`, `stubs/action-request.stub` and `stubs/action-test.stub`
 
 ## The controller
 

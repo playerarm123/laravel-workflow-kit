@@ -1,0 +1,20 @@
+    /**
+     * Display a listing of the resource.
+     *
+     * The query string goes into the Command raw and unvalidated: the handler settles every
+     * value, so a hand-edited url still gets a page, not a 422 (list-queries.md).
+     */
+    public function index(Request $request, {{ listHandler }} ${{ listVariable }}): Response
+    {
+        Gate::authorize('viewAny', {{ model }}::class);
+
+        $result = ${{ listVariable }}(new {{ listCommand }}(
+{{ listArguments }}
+        ));
+
+        return Inertia::render('{{ prefix }}/index', [
+            '{{ rows }}' => $result->{{ rows }},
+            'sort' => $result->sort,
+            'filters' => $result->filters,{{ can }}
+        ]);
+    }

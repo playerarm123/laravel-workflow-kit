@@ -14,22 +14,22 @@ The structure of the project is written down in `.kit/structure/`, one manifest 
 
 The manifest is the source of truth for **structure**: which contexts there are, with each one's aggregates, domain services, ports and use cases, the enums and value objects their aggregates speak in with where each status may go next, the behaviours and assertions of each entity with what each one throws, and which HTTP resources there are, with each one's controller, actions, policy and pages. It is not the truth for behaviour. The body of an entity's method, the rules inside a value object, the methods of an enum other than `transitions()`, the body of a handler and the fields of a form are still written in PHP and TypeScript.
 
-Enforced by `tests/Architecture/StructureManifestTest.php` (`php artisan test --testsuite=Architecture`). The spec in `structureManifestSpec()` is the machine-checked copy of this file: change the two together. The reader and the files are proven in `tests/Feature/Console/Commands/Structure/`.
+Enforced by `tests/Architecture/StructureManifestTest.php` (`php artisan test --testsuite=Architecture`). The spec in `structureManifestSpec()` is the machine-checked copy of this file: change the two together. The reader and the files are proven in the package's `tests/Feature/Console/Commands/Structure/`, which the project runs as its `Kit` testsuite.
 
 ## Kit files
 
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
-- `app/Console/Commands/Structure/StructureReader.php`, which reads the code without booting the app
-- `app/Console/Commands/Structure/StructureFiles.php`, which reads, writes and validates the manifests
-- `app/Console/Commands/Structure/StructureComparer.php`, the one comparison the check and `kit:plan` report
-- `app/Console/Commands/Structure/StructurePlanner.php`, `StructureMarkers.php` and `PlansStructure.php`, which plan and apply
-- `app/Console/Commands/KitImportCommand.php` (`kit:import`) and its test
-- `app/Console/Commands/KitPlanCommand.php` (`kit:plan`), `KitApplyCommand.php` (`kit:apply`) and `KitRetireCommand.php` (`kit:retire`), with `Structure/StructureSwapper.php`, which points code at a replacement
-- `app/Console/Commands/Structure/StructureGraph.php`, which builds what the screen draws, with `StructureEditor.php` and `StructureResourceEditor.php`, which write what it changes in a context and in an HTTP resource
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`), and a stub there is replaced by a file of the same name in the project's `stubs/`. Copy the rest into a new project as they are.
+- *package:* `src/Console/Commands/Structure/StructureReader.php`, which reads the code without booting the app
+- *package:* `src/Console/Commands/Structure/StructureFiles.php`, which reads, writes and validates the manifests
+- *package:* `src/Console/Commands/Structure/StructureComparer.php`, the one comparison the check and `kit:plan` report
+- *package:* `src/Console/Commands/Structure/StructurePlanner.php`, `StructureMarkers.php` and `PlansStructure.php`, which plan and apply
+- *package:* `src/Console/Commands/KitImportCommand.php` (`kit:import`) and its test
+- *package:* `src/Console/Commands/KitPlanCommand.php` (`kit:plan`), `KitApplyCommand.php` (`kit:apply`) and `KitRetireCommand.php` (`kit:retire`), with `Structure/StructureSwapper.php`, which points code at a replacement
+- *package:* `src/Console/Commands/Structure/StructureGraph.php`, which builds what the screen draws, with `StructureEditor.php` and `StructureResourceEditor.php`, which write what it changes in a context and in an HTTP resource
 - `app/Providers/KitServiceProvider.php`, listed in `bootstrap/providers.php`, with `resources/views/kit/structure.blade.php` and the Vite entry `resources/js/kit/structure.tsx`, listed in `vite.config.ts`
-- `app/Console/Commands/MakeEnumCommand.php`, which takes over Laravel's `make:enum`, and `app/Console/Commands/MakeValueObjectCommand.php` (`make:value-object`), with `stubs/value-object.stub` and `stubs/value-object-test.stub`
-- `app/Console/Commands/MakeEntityMethodCommand.php` (`make:entity-method`), which adds a behaviour or an assertion to an entity, with `app/Console/Commands/Concerns/ResolvesManifestTypes.php`, which it shares with `make:value-object`
-- `app/Console/Commands/Structure/KitDocs.php` with `resources/views/kit/docs.blade.php`, the kit's docs screen at `/kit/docs`: every guideline read from the workflow kit as it stands, and the `make:*` and `kit:*` commands the console has
+- *package:* `src/Console/Commands/MakeEnumCommand.php`, which takes over Laravel's `make:enum`, and `src/Console/Commands/MakeValueObjectCommand.php` (`make:value-object`), with `stubs/value-object.stub` and `stubs/value-object-test.stub`
+- *package:* `src/Console/Commands/MakeEntityMethodCommand.php` (`make:entity-method`), which adds a behaviour or an assertion to an entity, with `src/Console/Commands/Concerns/ResolvesManifestTypes.php`, which it shares with `make:value-object`
+- *package:* `src/Console/Commands/Structure/KitDocs.php`, with the project's `resources/views/kit/docs.blade.php`, the kit's docs screen at `/kit/docs`: every guideline read from the workflow kit as it stands, and the `make:*` and `kit:*` commands the console has
 
 ## The manifest
 

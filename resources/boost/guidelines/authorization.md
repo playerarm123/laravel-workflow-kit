@@ -90,9 +90,9 @@ The starter kit's settings pages (`App\Http\Controllers\Settings`, `App\Http\Req
 
 ## Kit files
 
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
-- `app/Console/Commands/MakePolicyCommand.php`, which takes over Laravel's `make:policy`
-- `stubs/policy.stub` and `stubs/policy-test.stub`
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`), and a stub there is replaced by a file of the same name in the project's `stubs/`. Copy the rest into a new project as they are.
+- *package:* `src/Console/Commands/MakePolicyCommand.php`, which takes over Laravel's `make:policy`
+- *package:* `stubs/policy.stub` and `stubs/policy-test.stub`
 
 ## Scaffold, never hand-write
 

@@ -1,0 +1,16 @@
+<?php
+
+namespace {{ namespace }};
+
+use {{ namespacedEntity }};
+use App\Domain\Shared\Exceptions\RepositoryException;
+use Override;
+
+class {{ class }} extends RepositoryException
+{
+    #[Override]
+    public static function entityName(): string
+    {
+        return {{ entity }}::entityName();
+    }
+}

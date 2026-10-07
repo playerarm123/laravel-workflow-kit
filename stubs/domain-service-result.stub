@@ -1,0 +1,14 @@
+<?php
+
+namespace {{ namespace }};
+
+/**
+ * What the service hands back: the aggregates it wrote, so the caller need not read them again.
+ */
+final readonly class {{ class }}
+{
+    public function __construct(
+        // define the output here, e.g.
+        // public SampleEntity $sample,
+    ) {}
+}

@@ -1,0 +1,42 @@
+<?php
+
+namespace {{ namespace }};
+
+use {{ namespacedNotFoundException }};
+use {{ namespacedRepositoryException }};
+
+interface {{ class }}
+{
+    /**
+     * @throws {{ repositoryException }}
+     */
+    public function save({{ entity }} $entity): void;
+
+    /**
+     * ความหมายเดียวกับ `save()` แต่หลายรายการในคำสั่งเดียว — insert หรือเขียนทับของเดิมตาม id
+     *
+     * @param  array<{{ entity }}>  $entities
+     *
+     * @throws {{ repositoryException }}
+     */
+    public function saveMany(array $entities): void;
+
+    /**
+     * Rewrite an aggregate that already exists — the row is never inserted.
+     *
+     * @throws {{ notFoundException }}
+     * @throws {{ repositoryException }}
+     */
+    public function update({{ entity }} $entity): void;
+
+    /**
+     * @throws {{ repositoryException }}
+     */
+    public function findById(string $id): ?{{ entity }};
+
+    /**
+     * @throws {{ notFoundException }}
+     * @throws {{ repositoryException }}
+     */
+    public function getById(string $id): {{ entity }};
+}

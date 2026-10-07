@@ -1,0 +1,10 @@
+<?php
+
+/**
+ * POST {{ uri }} ({{ routeName }}), answered by {{ stem }}Controller with a toast and back().
+ */
+it('redirects a guest to the login page')->todo();
+
+it('forbids a user the policy refuses')->todo();
+
+{{ cases }}

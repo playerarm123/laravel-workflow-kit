@@ -1,0 +1,46 @@
+{{ imports }}
+
+type Props = {
+    defaults: {{ subject }}FormValues;
+};
+
+export default function Create({ defaults }: Props) {
+    const { t } = useTranslation();
+
+    setLayoutProps({
+        breadcrumbs: [
+            { title: t('{{ prefix }}.title'), href: index() },
+            { title: t('{{ prefix }}.create_title'), href: create() },
+        ],
+    });
+
+    return (
+        <>
+            <Head title={t('{{ prefix }}.create_title')} />
+
+            <div className="flex flex-col gap-6 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <Heading
+                        title={t('{{ prefix }}.create_title')}
+                        description={t('{{ prefix }}.create_description')}
+                        variant="small"
+                    />
+
+                    <Button variant="outline" asChild>
+                        <Link href={index()}>
+                            <ArrowLeft className="size-4" />
+                            {t('common.back')}
+                        </Link>
+                    </Button>
+                </div>
+
+                <{{ subject }}Form
+                    action={ {{ subject }}Controller.store.form()}
+                    defaults={defaults}
+                    submitLabel={t('common.save')}
+                    cancelHref={index()}
+                />
+            </div>
+        </>
+    );
+}

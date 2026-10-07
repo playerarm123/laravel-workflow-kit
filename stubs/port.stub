@@ -1,0 +1,11 @@
+<?php
+
+namespace {{ namespace }};
+
+/**
+ * {{ summary }}
+ */
+interface {{ class }}
+{
+    //
+}

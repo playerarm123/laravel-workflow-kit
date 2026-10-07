@@ -1,0 +1,40 @@
+<?php
+
+namespace {{ namespace }};
+
+{{ imports }}
+
+class {{ stem }}Request extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return Gate::allows({{ authorization }});
+    }
+
+    /**
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+{{ rules }}
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+{{ attributes }}
+        ];
+    }
+
+    public function toCommand(): {{ command }}
+    {
+        return new {{ command }}(
+{{ arguments }}
+        );
+    }
+{{ helpers }}}

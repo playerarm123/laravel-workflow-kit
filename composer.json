@@ -13,6 +13,13 @@
             "Playerarm123\\LaravelWorkflowKit\\": "src/"
         }
     },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Playerarm123\\LaravelWorkflowKit\\WorkflowKitServiceProvider"
+            ]
+        }
+    },
     "minimum-stability": "stable",
     "prefer-stable": true
 }

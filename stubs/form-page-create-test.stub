@@ -1,0 +1,13 @@
+<?php
+
+/**
+ * The {{ words }} create page (resources/js/pages/{{ prefix }}/create.tsx) in a real browser: the
+ * form posts what its inputs hold and shows what the server answers. Sign in, in a beforeEach, a
+ * user the page's policy allows, through a helper named after this file. Run `npm run build`
+ * first: the suite runs on public/build.
+ */
+it('renders the form without javascript errors')->todo();
+
+it('saves and lands with the success toast')->todo();
+
+it('shows each validation error under its field')->todo();

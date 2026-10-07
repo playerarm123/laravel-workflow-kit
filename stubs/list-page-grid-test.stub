@@ -1,0 +1,17 @@
+<?php
+
+/**
+ * The {{ prefix }} grid page (resources/js/pages/{{ prefix }}/index.tsx) in a real browser: what
+ * only the browser computes, which the controller test cannot see. Sign in, in a beforeEach, a
+ * user the page's policy allows, through a helper named after this file. Run `npm run build`
+ * first: the suite runs on public/build.
+ */
+it('renders the grid without javascript errors')->todo();
+
+it('shows each card field the way the card formats it')->todo();
+
+it('narrows the grid through the toolbar and keeps the query on the url')->todo();
+
+it('loads the next page of cards as the user scrolls')->todo();
+
+it('shows the empty state, and the no results state once filtered to nothing')->todo();

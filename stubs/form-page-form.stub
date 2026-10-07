@@ -1,0 +1,45 @@
+{{ imports }}
+
+type Props = {
+    /** Wayfinder `{{ subject }}Controller.store.form()` or `.update.form(model)` */
+    action: RouteFormDefinition<'post'>;
+    defaults: {{ subject }}FormValues;
+    submitLabel: string;
+    cancelHref: RouteDefinition<'get'>;
+};
+
+export function {{ subject }}Form({
+    action,
+    defaults,
+    submitLabel,
+    cancelHref,
+}: Props) {
+    const { t } = useTranslation();
+{{ state }}
+    return (
+        <Form {...action} className="space-y-6">
+            {({ processing, errors }) => (
+                <>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{t('{{ prefix }}.form_title')}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid gap-6 md:grid-cols-2">
+{{ fields }}
+                        </CardContent>
+                    </Card>
+
+                    <div className="flex gap-2">
+                        <Button type="submit" disabled={processing}>
+                            {processing && <Spinner />}
+                            {submitLabel}
+                        </Button>
+                        <Button variant="outline" asChild>
+                            <Link href={cancelHref}>{t('common.cancel')}</Link>
+                        </Button>
+                    </div>
+                </>
+            )}
+        </Form>
+    );
+}

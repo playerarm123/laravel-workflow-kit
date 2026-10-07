@@ -1,0 +1,19 @@
+<?php
+
+namespace {{ namespace }};
+
+{{ useStatements }}use LogicException;
+
+/**
+ * Say which rule this service owns, and why no single aggregate can hold it.
+ *
+ * See layers.md: it never opens a transaction, never touches another
+ * context and never knows who is acting — the handler calling it does all three.
+ */
+final class {{ class }}
+{{{ constructor }}
+    public function handle({{ parameters }}): {{ returnType }}
+    {
+        throw new LogicException('{{ class }}::handle() is not implemented yet.');
+    }
+}

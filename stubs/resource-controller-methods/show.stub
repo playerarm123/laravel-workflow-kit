@@ -1,0 +1,11 @@
+    /**
+     * Display the specified resource.
+     */
+    public function show({{ model }} ${{ variable }}): Response
+    {
+        Gate::authorize('view', ${{ variable }});
+
+        return Inertia::render('{{ prefix }}/show', [
+            '{{ variable }}' => ${{ variable }},{{ can }}
+        ]);
+    }

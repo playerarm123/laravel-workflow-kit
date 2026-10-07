@@ -1,0 +1,33 @@
+<?php
+
+namespace {{ namespace }};
+
+{{ imports }}
+
+class Update{{ subject }}Request extends FormRequest
+{
+    use Validates{{ subject }};
+
+    public function authorize(): bool
+    {
+        return Gate::allows('update', $this->{{ variable }}());
+    }
+
+    public function toCommand(): {{ command }}
+    {
+        return new {{ command }}(
+{{ arguments }}
+        );
+    }
+
+    private function {{ variable }}(): {{ model }}
+    {
+        ${{ variable }} = $this->route('{{ parameter }}');
+
+        if (! ${{ variable }} instanceof {{ model }}) {
+            throw new LogicException('Update{{ subject }}Request is bound only to routes with a {{{ parameter }}} model.');
+        }
+
+        return ${{ variable }};
+    }
+}

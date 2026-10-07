@@ -1,0 +1,8 @@
+/**
+ * The starting values of the {{ words }} form, sent as the `defaults` prop.
+ *
+ * @see {{ namespacedFormValues }}
+ */
+export type {{ subject }}FormValues = {
+{{ keys }}
+};

@@ -1,0 +1,30 @@
+<?php
+
+/**
+ * Each ability of {{ class }}, allowed and denied, asked the way a controller asks it:
+ * `Gate::forUser($user)->allows('update', ${{ modelVariable }})`.
+ */
+describe('viewAny', function () {
+    it('allows a user who may list every {{ model }}')->todo();
+    it('denies everyone else')->todo();
+});
+
+describe('view', function () {
+    it('allows a user who may see this {{ model }}')->todo();
+    it('denies everyone else')->todo();
+});
+
+describe('create', function () {
+    it('allows a user who may create a {{ model }}')->todo();
+    it('denies everyone else')->todo();
+});
+
+describe('update', function () {
+    it('allows a user who may change this {{ model }}')->todo();
+    it('denies everyone else')->todo();
+});
+
+describe('delete', function () {
+    it('allows a user who may delete this {{ model }}')->todo();
+    it('denies everyone else')->todo();
+});
