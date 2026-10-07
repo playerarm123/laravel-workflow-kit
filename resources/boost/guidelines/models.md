@@ -13,7 +13,7 @@ class {Model} extends Model
 database/factories/{Model}Factory.php   'id' => fake()->uuid()
 ```
 
-Enforced by `tests/Architecture/ModelsTest.php` (`php artisan test --testsuite=Architecture`), which reads the source, and `tests/Feature/ModelsTest.php`, which compares each model with the table it maps. The specs in `modelsSpec()` and `modelSchemaSpec()` are the machine-checked copy of this file: change them together. Items marked *review only* cannot be read from the code, so a reviewer checks them.
+Enforced by the package's `tests/Architecture/ModelsTest.php` (`php artisan test --testsuite=Architecture`), which reads the source, and `tests/Feature/ModelsTest.php`, which compares each model with the table it maps. The specs in `modelsSpec()` and `modelSchemaSpec()` are the machine-checked copy of this file: change them together. Items marked *review only* cannot be read from the code, so a reviewer checks them.
 
 ## Kit files
 

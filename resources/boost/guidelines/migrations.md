@@ -13,7 +13,7 @@ Schema::create('{table}')
 down(): Schema::dropIfExists('{table}')
 ```
 
-Enforced by `tests/Architecture/MigrationsTest.php` (`php artisan test --testsuite=Architecture`), which reads the source, and `tests/Feature/Database/MigrationsTest.php`, which reads the schema the migrations build on the declared engine. The specs in `migrationsSpec()` and `migrationSchemaSpec()` are the machine-checked copy of this file: change them together. Items marked *review only* cannot be read from the code, so a reviewer checks them.
+Enforced by the package's `tests/Architecture/MigrationsTest.php` (`php artisan test --testsuite=Architecture`), which reads the source, and `tests/Feature/Database/MigrationsTest.php`, which reads the schema the migrations build on the declared engine. The specs in `migrationsSpec()` and `migrationSchemaSpec()` are the machine-checked copy of this file: change them together. Items marked *review only* cannot be read from the code, so a reviewer checks them.
 
 The migrations Laravel and its packages publish (`0001_01_01_*`, passkeys, two-factor columns) keep their own idioms. The source checks skip them, but the schema checks read every table they build.
 

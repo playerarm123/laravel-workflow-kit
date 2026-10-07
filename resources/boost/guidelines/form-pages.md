@@ -8,7 +8,7 @@ props.defaults ({X}FormValues) → <Form {...action}> → Store/Update{X}Request
 
 The server owns the values on both ends. It sends the form its starting values, and it turns what comes back into a Command. The page and the form component only render.
 
-Enforced by `tests/Architecture/FormPagesTest.php` and by the ESLint rules in `tests/ESLint/form-pages.js`, which `eslint.config.js` spreads in. The spec in `formPagesSpec()` is the machine-checked copy of this file: change the two together. `tests/Architecture/FormPagesEslintTest.php` proves the ESLint rules against fixtures.
+Enforced by the package's `tests/Architecture/FormPagesTest.php` and by the ESLint rules in `tests/ESLint/form-pages.js`, which `eslint.config.js` spreads in. The spec in `formPagesSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/FormPagesEslintTest.php` proves the ESLint rules against fixtures.
 
 ## Kit files
 

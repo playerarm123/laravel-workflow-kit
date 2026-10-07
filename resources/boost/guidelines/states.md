@@ -12,7 +12,7 @@ enum {X}Status: string
   transitions(): list<self>  =  match ($this) { every case => the cases it may become, [] when final }
 ```
 
-Enforced by `tests/Architecture/StatesTest.php` (`php artisan test --testsuite=Architecture`). The spec in `statesSpec()` is the machine-checked copy of this file: change the two together. Items marked *review only* cannot be read from the code, so a reviewer checks them.
+Enforced by the package's `tests/Architecture/StatesTest.php` (`php artisan test --testsuite=Architecture`). The spec in `statesSpec()` is the machine-checked copy of this file: change the two together. Items marked *review only* cannot be read from the code, so a reviewer checks them.
 
 ## Kit files
 

@@ -2,7 +2,7 @@
 
 Every aggregate reaches the database through one repository. Every repository is written the same way: one-line public methods over `EloquentRepository`, two mapping methods, and nothing else.
 
-Enforced by `tests/Architecture/RepositoriesTest.php`. The spec in `repositoriesSpec()` is the machine-checked copy of this file: change the two together. The behaviour of the base class is proven in `tests/Feature/Infra/Persistence/Eloquent/Repositories/EloquentRepositoryTest.php`.
+Enforced by the package's `tests/Architecture/RepositoriesTest.php`. The spec in `repositoriesSpec()` is the machine-checked copy of this file: change the two together. The behaviour of the base class is proven in `tests/Feature/Infra/Persistence/Eloquent/Repositories/EloquentRepositoryTest.php`.
 
 ## Kit files
 These live at fixed paths. Copy them into a new project as they are, never edit them per project. *Check `kit-files`.*

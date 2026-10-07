@@ -18,7 +18,7 @@ Domain / Application throw {Specific}Exception
        anything else                                   → Laravel's own response, a 500 reported with its context
 ```
 
-Enforced by `tests/Architecture/ExceptionsTest.php` (`php artisan test --testsuite=Architecture`). The spec in `exceptionsSpec()` is the machine-checked copy of this file: change the two together. Every branch of the diagram is proven in `tests/Feature/Http/ExceptionResponsesTest.php`.
+Enforced by the package's `tests/Architecture/ExceptionsTest.php` (`php artisan test --testsuite=Architecture`). The spec in `exceptionsSpec()` is the machine-checked copy of this file: change the two together. Every branch of the diagram is proven in `tests/Feature/Http/ExceptionResponsesTest.php`.
 
 ## Four kinds
 

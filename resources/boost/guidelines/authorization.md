@@ -10,7 +10,7 @@ page buttons    → controller: 'can' => ['{ability}' => Gate::allows('{ability}
 
 A denial is a 403, and `ExceptionResponses` answers it (exceptions.md).
 
-Enforced by `tests/Architecture/AuthorizationTest.php` (`php artisan test --testsuite=Architecture`). The spec in `authorizationSpec()` is the machine-checked copy of this file: change the two together. Items marked *review only* cannot be read from the code, so a reviewer checks them.
+Enforced by the package's `tests/Architecture/AuthorizationTest.php` (`php artisan test --testsuite=Architecture`). The spec in `authorizationSpec()` is the machine-checked copy of this file: change the two together. Items marked *review only* cannot be read from the code, so a reviewer checks them.
 
 ## Policies
 

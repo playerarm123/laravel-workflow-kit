@@ -16,7 +16,7 @@ form input '1500.50' → FormRequest (decimal:0,2) → Command: the string or th
   → value object ::from…('1500.50') → the integer the database stores
 ```
 
-Enforced by `tests/Architecture/NumbersTest.php` and by the ESLint rules in `tests/ESLint/numbers.js`, which `eslint.config.js` spreads in. The spec in `numbersSpec()` is the machine-checked copy of this file: change the two together. `tests/Architecture/NumbersEslintTest.php` proves the ESLint rules against fixtures. Items marked *review only* cannot be read from the code, so a reviewer checks them.
+Enforced by the package's `tests/Architecture/NumbersTest.php` and by the ESLint rules in `tests/ESLint/numbers.js`, which `eslint.config.js` spreads in. The spec in `numbersSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/NumbersEslintTest.php` proves the ESLint rules against fixtures. Items marked *review only* cannot be read from the code, so a reviewer checks them.
 
 ## Kit files
 

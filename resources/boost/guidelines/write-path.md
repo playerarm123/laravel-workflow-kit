@@ -8,11 +8,11 @@ entry point (controller, command, job, listener) â†’ {Verb}{Aggregate}Handler â†
 
 Only `App\Infra` writes to the database.
 
-Enforced by `tests/PHPStan/DatabaseWriteOutsideInfraRule.php`, which runs with `vendor/bin/phpstan` and is registered through `tests/PHPStan/write-path.php`. It looks at the real type of what is called, so `$model->delete()` is caught and `$storage->delete()` is not. The rule itself is proven in `tests/Architecture/WritePathRuleTest.php`.
+Enforced by `tests/PHPStan/DatabaseWriteOutsideInfraRule.php`, which runs with `vendor/bin/phpstan` and is registered through `tests/PHPStan/write-path.php`. It looks at the real type of what is called, so `$model->delete()` is caught and `$storage->delete()` is not. The rule itself is proven in the package's `tests/Architecture/WritePathRuleTest.php`.
 
 ## Kit files
 - `tests/PHPStan/DatabaseWriteOutsideInfraRule.php` and `tests/PHPStan/write-path.php`. Include the latter from `phpstan.neon`.
-- `tests/Architecture/WritePathRuleTest.php` with `tests/PHPStan/Fixtures/WritePath/`
+- *package:* `tests/Architecture/WritePathRuleTest.php`, which reads the project's `tests/PHPStan/Fixtures/WritePath/`
 
 ## Only the infrastructure writes
 **Do** create, change and delete through a use-case handler. The handler loads or builds the aggregate, the aggregate applies its rules, and the repository writes (repositories.md).

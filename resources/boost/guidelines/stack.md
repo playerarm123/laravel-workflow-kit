@@ -2,7 +2,7 @@
 
 The stack is fixed so every project reads and is written the same way. Use only what this file names, on the version line it names, and use the installed version's API — confirm with `composer show <package>` or `package.json` before relying on one.
 
-Enforced by `tests/Architecture/StackTest.php` (`php artisan test --testsuite=Architecture`). The spec in `stackSpec()` is the machine-checked copy of this file: change the two together, in the same commit.
+Enforced by the package's `tests/Architecture/StackTest.php` (`php artisan test --testsuite=Architecture`). The spec in `stackSpec()` is the machine-checked copy of this file: change the two together, in the same commit.
 
 ## Required packages, locked to a major
 **Do** keep every package below declared and installed on its line. `13` means any 13.x; a 0.x line is locked at the minor (`0.1`) because 0.x minors break like majors.

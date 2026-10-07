@@ -2,7 +2,7 @@
 
 Every project must deploy to **both** Plesk and Laravel Cloud. Write code that assumes neither.
 
-Enforced by `tests/Architecture/DeploymentTest.php` (`php artisan test --testsuite=Architecture`). The spec in `deploymentSpec()` is the machine-checked copy of this file: change the two together. Items marked *review only* cannot be read from the code, so a reviewer checks them.
+Enforced by the package's `tests/Architecture/DeploymentTest.php` (`php artisan test --testsuite=Architecture`). The spec in `deploymentSpec()` is the machine-checked copy of this file: change the two together. Items marked *review only* cannot be read from the code, so a reviewer checks them.
 
 ## Targets
 - **Plesk:** the Plesk extension for Laravel (Laravel Toolkit) is always installed, and it runs deploys, composer, artisan, the scheduler and the queue. Never set up cron entries or ssh scripts by hand. *Review only.*

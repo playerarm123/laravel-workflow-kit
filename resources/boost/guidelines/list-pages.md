@@ -8,7 +8,7 @@ props (rows, sort, filters) → query → useDataTable / useListQuery → fetch(
 
 The URL owns the state. The page passes the current query in, and every change (sort, page size, search, filter) goes out through the one `visit` it declares.
 
-Enforced by `tests/Architecture/ListPagesTest.php` and by the ESLint rules in `tests/ESLint/list-pages.js`, which `eslint.config.js` spreads in. The spec in `listPagesSpec()` is the machine-checked copy of this file: change the two together. `tests/Architecture/ListPagesEslintTest.php` proves the ESLint rules against fixtures.
+Enforced by the package's `tests/Architecture/ListPagesTest.php` and by the ESLint rules in `tests/ESLint/list-pages.js`, which `eslint.config.js` spreads in. The spec in `listPagesSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/ListPagesEslintTest.php` proves the ESLint rules against fixtures.
 
 ## Kit files
 

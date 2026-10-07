@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Process;
 use Illuminate\Testing\PendingCommand;
 
 /** The project's rule helpers, until they ship in this package too. */
-require_once dirname(__DIR__, 7).'/tests/Architecture/Support/rules.php';
+require_once dirname(__DIR__, 3).'/Architecture/Support/rules.php';
 
 /**
  * ชื่อ aggregate ทดลองของไฟล์นี้ ห้ามซ้ำกับไฟล์เทสต์ generator ตัวอื่น มิฉะนั้น --parallel

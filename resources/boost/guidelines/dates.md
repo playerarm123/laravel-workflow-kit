@@ -13,7 +13,7 @@ PHP row / props
     → the text on the page, the same on the server and in the browser
 ```
 
-Enforced by `tests/Architecture/DatesTest.php` and by the ESLint rules in `tests/ESLint/dates.js`, which `eslint.config.js` spreads in. The spec in `datesSpec()` is the machine-checked copy of this file: change the two together. `tests/Architecture/DatesEslintTest.php` proves the ESLint rules against fixtures. Items marked *review only* cannot be read from the code, so a reviewer checks them.
+Enforced by the package's `tests/Architecture/DatesTest.php` and by the ESLint rules in `tests/ESLint/dates.js`, which `eslint.config.js` spreads in. The spec in `datesSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/DatesEslintTest.php` proves the ESLint rules against fixtures. Items marked *review only* cannot be read from the code, so a reviewer checks them.
 
 ## Kit files
 

@@ -9,7 +9,7 @@ resources/js/pages/{path}/{page}.tsx  →  tests/Browser/{Path}/{Page}Test.php
 
 When a test turns red, its path names the class that broke and its layer.
 
-Enforced by `tests/Architecture/TestingTest.php` (`php artisan test --testsuite=Architecture`). The spec in `testingSpec()` is the machine-checked copy of this file: change the two together. Items marked *review only* cannot be read from the code, so a reviewer checks them.
+Enforced by the package's `tests/Architecture/TestingTest.php` (`php artisan test --testsuite=Architecture`). The spec in `testingSpec()` is the machine-checked copy of this file: change the two together. Items marked *review only* cannot be read from the code, so a reviewer checks them.
 
 ## Which test, where
 

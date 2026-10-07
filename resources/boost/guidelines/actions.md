@@ -14,7 +14,7 @@ bulk, from a list page's selection:
   → {Model}Bulk{Verb}Controller({Model}Bulk{Verb}Request) → the row action's handler
 ```
 
-Enforced by `tests/Architecture/ActionsTest.php` and by the ESLint rules in `tests/ESLint/actions.js`, which `eslint.config.js` spreads in. The spec in `actionsSpec()` is the machine-checked copy of this file: change the two together. `tests/Architecture/ActionsEslintTest.php` proves the ESLint rules against fixtures. Items marked *review only* cannot be read from the code, so a reviewer checks them.
+Enforced by the package's `tests/Architecture/ActionsTest.php` and by the ESLint rules in `tests/ESLint/actions.js`, which `eslint.config.js` spreads in. The spec in `actionsSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/ActionsEslintTest.php` proves the ESLint rules against fixtures. Items marked *review only* cannot be read from the code, so a reviewer checks them.
 
 ## Kit files
 

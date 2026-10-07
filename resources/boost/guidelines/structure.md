@@ -14,7 +14,7 @@ The structure of the project is written down in `.kit/structure/`, one manifest 
 
 The manifest is the source of truth for **structure**: which contexts there are, with each one's aggregates, domain services, ports and use cases, the enums and value objects their aggregates speak in with where each status may go next, the behaviours and assertions of each entity with what each one throws, and which HTTP resources there are, with each one's controller, actions, policy and pages. It is not the truth for behaviour. The body of an entity's method, the rules inside a value object, the methods of an enum other than `transitions()`, the body of a handler and the fields of a form are still written in PHP and TypeScript.
 
-Enforced by `tests/Architecture/StructureManifestTest.php` (`php artisan test --testsuite=Architecture`). The spec in `structureManifestSpec()` is the machine-checked copy of this file: change the two together. The reader and the files are proven in the package's `tests/Feature/Console/Commands/Structure/`, which the project runs as its `Kit` testsuite.
+Enforced by the package's `tests/Architecture/StructureManifestTest.php` (`php artisan test --testsuite=Architecture`). The spec in `structureManifestSpec()` is the machine-checked copy of this file: change the two together. The reader and the files are proven in the package's `tests/Feature/Console/Commands/Structure/`, which the project runs as its `Kit` testsuite.
 
 ## Kit files
 

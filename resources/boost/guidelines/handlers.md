@@ -6,7 +6,7 @@ A use-case handler is the only way into the application (layers.md). Every handl
 - new ids taken from `IdGenerator`
 - one transaction around a write that spans more than one call
 
-Enforced by `tests/Architecture/HandlersTest.php` (`php artisan test --testsuite=Architecture`). The spec in `handlersSpec()` is the machine-checked copy of this file: change the two together.
+Enforced by the package's `tests/Architecture/HandlersTest.php` (`php artisan test --testsuite=Architecture`). The spec in `handlersSpec()` is the machine-checked copy of this file: change the two together.
 
 ## Kit files
 

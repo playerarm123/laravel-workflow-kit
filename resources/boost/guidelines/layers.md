@@ -2,7 +2,7 @@
 
 Code is split into layers with one job each, and dependencies point inward only. When a test fails, its layer name tells you where the problem is.
 
-Enforced by `tests/Architecture/LayersTest.php` (`php artisan test --testsuite=Architecture`). The spec in `layersSpec()` is the machine-checked copy of this file: change the two together. Contexts are discovered from the folders under `app/Domain`, so a new context is policed the moment it exists.
+Enforced by the package's `tests/Architecture/LayersTest.php` (`php artisan test --testsuite=Architecture`). The spec in `layersSpec()` is the machine-checked copy of this file: change the two together. Contexts are discovered from the folders under `app/Domain`, so a new context is policed the moment it exists.
 
 ## The layers
 | Layer | Namespace | Job |
