@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\Process;
 use Illuminate\Testing\PendingCommand;
 
 /**
- * โฟลเดอร์ทดลองของไฟล์นี้ ห้ามซ้ำกับไฟล์เทสต์ generator ตัวอื่น มิฉะนั้น --parallel
- * จะลบของกันเองกลางคัน
+ * This file's scratch folder must not match any other generator test file's, or --parallel
+ * runs delete each other's files midway.
  */
 const FORM_REQUEST_CONTEXT = 'SamplingWarehousing';
 

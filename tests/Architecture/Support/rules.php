@@ -22,11 +22,22 @@ const RULE_OVERRIDE_MIN_REASON_LENGTH = 20;
  * A path in the project the checks run on. They ship in the workflow kit package, so the root
  * is the one Composer installed it into, never a path counted up from this file: vendor/ may
  * hold the package as a copy or as a symlink, and __DIR__ resolves the symlink.
+ *
+ * WORKFLOW_KIT_PROJECT_PATH points the checks at another app, relative to that root. Only the
+ * kit's own test suite sets it, to read its workbench app; a project never needs it.
  */
 function ruleProjectPath(string $relative = ''): string
 {
     static $root = null;
-    $root ??= rtrim((string) realpath(InstalledVersions::getRootPackage()['install_path']), '/');
+
+    if ($root === null) {
+        $root = rtrim((string) realpath(InstalledVersions::getRootPackage()['install_path']), '/');
+        $app = getenv('WORKFLOW_KIT_PROJECT_PATH');
+
+        if (is_string($app) && $app !== '') {
+            $root = rtrim((string) realpath($root.'/'.$app), '/');
+        }
+    }
 
     return $relative === '' ? $root : $root.'/'.ltrim($relative, '/');
 }

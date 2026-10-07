@@ -5,70 +5,70 @@ description: "Build a server-paginated list page end to end (List{Aggregate}s us
 
 # List Page
 
-หน้า list = ตารางที่ค้นหา กรอง เรียง แบ่งหน้า จากเซิร์ฟเวอร์ + ปุ่มของแถว (view / edit / delete / อื่น ๆ) + destroy ที่ผูกกับตาราง
-skill นี้พาทำทั้งสาย backend → frontend → tests ด้วย generator ของ kit แล้วเติมส่วนที่ generator เขียนให้ไม่ได้
+A list page is a table that searches, filters, sorts and pages on the server, plus row buttons (view / edit / delete / others) and the `destroy` the table is tied to.
+This skill walks the whole line, backend → frontend → tests, with the kit's generators, then fills in what the generators cannot write.
 
-**ขอบเขต:** หน้า `index` และ `destroy` เท่านั้น — ไม่รวม create/edit form (ใช้ `/create-page`), หน้า show, และไม่แก้ `DataTable`/`useDataTable`/`useActions` กลาง (ถ้าหน้าใหม่ต้องการความสามารถที่ตารางกลางยังไม่มี ให้หยุดรายงานผู้ใช้ก่อน)
+**Scope:** the `index` and `destroy` pages only. It covers no create/edit form (use `/create-page`) and no show page, and it never changes the shared `DataTable`/`useDataTable`/`useActions`. If the new page needs something the shared table does not have yet, stop and report to the user first.
 
-กฎที่ต้องอ่านก่อนแตะไฟล์: guideline `list-queries.md` (backend), `list-pages.md` (frontend), `handlers.md`, `authorization.md`, `dates.md`, `numbers.md`, `testing.md` และ `.ai/rules` ของโปรเจกต์ถ้ามี (อ่าน `.ai/rules/index.md` หาไฟล์ที่ตรงกับ path)
+Read these rules before you touch a file: the guidelines `list-queries.md` (backend), `list-pages.md` (frontend), `handlers.md`, `authorization.md`, `dates.md`, `numbers.md`, `testing.md`, and the project's `.ai/rules` when it has them (read `.ai/rules/index.md` to find the files that match the path).
 
-ถ้าโปรเจกต์มีหน้า list ที่ทำเสร็จแล้ว ให้เปิดดูหนึ่งหน้าเป็นแบบ (หา `useDataTable(` ใน `resources/js/pages/**/index.tsx`) — แต่สิ่งที่ generator เขียนคือความจริง ถ้าขัดกันให้เชื่อ generator และ guideline
+If the project already has a finished list page, open one as a model (look for `useDataTable(` in `resources/js/pages/**/index.tsx`). What the generator writes is the truth, though: when the two disagree, trust the generator and the guideline.
 
 ---
 
-## ขั้น 0 — เก็บสเปกหน้าให้ครบก่อนแตะไฟล์ (เกตบังคับ)
+## Step 0 — Collect the full page spec before you touch a file (a hard gate)
 
-**กฎ: ห้ามเดา** ทุกข้อด้านล่างต้องมีคำตอบจากผู้ใช้ หรืออ่านได้ชัดจากโค้ดที่มีอยู่ (Model, migration, Enum, Policy) ก่อนสร้างไฟล์แรก
+**Rule: never guess.** Every item below needs an answer from the user, or a clear reading of the existing code (the Model, the migration, Enums, the Policy), before the first file is created.
 
-วิธีถาม:
-- ใช้ `AskUserQuestion` ทีละชุด (สูงสุด 4 คำถามต่อครั้ง) เรียงชุด A → D
-- ก่อนถามแต่ละชุด **อ่านโค้ดก่อน** แล้วเอาสิ่งที่เจอมาเป็นตัวเลือกให้เลือก — เช่น ลิสต์คอลัมน์จาก migration/`#[Fillable]`, enum ที่มีใน `app/Domain/{Context}/**/Enums`, role/enum ที่ policy อ่าน, method ที่มีใน Policy — ไม่ถามคำถามเปิดถ้าให้ตัวเลือกได้
-- ถ้าผู้ใช้ตอบคลุมเครือ ("เอาแบบหน้าเดิม" / "ตามที่คิดว่าเหมาะ") ให้ **ถามซ้ำให้แคบลง** โดยเสนอค่าที่จะใช้จริงให้ยืนยันทีละข้อ ห้ามตีความเอง
-- ไม่ลงมือจนกว่าจะปิดครบทุกชุด แล้ว **สรุปสเปกเป็นตารางเดียวให้ผู้ใช้ยืนยันหนึ่งครั้ง** ก่อนเริ่มขั้น 1
+How to ask:
+- Use `AskUserQuestion` one set at a time (at most 4 questions per call), in order from set A to set D.
+- Before each set, **read the code first** and offer what you find as options: the columns from the migration and `#[Fillable]`, the enums in `app/Domain/{Context}/**/Enums`, the roles and enums the policy reads, the methods in the Policy. Don't ask an open question when you can offer options.
+- When the user answers vaguely ("like the old page" / "whatever you think fits"), **ask again, narrower**: propose the values you will actually use and have them confirm each one. Never interpret it yourself.
+- Don't start until every set is closed. Then **summarize the spec in one table for the user to confirm once** before step 1.
 
-### ชุด A — ตัวตน
+### Set A — Identity
 
-- aggregate / Model ชื่ออะไร อยู่ context ไหน → กำหนด namespace `App\Application\{Context}`, route `{aggregates}`, lang prefix `{aggregates}.`, path หน้า `pages/{aggregates}/index.tsx`
-- ใครเห็นหน้านี้ได้ (→ `viewAny`) และ Policy มีอยู่แล้วหรือต้องสร้าง (`make:policy`)
-- รูปแบบหน้า: **Table** (คอลัมน์ เรียง แบ่งหน้า — ค่าเริ่มต้น) หรือ **Grid** (การ์ดที่เลื่อนแล้วโหลดต่อด้วย `Inertia::scroll()` — ไม่มีให้เลือกเรียงหรือจำนวนแถว) → Grid ใช้ `--grid` ทั้ง `make:controller` และ `make:list-page`
+- The aggregate / Model name and its context → namespace `App\Application\{Context}`, route `{aggregates}`, lang prefix `{aggregates}.`, page path `pages/{aggregates}/index.tsx`
+- Who may see this page (→ `viewAny`), and whether the Policy exists or must be created (`make:policy`)
+- The page shape: **Table** (columns, sorting, paging; the default) or **Grid** (cards that load more as the user scrolls, with `Inertia::scroll()`; no sort or page size to pick) → a Grid passes `--grid` to both `make:controller` and `make:list-page`
 
-### ชุด B — ตาราง (Grid: ถามว่าการ์ดโชว์ field ไหน เรนเดอร์แบบไหน แทนคอลัมน์ — ไม่ถามเรื่องคอลัมน์ที่เรียงได้ ใช้แค่ default sort)
+### Set B — The table (Grid: ask which fields the card shows and how each renders, instead of columns. Don't ask about sortable columns; use the default sort only.)
 
-- คอลัมน์ที่โชว์ **ทีละคอลัมน์**: มาจาก field ไหน, ชนิด (string / int / enum / datetime / เงิน / relation), เรนเดอร์แบบไหน (ข้อความ, badge, วันที่ตาม locale, เงิน, icon)
-- คอลัมน์ไหน **เรียงได้** → `{Aggregate}ListSort` enum และ **default sort column + direction**
-- คอลัมน์ไหนเป็น enum → ต้องมีคำแปลต่อค่า `{aggregates}.{field}.{value}` ในทุก `lang/*.json`
+- Each column shown, **one at a time**: the field it comes from, its type (string / int / enum / datetime / money / relation), and how it renders (text, badge, date by locale, money, icon)
+- Which columns **can be sorted** → the `{Aggregate}ListSort` enum, and the **default sort column + direction**
+- Which columns are enums → each value needs a translation `{aggregates}.{field}.{value}` in every `lang/*.json`
 
-### ชุด C — ค้นหา / กรอง
+### Set C — Search / filters
 
-- free-text search วิ่งบนคอลัมน์ไหน → `SEARCHABLE_COLUMNS` (หรือไม่มี search)
-- ช่วงวันที่สร้าง (`created_from`/`created_to` → `DateRange $createdAt` + `applyCreatedBetween()`) มีทุกหน้าโดยไม่ต้องถาม — ถามเฉพาะเมื่อคอลัมน์ไม่ใช่ `created_at`
-- ตัวกรองแต่ละตัว: ชื่อ query param, เป็น enum ไหน (→ `tryFrom` fallback `null`) หรือค่าแบบอื่น, ตัวเลือกใน toolbar เป็น Select หรืออย่างอื่น
-- `PageSize` เป็น 10/25/50 คงที่ ถ้าต้องการชุดอื่นต้องบอก (และแก้ kit file = เกินขอบเขต skill นี้)
+- The columns free-text search runs on → `SEARCHABLE_COLUMNS` (or no search)
+- The created-date range (`created_from`/`created_to` → `DateRange $createdAt` + `applyCreatedBetween()`) is on every page without asking. Ask only when the column is not `created_at`.
+- Each filter: its query param name, the enum it reads (→ `tryFrom` with a `null` fallback) or another kind of value, and whether its toolbar option is a Select or something else
+- `PageSize` is fixed at 10/25/50. Another set must be asked for (and means changing a kit file, which is outside this skill).
 
-### ชุด D — ปุ่มของแถว / bulk
+### Set D — Row buttons / bulk
 
-- **view**: เปิดหน้า show (`actions.view.page({ route: show })`) หรือ dialog (`actions.view.dialog({ dialog })` — หน้าเพจเรนเดอร์ dialog เอง body มีอะไรบ้าง)
-- **edit**: มีไหม, เป็น page / dialog / ยัง disabled รอ backend
-- **delete**: มีไหม, ใครลบได้ (→ `can.delete` จาก `deleteAny`), ข้อความยืนยันต้องมีชื่อ item ไหม, ข้อความ toast หลังลบ
-- action อื่นของแถวและ bulk action → ทำด้วย `make:action` ตาม guideline `actions.md` (มี endpoint แล้วหรือแค่ placeholder `disabled`)
-- relation ที่คอลัมน์ต้องใช้ → eager load ใน adapter
+- **view**: opens the show page (`actions.view.page({ route: show })`) or a dialog (`actions.view.dialog({ dialog })`; the page renders the dialog itself, so ask what its body holds)
+- **edit**: whether there is one, and whether it is a page / a dialog / still disabled, waiting for the backend
+- **delete**: whether there is one, who may delete (→ `can.delete` from `deleteAny`), whether the confirm text carries the item's name, and the toast text after deleting
+- Other row actions and bulk actions → build them with `make:action`, per the `actions.md` guideline (is there an endpoint yet, or only a `disabled` placeholder?)
+- Relations a column needs → eager load them in the adapter
 
-### สิ่งที่ตัดสินใจเองได้ ไม่ต้องถาม (แต่ต้องอยู่ในตารางสรุป)
+### What you decide yourself, without asking (but list it in the summary table)
 
-ชื่อไฟล์/คลาสตาม convention, ลำดับคอลัมน์ตามที่ผู้ใช้ไล่มา, icon ของปุ่มมาตรฐาน (preset ใน `use-actions.ts`), คีย์คำแปลตาม prefix, ชื่อ test case, ชื่อ helper ในเทสต์
+File and class names by convention, the column order the user gave, the icons of the standard buttons (presets in `use-actions.ts`), translation keys under the prefix, test case names, helper names in the tests.
 
-### ตารางสรุปสเปก (ให้ผู้ใช้ยืนยันก่อนขั้น 1)
+### Spec summary table (the user confirms it before step 1)
 
-| หัวข้อ | ค่า |
+| Topic | Value |
 | --- | --- |
 | Aggregate / Context / route / lang prefix | |
-| รูปแบบหน้า (Table / Grid) | |
-| Policy / ใครเห็น / ใครลบ | |
-| คอลัมน์ (field → เรนเดอร์) | |
-| เรียงได้ + default | |
+| Page shape (Table / Grid) | |
+| Policy / who sees / who deletes | |
+| Columns (field → render) | |
+| Sortable + default | |
 | search columns | |
-| filters (param → enum/ค่า) | |
-| row actions (view/edit/delete/อื่น) | |
+| filters (param → enum/value) | |
+| row actions (view/edit/delete/other) | |
 | bulk actions | |
 | eager loads | |
 
@@ -76,50 +76,50 @@ skill นี้พาทำทั้งสาย backend → frontend → tests 
 
 ## Workflow
 
-ถ้าโปรเจกต์ใช้ structure manifest (`.kit/structure/`) ให้ออกแบบ use case และ page ลง manifest ก่อน แล้วให้ `php artisan kit:apply` รันคำสั่งในข้อ 1 และข้อ 7 ให้ (guideline `structure.md`) — ขั้นที่ apply หยุดรอคือส่วนที่คนต้องเติม
+If the project uses the structure manifest (`.kit/structure/`), design the use case and the page in the manifest first, then let `php artisan kit:apply` run the commands in item 1 and item 7 (the `structure.md` guideline). A step where apply stops and waits is the part a person fills in.
 
 ### 1. Backend
 
-1. `php artisan make:use-case List{Aggregate}s --domain={Context} --command --result --query --no-interaction` — **ห้ามใส่ `--repo`** (repository เป็นฝั่งเขียน แบ่งหน้าไม่ได้) ได้ Command, Criteria, Handler, Query (port), Result, `{Aggregate}ListRow`, `{Aggregate}ListSort` (ระดับ context), adapter `EloquentList{Aggregate}sQuery` และเทสต์ที่มี `->todo()`
-2. `{Aggregate}ListSort`: เติม case ทุกคอลัมน์ที่เรียงได้ `fromInput()` fallback ไป default ไม่ throw
-3. `{Aggregate}ListRow implements Arrayable` — **ไม่ใช่ spatie `Data`** (จะเปลี่ยน envelope ของ paginator) `toArray()` คือสัญญาที่ TS mirror เขียน `@return array{…}` ให้ครบทุกคีย์ เพราะ `make:list-page` อ่านจากตรงนี้ เงินส่งเป็น decimal string ตาม `numbers.md` วันเวลาเป็น ISO 8601 ตาม `dates.md`
-4. `Criteria` ไม่มี default ทุก field required `toFilters()` มี `@return array{…}` ครบ; `Handler` เป็นที่เดียวที่ settle ค่าดิบ (`fromInput`, `tryFrom`, `trim`, `PageSize::fromInput`, `DateRange::fromInput`) แล้ว Result echo `toSort()`/`toFilters()` กลับ
-5. Adapter `extends EloquentListQuery`, `SEARCHABLE_COLUMNS`, `applySearch()`, จบด้วย `paginateRows()` (ไม่ใช้ `->paginate(` ตรง ๆ), eager load ตามสเปก, `sortColumn()`/`toRow()` private — กฎเต็มใน `list-queries.md`
-6. Binding ของ port → adapter ใน `$bindings` ของ service provider (generator พิมพ์บรรทัดให้)
-7. Controller: `php artisan make:controller {Aggregate} --domain={Context} --only=index,destroy --no-interaction` — **ห้ามเขียน controller เอง** generator อ่าน `List{Aggregate}s{Command,Result}` แล้วเขียน `index` (`Gate::authorize('viewAny')` → `$request->string('x')->toString()` ดิบทุกตัวเข้า Command, **ไม่มี FormRequest** → render `{aggregates}`/`sort`/`filters`/`can`) กับ `destroy` (`Gate::authorize('delete')` → `Delete{Aggregate}Handler($model->id)` → toast → `back()`) และเทสต์ `{Aggregate}Controller/IndexTest.php`, `DestroyTest.php` ที่มี `->todo()` — Grid เติม `--grid` แล้ว index จะส่ง `Inertia::scroll($result->…)` และไม่ส่ง `sort` (ถ้ามันเตือนว่า Command ยังรับ `sort`/`direction` ให้ลบออกจาก Command)
-   ถ้า controller มีอยู่แล้ว generator เติมเฉพาะ method ที่ขาด ไม่แตะของเดิม ที่ต้องเติมเอง: `:name` ใน toast `{aggregates}.deleted` (เก็บชื่อไว้ก่อนลบ), `can` ของโมเดลอื่น, และ `catch` refusal ของ entity ใน `destroy` ตามชื่อ (`exceptions.md`) — อ่านคำเตือนที่ generator พิมพ์ (ability ที่ policy ยังไม่มี, คีย์คำแปลที่ขาด, บรรทัด route)
-8. Policy `viewAny` / `view` / `deleteAny` / `delete` ถ้ายังไม่มี (`make:policy`) + route `Route::resource(…)->only(['index', 'destroy'])`
+1. `php artisan make:use-case List{Aggregate}s --domain={Context} --command --result --query --no-interaction`. **Never add `--repo`** (a repository is the write side and cannot page). You get the Command, Criteria, Handler, Query (port), Result, `{Aggregate}ListRow`, `{Aggregate}ListSort` (at the context level), the adapter `EloquentList{Aggregate}sQuery`, and tests with `->todo()`.
+2. `{Aggregate}ListSort`: add a case for every sortable column. `fromInput()` falls back to the default and never throws.
+3. `{Aggregate}ListRow implements Arrayable`, **not a spatie `Data`** (that would change the paginator's envelope). `toArray()` is the contract the TS twin mirrors. Write its `@return array{…}` with every key, because `make:list-page` reads it. Money goes out as a decimal string per `numbers.md`, and dates and times as ISO 8601 per `dates.md`.
+4. The `Criteria` has no defaults, every field is required, and `toFilters()` has a full `@return array{…}`. The `Handler` is the one place that settles raw values (`fromInput`, `tryFrom`, `trim`, `PageSize::fromInput`, `DateRange::fromInput`), and the Result echoes `toSort()`/`toFilters()` back.
+5. The adapter `extends EloquentListQuery`, has `SEARCHABLE_COLUMNS` and `applySearch()`, and ends with `paginateRows()` (never `->paginate(` directly). It eager loads per the spec, with `sortColumn()`/`toRow()` private. The full rules are in `list-queries.md`.
+6. Bind the port to the adapter in a service provider's `$bindings` (the generator prints the line).
+7. Controller: `php artisan make:controller {Aggregate} --domain={Context} --only=index,destroy --no-interaction`. **Never write the controller yourself.** The generator reads `List{Aggregate}s{Command,Result}` and writes `index` (`Gate::authorize('viewAny')` → every `$request->string('x')->toString()` raw into the Command, **no FormRequest** → render `{aggregates}`/`sort`/`filters`/`can`) and `destroy` (`Gate::authorize('delete')` → `Delete{Aggregate}Handler($model->id)` → toast → `back()`), with the tests `{Aggregate}Controller/IndexTest.php` and `DestroyTest.php` holding `->todo()`. A Grid adds `--grid`: index then sends `Inertia::scroll($result->…)` and no `sort` (if it warns that the Command still takes `sort`/`direction`, remove them from the Command).
+   When the controller already exists, the generator adds only the missing methods and leaves the existing ones alone. Fill in yourself: `:name` in the toast `{aggregates}.deleted` (keep the name before deleting), `can` for other models, and a `catch` of the entity's refusal in `destroy`, by name (`exceptions.md`). Read the warnings the generator prints (abilities the policy lacks, missing translation keys, the route line).
+8. Policy `viewAny` / `view` / `deleteAny` / `delete` when missing (`make:policy`), plus the route `Route::resource(…)->only(['index', 'destroy'])`
 
 ### 2. Frontend
 
-1. `php artisan make:list-page List{Aggregate}s --domain={Context} --no-interaction` — หลัง backend เสร็จแล้วเท่านั้น เพราะอ่าน `@return array{…}` ของ `toArray()`/`toFilters()` ถ้า docblock ไม่ครบจะ fail:
-   - `resources/js/types/{aggregate}.ts`: `{Aggregate}Row`, `{Aggregate}Filters`, `{Aggregates}Query` พร้อม `@see` (ต่อท้ายไฟล์เดิมเฉพาะ type ที่ยังไม่มี) และ export ใน `types/index.ts`
-   - toolbar `components/{aggregate}/table-toolbar.tsx`: Select จาก case ของ enum filter และ date range จากคู่ `{x}_from`/`{x}_to`
-   - หน้า `pages/{aggregates}/index.tsx`: หนึ่งคอลัมน์ต่อคีย์ของ Row (ยกเว้น `id`), `visit` ตัวเดียว, `perPageOptions`, `emptyState` + `noResultsState`
-   - Browser test `tests/Browser/{Aggregates}/IndexTest.php` (mirror ของหน้า ตาม `testing.md`) พร้อม `->todo()`
-   - **Grid (`--grid`)**: ไม่มี `{Aggregates}Query` (toolbar รับ `dt: ListQuery<{Aggregate}Filters>`), หน้าใช้ `useListQuery` + `<InfiniteScroll>` + toolbar + `{Aggregate}Card`, และเขียน `components/{aggregate}/card.tsx` แสดงหนึ่ง label/ค่าต่อคีย์ของ Row (ยกเว้น `id`) — เติมการจัดรูปค่าและปุ่มของรายการในการ์ด ไม่ใช่ในหน้า
-   - ไฟล์หน้า, toolbar, การ์ด หรือ Browser test ที่มีอยู่แล้วจะไม่ถูกเขียนทับ ส่วน warning ตอนจบบอก route และคีย์คำแปลที่ยังขาด
-2. แก้ type ที่ generator เขียนเป็น `string` หรือ `unknown` ให้แคบลงตามสเปก (enum เป็น string union พร้อม `@see` ไฟล์ PHP) แล้ว `php artisan wayfinder:generate --with-form` และเช็คว่า `@/routes/{aggregates}` มี `index`/`show`/`edit`/`destroy` ตามที่หน้าใช้
-3. เติมหน้าเพจตามสเปก — ลำดับใน component:
-   `useTranslation` → `useActions<Row>()` → `useConfirmDialog`/`useItemDialog` ตามสเปก → `setLayoutProps({ breadcrumbs })` → คอลัมน์ (ลบที่ไม่โชว์, เรียงตามสเปก, เติม `cell`/`enableSorting: false` — วันที่จัดรูปผ่าน `@/lib/dates` เท่านั้น: `formatDateTime`/`formatDate` ส่ง `locale`/`timezone` จาก `useTranslation()`, วัน `Y-m-d` ใช้ `formatCalendarDate`; เงิน/อัตราจัดรูปผ่าน `@/lib/numbers` เท่านั้น: `formatMoney` ส่ง `locale`/`currency`, อัตราใช้ `formatPercent`) → `rowAction` + `can` ใน props → `<DataTable dt toolbar bulkActions headerActions />` + dialog ที่หน้าเพจเรนเดอร์เอง — **ห้ามแตะ `query`/`visit` ที่ generator เขียน ห้ามพา `page`**
-4. toolbar: เติม `options` ของตัวกรองที่ไม่ใช่ enum (generator เตือนชื่อไว้แล้ว) และใส่ `search={false}` ถ้าไม่มีคอลัมน์ให้ค้น — **toolbar ห้ามมี `router.get`/debounce/dialog/state ของตัวเอง**
-5. คำแปลในทุก `lang/*.json` (เรียงคีย์ตามตัวอักษร): `{aggregates}.title` `description` `confirm_delete` (`:name`) `deleted` (`:name`) `empty_title` `empty_description` `no_results_title` `no_results_description` + หัวคอลัมน์ทุกอัน + ค่า enum ทุกค่า
+1. `php artisan make:list-page List{Aggregate}s --domain={Context} --no-interaction`, only once the backend is done, because it reads the `@return array{…}` of `toArray()`/`toFilters()` and fails when the docblock is incomplete:
+   - `resources/js/types/{aggregate}.ts`: `{Aggregate}Row`, `{Aggregate}Filters`, `{Aggregates}Query` with `@see` (appended to the existing file, only the types it lacks), exported from `types/index.ts`
+   - the toolbar `components/{aggregate}/table-toolbar.tsx`: a Select from the cases of each enum filter, and a date range from each `{x}_from`/`{x}_to` pair
+   - the page `pages/{aggregates}/index.tsx`: one column per key of the Row (except `id`), the one `visit`, `perPageOptions`, `emptyState` + `noResultsState`
+   - the Browser test `tests/Browser/{Aggregates}/IndexTest.php` (the page's mirror, per `testing.md`) with `->todo()`
+   - **Grid (`--grid`)**: no `{Aggregates}Query` (the toolbar takes `dt: ListQuery<{Aggregate}Filters>`). The page uses `useListQuery` + `<InfiniteScroll>` + the toolbar + `{Aggregate}Card`, and it writes `components/{aggregate}/card.tsx` with one label and value per key of the Row (except `id`). Add the value formatting and the item's buttons in the card, not in the page.
+   - A page, toolbar, card or Browser test that already exists is never overwritten. The warnings at the end name the route and translation keys still missing.
+2. Narrow the types the generator wrote as `string` or `unknown` to fit the spec (an enum as a string union with `@see` to the PHP file), then run `php artisan wayfinder:generate --with-form` and check that `@/routes/{aggregates}` has the `index`/`show`/`edit`/`destroy` the page uses.
+3. Fill in the page per the spec, in this order in the component:
+   `useTranslation` → `useActions<Row>()` → `useConfirmDialog`/`useItemDialog` per the spec → `setLayoutProps({ breadcrumbs })` → the columns (remove the ones not shown, order them per the spec, add `cell`/`enableSorting: false`. Format dates only through `@/lib/dates`: `formatDateTime`/`formatDate` with `locale`/`timezone` from `useTranslation()`, and `formatCalendarDate` for a `Y-m-d` day. Format money and rates only through `@/lib/numbers`: `formatMoney` with `locale`/`currency`, and `formatPercent` for a rate) → `rowAction` + `can` in props → `<DataTable dt toolbar bulkActions headerActions />` + the dialogs the page renders itself. **Never touch the `query`/`visit` the generator wrote. Never carry `page`.**
+4. The toolbar: fill in the `options` of filters that are not enums (the generator has already warned about them by name), and add `search={false}` when there is no column to search. **A toolbar never has its own `router.get`, debounce, dialog or state.**
+5. Translations in every `lang/*.json` (keys sorted alphabetically): `{aggregates}.title` `description` `confirm_delete` (`:name`) `deleted` (`:name`) `empty_title` `empty_description` `no_results_title` `no_results_description`, plus every column header and every enum value
 
 ### 3. Tests
 
-generator scaffold ไฟล์เทสต์ที่มี `->todo()` ไว้แล้ว — เขียนในไฟล์เดิม ห้ามสร้างซ้ำ (path ตาม `testing.md`)
+The generators have already scaffolded the test files with `->todo()`. Write in those files, never create a second one (paths follow `testing.md`).
 
-| ไฟล์ | ต้องมีเคส |
+| File | Cases it must have |
 | --- | --- |
-| `List{Aggregate}sHandlerTest` | default sort + ไม่มี filter, fallback เงียบเมื่อค่าไม่รู้จัก (sort/direction/filter/perPage), เรียงได้ทุกค่าใน enum (dataset), desc, search (case-insensitive, escape `%`/`_`, trim + echo), แต่ละ filter + echo, paging default 10 / ทุก size / fallback, row มีทุก field, envelope แบน |
-| `EloquentList{Aggregate}sQueryTest` | เรียก `listQueryContract()` + resolve จาก port, เรียงตามคอลัมน์จริงทุก sort key (dataset), paging links ชี้ request ปัจจุบัน |
-| `{Aggregate}Controller/IndexTest` | guest redirect login; `assertInertia` `component('{aggregates}/index')` + `has('{aggregates}')` `has('sort')` `has('filters')` + `where('can.x', bool)` dataset ตามผู้ใช้ที่ policy ตอบต่างกัน |
-| `tests/Browser/{Aggregates}/IndexTest` | render ไม่มี JS error/console log; สิ่งที่เบราว์เซอร์คำนวณเอง (format เงิน/เรท/วันที่, badge); toolbar ค้น/กรองแล้ว URL ยังพา `sort`/`direction`; empty + no-results state; dialog ของปุ่มแถว |
-| `{Aggregate}Controller/DestroyTest` | guest redirect + `assertModelExists`; ผู้ที่ลบได้: `->from(index)->delete()->assertRedirect(index)` + `assertInertiaFlash('toast.type', 'success')` / `toast.title` / `toast.message` + `assertModelMissing`; ผู้ที่ลบไม่ได้: `assertForbidden` + `assertModelExists` |
+| `List{Aggregate}sHandlerTest` | default sort + no filter; a silent fallback for unknown values (sort/direction/filter/perPage); sorts by every value of the enum (dataset); desc; search (case-insensitive, escapes `%`/`_`, trims + echoes); each filter + echo; paging default 10 / every size / fallback; the row has every field; a flat envelope |
+| `EloquentList{Aggregate}sQueryTest` | calls `listQueryContract()` + resolves from the port; sorts on the real column for every sort key (dataset); paging links point at the current request |
+| `{Aggregate}Controller/IndexTest` | guest redirect to login; `assertInertia` `component('{aggregates}/index')` + `has('{aggregates}')` `has('sort')` `has('filters')` + `where('can.x', bool)` as a dataset of the users the policy answers differently |
+| `tests/Browser/{Aggregates}/IndexTest` | renders with no JS error or console log; what the browser computes itself (money/rate/date formatting, badges); searching or filtering in the toolbar keeps `sort`/`direction` on the URL; the empty + no-results states; the row buttons' dialogs |
+| `{Aggregate}Controller/DestroyTest` | guest redirect + `assertModelExists`; a user who may delete: `->from(index)->delete()->assertRedirect(index)` + `assertInertiaFlash('toast.type', 'success')` / `toast.title` / `toast.message` + `assertModelMissing`; a user who may not: `assertForbidden` + `assertModelExists` |
 
-helper ต่อไฟล์ตั้งชื่อไม่ซ้ำข้ามไฟล์ (`{aggregates}IndexActor`, `{aggregates}DestroyActor`) — Pest แชร์ global namespace
+Name each file's helpers so no two files share one (`{aggregates}IndexActor`, `{aggregates}DestroyActor`). Pest shares one global namespace.
 
-### 4. ตรวจ
+### 4. Verify
 
 ```bash
 vendor/bin/pint --dirty --format agent
@@ -128,48 +128,48 @@ php artisan test --compact --filter={Aggregate}
 php artisan test --compact --testsuite=Architecture
 npx tsc --noEmit
 npm run build && php artisan test --compact tests/Browser/{Aggregates}
-npx eslint <ไฟล์ที่แตะ>
-npx prettier --check <ไฟล์ที่แตะ>
+npx eslint <files you touched>
+npx prettier --check <files you touched>
 ```
 
-แล้วเปิด browser (ต้องมี `composer run dev` รันอยู่ — ถ้าไม่เห็นการเปลี่ยนแปลงให้ถามผู้ใช้): เรียงทุกคอลัมน์ที่เรียงได้ · แต่ละ filter + search พา `sort`/`direction`/`per_page` เดิมไปด้วย · เปลี่ยนจำนวนแถว · เลือกแถวแล้วเปลี่ยนหน้า → แถบ bulk หาย · ปุ่มแถวทุกตัว (tooltip ขึ้น) · ลบ → dialog มีชื่อ → toast · empty state สลับตามมี/ไม่มีตัวกรอง · URL ที่แก้มือ (`?sort=xxx&status=zzz`) ยังได้หน้า ไม่ใช่ error
+Then open the browser (`composer run dev` must be running; if a change does not show, ask the user): sort every sortable column · each filter and the search keep the current `sort`/`direction`/`per_page` · change the page size · select rows, then change page → the bulk bar goes away · every row button (its tooltip shows) · delete → the dialog has the name → toast · the empty state switches with and without filters · a hand-edited URL (`?sort=xxx&status=zzz`) still gets a page, not an error
 
 ---
 
-## สิ่งที่ห้าม
+## Don't
 
-- ก๊อป `<Table>` markup หรือเรียก `useTable` เองในหน้าเพจ — ใช้ `useDataTable` + `<DataTable>` เท่านั้น
-- validate ค่าของ list ใน controller หรือ FormRequest — handler เป็นคน settle + fallback (URL ที่แก้มือต้องได้หน้า ไม่ใช่ 422)
-- ให้ `DataTable` เรนเดอร์ dialog — dialog ทุกตัวหน้าเพจวางเองข้างตาราง
-- ใส่ `--repo` ให้ list use case / คืน domain entity จาก read port
-- generalise ข้าม list (Criteria กลาง, `BackedEnum` sort, `array $filters`) — แต่ละ list มี type ของตัวเอง (`list-queries.md`)
-- ใช้ `Data` ของ spatie เป็น row
+- Copy `<Table>` markup or call `useTable` yourself in a page. Use only `useDataTable` + `<DataTable>`.
+- Validate the list's values in the controller or a FormRequest. The handler settles them and falls back (a hand-edited URL must get a page, not a 422).
+- Let `DataTable` render a dialog. The page places every dialog itself, beside the table.
+- Add `--repo` to a list use case, or return a domain entity from the read port.
+- Generalise across lists (a shared Criteria, a `BackedEnum` sort, `array $filters`). Each list has its own types (`list-queries.md`).
+- Use a spatie `Data` as a row.
 
-## เช็คลิสต์ปิดงาน
+## Closing checklist
 
-**สเปก**
-- [ ] ตารางสรุปสเปกได้รับการยืนยันจากผู้ใช้ก่อนแตะไฟล์
-- [ ] ทุกจุดที่ตัดสินใจเองถูกสรุปให้ผู้ใช้เห็น
+**Spec**
+- [ ] The user confirmed the spec summary table before any file was touched
+- [ ] Every decision made without asking was shown to the user in the summary
 
 **Backend**
-- [ ] scaffold ด้วย `make:use-case --query` ไม่ใส่ `--repo`
+- [ ] Scaffolded with `make:use-case --query`, without `--repo`
 - [ ] Sort enum + `fromInput()` fallback
-- [ ] Row เป็น `Arrayable` ไม่ใช่ `Data`; `toArray()` ครบทุกคอลัมน์ในสเปก พร้อม `@return array{…}`
-- [ ] Criteria ไม่มี default, `toSort()`/`toFilters()`, `@param 'asc'|'desc'`
-- [ ] Handler settle ทุกค่าดิบ; Result echo sort/filters
-- [ ] Adapter `extends EloquentListQuery`, จบด้วย `paginateRows()`, eager load ครบ, เทสต์เรียก `listQueryContract()`
-- [ ] binding ของ port ใน provider
-- [ ] Controller index/destroy scaffold ด้วย `make:controller --only=index,destroy` ไม่เขียนเอง; Policy + route
+- [ ] The Row is `Arrayable`, not `Data`; `toArray()` covers every column in the spec, with `@return array{…}`
+- [ ] The Criteria has no defaults, has `toSort()`/`toFilters()`, and `@param 'asc'|'desc'`
+- [ ] The Handler settles every raw value; the Result echoes sort/filters
+- [ ] The adapter `extends EloquentListQuery`, ends with `paginateRows()`, eager loads everything, and its test calls `listQueryContract()`
+- [ ] The port's binding is in a provider
+- [ ] Controller index/destroy scaffolded with `make:controller --only=index,destroy`, not written by hand; Policy + route
 
 **Frontend**
-- [ ] scaffold ด้วย `make:list-page` ไม่เขียนเองจากศูนย์
-- [ ] row type ตรง `toArray()` ทีละคีย์ + `@see`
-- [ ] columns ใน component ด้วย `DataTableFeatures`
-- [ ] `useDataTable` + `<DataTable dt>`; ปุ่มแถวจาก `useActions`; dialog หน้าเพจเรนเดอร์เอง
-- [ ] `query` มีทุกคีย์ของ Filters + `sort`/`direction`/`per_page`; `visit` ตัวเดียว ไม่พา `page`; toolbar รับ `dt` แล้วห่อ `<DataTableToolbar dt fields>`
-- [ ] คำแปลครบทุก `lang/*.json`
+- [ ] Scaffolded with `make:list-page`, not written from scratch
+- [ ] The row type matches `toArray()` key by key, with `@see`
+- [ ] The columns are in the component, with `DataTableFeatures`
+- [ ] `useDataTable` + `<DataTable dt>`; row buttons from `useActions`; the page renders its own dialogs
+- [ ] `query` has every key of the Filters + `sort`/`direction`/`per_page`; one `visit` that carries no `page`; the toolbar takes `dt` and wraps `<DataTableToolbar dt fields>`
+- [ ] Translations complete in every `lang/*.json`
 
-**Tests + ตรวจ**
-- [ ] 5 ไฟล์เทสต์ตามตารางข้างบนเขียวทั้งหมด (ไม่เหลือ `->todo()`)
-- [ ] pint / phpstan / tsc / eslint / prettier ผ่าน
-- [ ] เช็ค browser ตามรายการข้อ 4 แล้วรายงานผลตามจริง
+**Tests + verify**
+- [ ] The 5 test files in the table above are all green (no `->todo()` left)
+- [ ] pint / phpstan / tsc / eslint / prettier pass
+- [ ] Checked in the browser per item 4, and the results reported as they are

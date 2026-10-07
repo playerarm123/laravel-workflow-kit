@@ -9,7 +9,7 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureMarkers;
  * The scratch context and model of this file, which the real generators build. Both carry
  * `Sampling`, so no Architecture check reads what they write, and differ from every other test
  * file's. The binding and route lines go into a provider and a route file under storage, bound in
- * the container, so no case writes into motto's own.
+ * the container, so no case writes into the workbench app's own.
  */
 const SAMPLING_APPLY_CONTEXT = 'SamplingApply';
 

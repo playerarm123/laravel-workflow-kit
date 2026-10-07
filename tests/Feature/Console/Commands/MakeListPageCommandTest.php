@@ -1,15 +1,16 @@
 <?php
 
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Testing\PendingCommand;
 
-/** The project's rule helpers (ruleTsTypeKeys…), until they ship in this package too. */
+/** The Architecture rule helpers (ruleTsTypeKeys…). */
 require_once dirname(__DIR__, 3).'/Architecture/Support/rules.php';
 
 /**
- * โฟลเดอร์ทดลองของไฟล์นี้ ห้ามซ้ำกับไฟล์เทสต์ generator ตัวอื่น มิฉะนั้น --parallel
- * จะลบของกันเองกลางคัน
+ * This file's scratch folder must not match any other generator test file's, or --parallel
+ * runs delete each other's files midway.
  */
 const LIST_PAGE_CONTEXT = 'SamplingShelving';
 
@@ -286,11 +287,11 @@ it('never overwrites a browser test that already exists', function () {
 });
 
 it('reports the translation keys and the route the page still needs', function () {
-    runMakeListPage()
-        ->expectsOutputToContain('Route [sampling-cartons.index] does not exist yet')
-        ->expectsOutputToContain('lang/en.json is missing')
-        ->expectsOutputToContain('sampling-cartons.empty_title')
-        ->assertSuccessful();
+    expect(Artisan::call('make:list-page', ['name' => 'ListSamplingCartons', '--domain' => LIST_PAGE_CONTEXT]))->toBe(0)
+        ->and(Artisan::output())
+        ->toContain('Route [sampling-cartons.index] does not exist yet')
+        ->toContain('lang/en.json is missing')
+        ->toContain('sampling-cartons.empty_title');
 });
 
 describe('--types-only', function () {

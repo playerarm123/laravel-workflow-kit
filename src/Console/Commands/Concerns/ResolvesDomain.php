@@ -49,7 +49,7 @@ trait ResolvesDomain
 
         $domain = $this->option('domain');
 
-        if (filled($domain)) {
+        if (is_string($domain) && filled($domain)) {
             return $this->resolvedDomain = $this->normalizeDomain($domain);
         }
 

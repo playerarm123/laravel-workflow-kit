@@ -37,7 +37,8 @@ class MakePolicyCommand extends PolicyMakeCommand
         }
 
         $policy = $this->qualifyClass($this->getNameInput());
-        $model = $this->qualifyModel((string) $this->option('model'));
+        $model = $this->option('model');
+        $model = $this->qualifyModel(is_string($model) ? $model : '');
 
         $this->writeFromStub(
             WorkflowKit::stubPath('policy-test.stub'),
@@ -75,7 +76,9 @@ class MakePolicyCommand extends PolicyMakeCommand
     #[Override]
     protected function getNameInput()
     {
-        return Str::finish(trim((string) $this->argument('name')), 'Policy');
+        $name = $this->argument('name');
+
+        return Str::finish(trim(is_string($name) ? $name : ''), 'Policy');
     }
 
     /**

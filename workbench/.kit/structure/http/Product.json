@@ -1,0 +1,16 @@
+{
+    "resource": "Product",
+    "model": "Product",
+    "controller": {
+        "create": [],
+        "index": [
+            "Catalog/ListProducts"
+        ]
+    },
+    "actions": {},
+    "policy": null,
+    "pages": {
+        "products/create": "form",
+        "products/index": "table"
+    }
+}

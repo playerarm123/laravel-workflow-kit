@@ -1,0 +1,6 @@
+# The workbench is the Laravel app the kit's own tests run on: base_path() and app_path() point
+# there, and composer.json autoloads its App\ namespace from workbench/app.
+laravel: ./workbench
+
+providers:
+  - Playerarm123\LaravelWorkflowKit\WorkflowKitServiceProvider

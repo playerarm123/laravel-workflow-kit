@@ -28,16 +28,6 @@ The full locked stack is in [`stack.md`](resources/boost/guidelines/stack.md), a
 
 ### 1. Require the package
 
-The package is private, so point Composer at it first, as a path repository or as the Git repository:
-
-```json
-// composer.json
-"repositories": [
-    { "type": "path", "url": "packages/playerarm123/laravel-workflow-kit", "options": { "symlink": true } }
-    // or, once the kit lives in a repository of its own: { "type": "vcs", "url": "<the kit's git url>" }
-]
-```
-
 ```bash
 composer require --dev playerarm123/laravel-workflow-kit:^0.1
 ```
@@ -235,6 +225,24 @@ php artisan kit:install           # new kit files; it lists the ones that differ
 php artisan kit:install --force   # take the kit's copy of those
 php artisan test --testsuite=Architecture
 ```
+
+## Contributing
+
+The kit tests itself on a small Laravel app in `workbench/`, through [Orchestra Testbench](https://github.com/orchestral/testbench). You need PHP 8.4, Node 22 and a PostgreSQL database named `workflow_kit_test` on `127.0.0.1`, user `postgres`.
+
+```bash
+composer install
+(cd workbench && npm ci)        # ESLint and Prettier, for the generators' lint tests
+composer test                   # the Feature suite: generators and structure tooling
+composer lint                   # Pint
+composer analyse                # PHPStan
+```
+
+A change to a rule changes its guideline in `resources/boost/guidelines` and its spec in `tests/Architecture` together. A change to a kit file changes its copy in `resources/kit`; run `php vendor/bin/testbench kit:install --force` to put it into the workbench.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
 
 ## Read more
 

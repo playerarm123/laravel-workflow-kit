@@ -28,16 +28,6 @@
 
 ### 1. Require package
 
-package นี้เป็น private ต้องบอก Composer ก่อนว่าจะหาได้ที่ไหน จะเป็น path repository หรือ Git repository ก็ได้:
-
-```json
-// composer.json
-"repositories": [
-    { "type": "path", "url": "packages/playerarm123/laravel-workflow-kit", "options": { "symlink": true } }
-    // หรือเมื่อ kit แยกไปอยู่ใน repository ของตัวเองแล้ว: { "type": "vcs", "url": "<git url ของ kit>" }
-]
-```
-
 ```bash
 composer require --dev playerarm123/laravel-workflow-kit:^0.1
 ```
@@ -235,6 +225,24 @@ php artisan kit:install           # ไฟล์ kit ใหม่ และแ�
 php artisan kit:install --force   # เอาต้นฉบับของ kit ทับไฟล์เหล่านั้น
 php artisan test --testsuite=Architecture
 ```
+
+## ร่วมพัฒนา
+
+kit ทดสอบตัวเองบนแอป Laravel เล็ก ๆ ใน `workbench/` ผ่าน [Orchestra Testbench](https://github.com/orchestral/testbench) ต้องมี PHP 8.4, Node 22 และฐานข้อมูล PostgreSQL ชื่อ `workflow_kit_test` บน `127.0.0.1` user `postgres`
+
+```bash
+composer install
+(cd workbench && npm ci)        # ESLint และ Prettier สำหรับเทสต์ lint ของ generator
+composer test                   # Feature suite: generator และเครื่องมือ structure
+composer lint                   # Pint
+composer analyse                # PHPStan
+```
+
+เปลี่ยนกฎข้อไหน ให้แก้ guideline ใน `resources/boost/guidelines` กับ spec ใน `tests/Architecture` ไปพร้อมกัน เปลี่ยนไฟล์ของ kit ให้แก้สำเนาใน `resources/kit` แล้วรัน `php vendor/bin/testbench kit:install --force` เพื่อวางลง workbench
+
+## License
+
+MIT ดู [LICENSE](LICENSE)
 
 ## อ่านเพิ่ม
 

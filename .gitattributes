@@ -1,0 +1,16 @@
+* text=auto eol=lf
+
+# Kept out of the archive Composer downloads. tests/Architecture, tests/ESLint and
+# tests/PHPStan stay in it: a project runs them from vendor/.
+/.github            export-ignore
+/.gitattributes     export-ignore
+/.gitignore         export-ignore
+/bin                export-ignore
+/phpstan.neon.dist  export-ignore
+/phpunit.xml        export-ignore
+/pint.json          export-ignore
+/testbench.yaml     export-ignore
+/tests/Feature      export-ignore
+/tests/Pest.php     export-ignore
+/tests/TestCase.php export-ignore
+/workbench          export-ignore

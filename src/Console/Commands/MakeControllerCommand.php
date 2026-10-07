@@ -245,7 +245,8 @@ class MakeControllerCommand extends ControllerMakeCommand
      */
     protected function only(): ?array
     {
-        $option = (string) $this->option('only');
+        $option = $this->option('only');
+        $option = is_string($option) ? $option : '';
 
         if (blank($option)) {
             return self::METHODS;
@@ -272,8 +273,8 @@ class MakeControllerCommand extends ControllerMakeCommand
      */
     protected function model(): string
     {
-        $model = filled($this->option('model'))
-            ? (string) $this->option('model')
+        $model = is_string($this->option('model')) && filled($this->option('model'))
+            ? $this->option('model')
             : Str::chopEnd(class_basename(str_replace('/', '\\', $this->getNameInput())), 'Controller');
 
         return Str::studly(class_basename(str_replace('/', '\\', $model)));

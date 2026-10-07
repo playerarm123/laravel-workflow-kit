@@ -3,8 +3,8 @@
 use Illuminate\Support\Facades\File;
 
 /**
- * โฟลเดอร์ทดลองของไฟล์นี้ ห้ามซ้ำกับไฟล์เทสต์ generator ตัวอื่น มิฉะนั้น --parallel
- * จะลบของกันเองกลางคัน
+ * This file's scratch folder must not match any other generator test file's, or --parallel
+ * runs delete each other's files midway.
  */
 const SAMPLING_REPOSITORY_CONTEXT = 'SamplingRepository';
 
@@ -218,8 +218,8 @@ it('builds both exceptions from their stubs', function () {
 });
 
 /**
- * RepositoryException ประกาศ entityName() ไว้เป็น abstract — คลาสลูกที่ตัวเปล่าจะ fatal
- * ทันทีที่ถูกโหลด ไม่ใช่ตอนถูกเรียกใช้ stub จึงต้องเขียน delegate ให้ครบตั้งแต่แรก
+ * RepositoryException declares entityName() abstract. An empty subclass is fatal the moment
+ * it is loaded, not when it is called, so the stub writes every delegate from the start.
  */
 it('implements the abstract entity name on the repository exception it writes', function () {
     $this->artisan('make:eloquent-repository', ['name' => 'Sample', '--domain' => 'SamplingRepository/Sample'])

@@ -1,0 +1,19 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - src/
+
+    level: 7
+
+    ignoreErrors:
+        # Illuminate\Console\GeneratorCommand::handle() is documented @return bool|null, but
+        # Command::execute() runs it through `(int) $this->laravel->call(...)` — so returning
+        # false exits 0 and a failed generation would look like a success. The generators must
+        # hand back a real exit code, and the kit's tests assert they do. Honouring the
+        # framework's phpdoc here would be the bug, so this is the one place we record the
+        # conflict instead of resolving it.
+        -
+            identifier: method.childReturnType
+            path: src/Console/Commands/Make*Command.php
