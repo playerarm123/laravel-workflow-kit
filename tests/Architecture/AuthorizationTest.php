@@ -303,15 +303,7 @@ function authorizationAskedAbilities(): array
 
 describe('authorization', function () {
     it('ships the authorization kit at its fixed home', function () {
-        $missing = array_values(array_filter(
-            authorizationSpec()['kit_files'],
-            fn (string $file): bool => ! is_file(ruleProjectPath($file)),
-        ));
-
-        expect(ruleUnexcused('authorization', 'kit-files', array_map(
-            fn (string $file): array => ['subject' => $file, 'message' => 'kit file is missing — copy it from the kit'],
-            $missing,
-        )))->toBe([]);
+        expect(ruleUnexcused('authorization', 'kit-files', ruleKitFileViolations(authorizationSpec()['kit_files'])))->toBe([]);
     });
 
     it('authorizes every controller action through the Gate', function () {

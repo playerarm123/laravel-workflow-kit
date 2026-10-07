@@ -186,13 +186,7 @@ function listPagesFilterKeys(string $file): ?array
 
 describe('list pages', function () {
     it('ships the list page kit at its fixed home', function () {
-        $violations = [];
-
-        foreach (listPagesSpec()['kit_files'] as $file) {
-            if (! is_file(ruleProjectPath($file))) {
-                $violations[] = ['subject' => $file, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations(listPagesSpec()['kit_files']);
 
         foreach (listPagesSpec()['shadcn_components'] as $component) {
             $file = sprintf('resources/js/components/ui/%s.tsx', $component);

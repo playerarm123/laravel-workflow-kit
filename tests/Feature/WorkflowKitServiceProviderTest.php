@@ -2,6 +2,7 @@
 
 use Illuminate\Contracts\Console\Kernel;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\KitApplyCommand;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\KitInstallCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeControllerCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeEnumCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakePolicyCommand;
@@ -12,7 +13,8 @@ describe('WorkflowKitServiceProvider', function () {
         $commands = app(Kernel::class)->all();
 
         expect($commands['make:use-case'])->toBeInstanceOf(MakeUseCaseCommand::class)
-            ->and($commands['kit:apply'])->toBeInstanceOf(KitApplyCommand::class);
+            ->and($commands['kit:apply'])->toBeInstanceOf(KitApplyCommand::class)
+            ->and($commands['kit:install'])->toBeInstanceOf(KitInstallCommand::class);
     });
 
     it('takes over the framework commands the kit replaces under their own names', function (string $name, string $class) {

@@ -26,6 +26,13 @@ describe('WorkflowKit', function () {
         });
     });
 
+    describe('kitPath', function () {
+        it('holds the files kit:install writes, under files/ and scaffold/', function () {
+            expect(WorkflowKit::kitPath().'/files/app/Http/FlashToast.php')->toBeFile()
+                ->and(WorkflowKit::kitPath().'/scaffold/app/Application/Auth/UserContext.php')->toBeFile();
+        });
+    });
+
     describe('guidelinesPath and skillsPath', function () {
         it('point at the folders Boost reads', function () {
             expect(WorkflowKit::guidelinesPath().'/layers.md')->toBeFile()

@@ -10,9 +10,9 @@ Enforced by the package's `tests/Architecture/HandlersTest.php` (`php artisan te
 
 ## Kit files
 
-These live at fixed paths. *Check `kit-files`.*
+These live at fixed paths. `php artisan kit:install` writes them from the kit, and *check `kit-files`* fails when one is missing or differs from the kit's copy, so a change to one is a change to the kit.
 - `app/Domain/Shared/Ports/IdGenerator.php`, bound to an adapter in a service provider (*check `binding`*). `ClonableAggregate` uses the same port.
-- `app/Application/Auth/UserContext.php`, the actor port. It declares at least `id(): string`, and each project adds the methods its roles need. Middleware binds it for each request.
+- `app/Application/Auth/UserContext.php`, the actor port. `kit:install` writes it once with `id(): string`, and from then on it belongs to the project, which adds the methods its roles need, so the check only asks that it exists. Middleware binds it for each request.
 
 ## Scaffold, never hand-write
 

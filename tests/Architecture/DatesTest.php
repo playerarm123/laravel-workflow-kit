@@ -30,13 +30,7 @@ function datesSpec(): array
 
 describe('dates', function () {
     it('ships the dates kit at its fixed home', function () {
-        $violations = [];
-
-        foreach (datesSpec()['kit_files'] as $file) {
-            if (! is_file(ruleProjectPath($file))) {
-                $violations[] = ['subject' => $file, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations(datesSpec()['kit_files']);
 
         expect(ruleUnexcused('dates', 'kit-files', $violations))->toBe([]);
     });

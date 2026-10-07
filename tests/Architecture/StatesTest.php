@@ -89,13 +89,7 @@ function statesEnums(): array
 
 describe('states', function () {
     it('ships the states kit at its fixed home', function () {
-        $violations = [];
-
-        foreach (statesSpec()['kit_files'] as $file) {
-            if (! is_file(ruleProjectPath($file))) {
-                $violations[] = ['subject' => $file, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations(statesSpec()['kit_files']);
 
         expect(ruleUnexcused('states', 'kit-files', $violations))->toBe([]);
     });

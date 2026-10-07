@@ -18,7 +18,7 @@ Enforced by the package's `tests/Architecture/ActionsTest.php` and by the packag
 
 ## Kit files
 
-These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`), and a stub there is replaced by a file of the same name in the project's `stubs/`. Copy the rest into a new project as they are.
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`), and a stub there is replaced by a file of the same name in the project's `stubs/`. `php artisan kit:install` writes the rest from the kit, and the check fails when one is missing or differs from the kit's copy.
 - *package:* `tests/ESLint/actions.js`, imported by `eslint.config.js` (*check `eslint`*), and the fixtures its proof lints in `tests/ESLint/Fixtures/`
 - *package:* `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through
 - *package:* `src/Console/Commands/MakeActionCommand.php` with `src/Console/Commands/Concerns/BuildsRequestFields.php`, which it shares with `make:form-request`

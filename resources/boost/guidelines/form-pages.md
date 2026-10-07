@@ -12,7 +12,7 @@ Enforced by the package's `tests/Architecture/FormPagesTest.php` and by the pack
 
 ## Kit files
 
-These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). Copy the rest into a new project as they are.
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). `php artisan kit:install` writes the rest from the kit, and the check fails when one is missing or differs from the kit's copy.
 - `app/Http/FlashToast.php`, the one shape of a flash toast (`FlashToast::KEY`, `success()`, `error()`)
 - `resources/js/hooks/use-flash-toast.ts` and `resources/js/components/flash-toast.tsx`, rendered once in `app.tsx` beside sonner's `<Toaster>`
 - `resources/js/components/input-error.tsx`

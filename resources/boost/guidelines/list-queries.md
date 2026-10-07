@@ -11,7 +11,7 @@ Lists never go through a repository, and repositories never return list rows (re
 Enforced by the package's `tests/Architecture/ListQueriesTest.php`. The spec in `listQueriesSpec()` is the machine-checked copy of this file: change the two together. The base adapter's behaviour is proven in `tests/Feature/Infra/Persistence/Eloquent/Queries/EloquentListQueryTest.php`, on the app's database and on MySQL/MariaDB.
 
 ## Kit files
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
+These live at fixed paths. `php artisan kit:install` writes them from the kit, and *check `kit-files`* fails when one is missing or differs from the kit's copy, so a change to one is a change to the kit.
 - `app/Infra/Persistence/Eloquent/Queries/EloquentListQuery.php`
 - `app/Application/Concerns/ListQueryException.php`, `PageSize.php`, `DateRange.php`, `SortsAList.php`
 - `tests/Feature/Infra/Persistence/Eloquent/ListQueryContract.php`

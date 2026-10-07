@@ -228,23 +228,7 @@ function auditLogRecorders(): array
 describe('audit log', function () {
     it('ships the audit log kit, its read-only page included, at its fixed home', function () {
         $spec = auditLogSpec();
-        $violations = [];
-
-        foreach ($spec['kit_files'] as $path) {
-            if (! is_file(ruleProjectPath($path))) {
-                $violations[] = ['subject' => $path, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
-
-        foreach ($spec['page_files'] as $path) {
-            if (! is_file(ruleProjectPath($path))) {
-                $violations[] = ['subject' => $path, 'message' => 'is missing — every project ships the read-only audit log page; copy it from the kit'];
-            }
-        }
-
-        if ((ruleGlob(ruleProjectPath($spec['migration']))) === []) {
-            $violations[] = ['subject' => $spec['migration'], 'message' => 'is missing — copy the migration from the kit'];
-        }
+        $violations = ruleKitFileViolations([...$spec['kit_files'], ...$spec['page_files'], $spec['migration']]);
 
         expect(ruleUnexcused('audit-log', 'kit-files', $violations))->toBe([]);
     });

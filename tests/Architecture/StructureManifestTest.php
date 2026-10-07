@@ -75,13 +75,7 @@ function structureManifestViolations(string $check): array
 
 describe('structure manifest', function () {
     it('ships the manifest kit at its fixed home', function () {
-        $violations = [];
-
-        foreach (structureManifestSpec()['kit_files'] as $path) {
-            if (! is_file(ruleProjectPath($path))) {
-                $violations[] = ['subject' => $path, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations(structureManifestSpec()['kit_files']);
 
         expect(ruleUnexcused('structure', 'kit-files', $violations))->toBe([]);
     });

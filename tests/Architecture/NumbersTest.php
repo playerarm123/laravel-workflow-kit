@@ -80,13 +80,7 @@ function numbersPayloadFiles(): array
 
 describe('numbers', function () {
     it('ships the numbers kit at its fixed home', function () {
-        $violations = [];
-
-        foreach (numbersSpec()['kit_files'] as $file) {
-            if (! is_file(ruleProjectPath($file))) {
-                $violations[] = ['subject' => $file, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations(numbersSpec()['kit_files']);
 
         expect(ruleUnexcused('numbers', 'kit-files', $violations))->toBe([]);
     });

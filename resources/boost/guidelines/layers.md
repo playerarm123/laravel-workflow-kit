@@ -40,7 +40,7 @@ app/Domain/{Context}/
 app/Domain/Shared/              ← shared kernel: same folders, depends on no context
 ```
 
-The base classes live at fixed paths, and every project ships them: `app/Domain/Shared/DomainEntity.php`, `AggregateRoot.php` and `DomainException.php`. *Check `base-classes`.*
+The base classes live at fixed paths, and every project ships them: `app/Domain/Shared/DomainEntity.php`, `AggregateRoot.php` and `DomainException.php`. `php artisan kit:install` writes them from the kit, and *check `base-classes`* fails when one is missing or differs from the kit's copy.
 
 **Do**
 - Give every aggregate root `extends AggregateRoot`. *Check `aggregate-root`.*

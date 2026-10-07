@@ -18,7 +18,7 @@ Enforced by the package's `tests/Architecture/AuditLogTest.php` (`php artisan te
 
 ## Kit files
 
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
+These live at fixed paths. `php artisan kit:install` writes them from the kit, and *check `kit-files`* fails when one is missing or differs from the kit's copy, so a change to one is a change to the kit.
 - `app/Application/Audit/AuditLog.php`, the port, and `AuditLogException.php` beside it
 - `app/Infra/Audit/DatabaseAuditLog.php`, the adapter, bound in `app/Infra/Audit/AuditServiceProvider.php` (*check `binding`*)
 - `app/Models/AuditEntry.php`, which names `AuditEntryPolicy` through `#[UsePolicy]`, and the migration `create_audit_entries_table`

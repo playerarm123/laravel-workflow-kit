@@ -53,7 +53,7 @@ An exception's `context()` is written for the log. Laravel adds it to the log en
 
 ## Kit files
 
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
+These live at fixed paths. `php artisan kit:install` writes them from the kit, and *check `kit-files`* fails when one is missing or differs from the kit's copy, so a change to one is a change to the kit.
 - `app/Http/ExceptionResponses.php`. `ExceptionResponses::register($exceptions)` is called inside `withExceptions()` in `bootstrap/app.php`. A provider calls `Inertia::handleExceptionsUsing(ExceptionResponses::respond(...))`. Laravel keeps a single `respondUsing` slot, and Inertia's hook needs the built handler, so the two halves cannot share one place.
 - `app/Http/ApiError.php` and `app/Http/FlashToast.php`
 - `app/Domain/Shared/DomainException.php`, `app/Domain/Shared/Exceptions/{DomainValueException,EntityNotFoundException,RepositoryException}.php` and `app/Application/ApplicationException.php`

@@ -184,13 +184,7 @@ function actionsRoutes(): array
 
 describe('actions', function () {
     it('ships the actions kit at its fixed home', function () {
-        $violations = [];
-
-        foreach (actionsSpec()['kit_files'] as $file) {
-            if (! is_file(ruleProjectPath($file))) {
-                $violations[] = ['subject' => $file, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations(actionsSpec()['kit_files']);
 
         expect(ruleUnexcused('actions', 'kit-files', $violations))->toBe([]);
     });

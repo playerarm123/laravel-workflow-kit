@@ -315,13 +315,7 @@ function exceptionsArrayKeys(string $file): array
 describe('exceptions', function () {
     it('ships the exception kit and wires both of its halves', function () {
         $spec = exceptionsSpec();
-        $violations = [];
-
-        foreach ($spec['kit_files'] as $path) {
-            if (! is_file(ruleProjectPath($path))) {
-                $violations[] = ['subject' => $path, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations($spec['kit_files']);
 
         ['file' => $bootstrap, 'pattern' => $register] = $spec['register_call'];
 

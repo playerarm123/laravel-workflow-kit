@@ -134,13 +134,7 @@ function migrationsMethodBody(string $code, string $method): ?string
 
 describe('migrations', function () {
     it('ships the kit files', function () {
-        $violations = [];
-
-        foreach (migrationsSpec()['kit_files'] as $file) {
-            if (! is_file(ruleProjectPath($file))) {
-                $violations[] = ['subject' => $file, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations(migrationsSpec()['kit_files']);
 
         $stub = (string) @file_get_contents(ruleProjectPath(migrationsSpec()['create_stub']));
 

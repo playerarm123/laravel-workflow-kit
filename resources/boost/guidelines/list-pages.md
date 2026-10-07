@@ -12,7 +12,7 @@ Enforced by the package's `tests/Architecture/ListPagesTest.php` and by the pack
 
 ## Kit files
 
-These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). Copy the rest into a new project as they are.
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). `php artisan kit:install` writes the rest from the kit, and the check fails when one is missing or differs from the kit's copy.
 - `resources/js/hooks/use-list-query.ts`, `use-data-table.tsx`, `use-data-table-toolbar.ts`, `use-actions.ts`, `use-dialog.ts`, `use-translation.ts`
 - `resources/js/components/dt-table.tsx`, `dt-toolbar.tsx`, `dialog.tsx`, `buttons.tsx`, `icons.tsx`, `heading.tsx`, `ui/date-range-picker.tsx`
 - `resources/js/types/data-table.ts`, `pagination.ts`

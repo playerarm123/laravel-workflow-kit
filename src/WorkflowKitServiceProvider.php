@@ -9,6 +9,7 @@ use Illuminate\Routing\Console\ControllerMakeCommand;
 use Illuminate\Support\ServiceProvider;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\KitApplyCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\KitImportCommand;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\KitInstallCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\KitPlanCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\KitRetireCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeActionCommand;
@@ -28,7 +29,7 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeUseCaseCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeValueObjectCommand;
 
 /**
- * Registers the kit's generators (`make:*`) and its structure commands (`kit:*`).
+ * Registers the kit's generators (`make:*`), its structure commands and `kit:install` (`kit:*`).
  *
  * Three of them take over a framework command under the same name (`make:controller`,
  * `make:enum`, `make:policy`). The framework registers those in a deferred provider that loads
@@ -53,6 +54,7 @@ final class WorkflowKitServiceProvider extends ServiceProvider
         $this->commands([
             KitApplyCommand::class,
             KitImportCommand::class,
+            KitInstallCommand::class,
             KitPlanCommand::class,
             KitRetireCommand::class,
             MakeActionCommand::class,

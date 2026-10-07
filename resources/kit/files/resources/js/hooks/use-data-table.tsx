@@ -1,0 +1,368 @@
+import type {
+    ColumnDef,
+    ColumnHelper,
+    ReactTable,
+    RowSelectionState,
+    SortingState,
+    Updater,
+} from '@tanstack/react-table';
+import {
+    tableFeatures,
+    rowSortingFeature,
+    rowSelectionFeature,
+    useTable,
+    createColumnHelper,
+    Subscribe,
+} from '@tanstack/react-table';
+import { MoreHorizontal } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { useState } from 'react';
+import { ItemButton } from '@/components/buttons';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import type {
+    DtRowData,
+    PaginationMeta,
+    SortDirection,
+    Paginated,
+} from '@/types';
+import { isActionVisible } from './use-actions';
+import type { Action } from './use-actions';
+import { useListQuery } from './use-list-query';
+import type { ListQuery, ListQueryOptions } from './use-list-query';
+import { useTranslation } from './use-translation';
+
+type TableMeta = {
+    emptyState?: EmptyState;
+    title: string;
+    description?: string;
+    t: (key: string) => string;
+    paginated: PaginationMeta;
+    onPerPageChange?: (perPage: number) => void;
+    perPageOptions?: number[];
+};
+const features = tableFeatures({
+    rowSortingFeature,
+    rowSelectionFeature,
+    tableMeta: {} as TableMeta,
+});
+
+type RowActionCellProps<TData extends DtRowData> = {
+    data: TData;
+    action: RowAction<TData>;
+};
+
+type SelectColumnParams<TData extends DtRowData> = {
+    columnHelper: ColumnHelper<DataTableFeatures, TData>;
+};
+
+type ActionColumnParams<TData extends DtRowData> = SelectColumnParams<TData> & {
+    rowAction: RowAction<TData>;
+};
+
+type WithActionColumnParams<TData extends DtRowData> = {
+    rowAction?: RowAction<TData>;
+    columns: ColumnDef<DataTableFeatures, TData>[];
+};
+
+export type EmptyState = {
+    icon?: LucideIcon;
+    title?: string;
+    description?: string;
+};
+
+export type DataTableFeatures = typeof features;
+
+/**
+ * ส่วนของ query string ที่ทุกหน้า list มีเหมือนกัน — คีย์ตรงชื่อพารามิเตอร์จริงบน URL
+ * หน้าเพจขยายด้วย `{Aggregate}Filters` ของตัวเอง: `CompanyUserFilters & DtQuery`
+ */
+export type DtQuery = {
+    sort: string;
+    direction: SortDirection;
+    per_page: number;
+};
+
+/**
+ * ปุ่มของแถว: `view`/`edit` เป็นปุ่มโชว์ตรง ๆ ส่วน `extra` (รายการเฉพาะโดเมน) ตามด้วย
+ * `delete` เข้าเมนู ⋯ ตารางแค่เรียก `click` — dialog ที่ตามมา (view dialog, confirm ลบ)
+ * หน้าเพจเรนเดอร์เอง
+ */
+export type RowAction<TData extends DtRowData> = {
+    view?: Action<TData>;
+    edit?: Action<TData>;
+    extra?: Action<TData>[];
+    delete?: Action<TData>;
+};
+
+/**
+ * `query` คือค่าปัจจุบันจาก props: `{ ...filters, sort, direction, per_page }` ส่วน `visit`
+ * เป็นทางออกทางเดียว (ดู `ListQueryOptions`) — การเรียงและจำนวนแถวก็ยิงผ่านมัน
+ */
+export type DataTableOptions<
+    TItem extends DtRowData,
+    TQuery extends DtQuery = DtQuery,
+> = ListQueryOptions<TQuery> & {
+    title: string;
+    description?: string;
+    columns: ColumnDef<DataTableFeatures, TItem>[];
+    paginated: Paginated<TItem>;
+    /** ส่งมา = เปิดตัวเลือกจำนวนแถว ต้องตรงกับ `PageSize` ฝั่ง PHP (10/25/50) */
+    perPageOptions?: number[];
+    /** ไม่มีข้อมูลเลย (ยังไม่มีตัวกรอง) */
+    emptyState?: EmptyState;
+    /** มีตัวกรองแต่ไม่เจอ — hook สลับให้เองจาก `hasFilters` ไม่ส่งจะ fallback ไป `emptyState` */
+    noResultsState?: EmptyState;
+    rowAction?: RowAction<TItem>;
+};
+
+export type DataTableInstance<
+    TItem extends DtRowData,
+    TQuery extends DtQuery = DtQuery,
+> = ListQuery<TQuery> & {
+    table: ReactTable<DataTableFeatures, TItem>;
+    rowAction?: RowAction<TItem>;
+};
+
+function createSelectColumn<TData extends DtRowData>({
+    columnHelper,
+}: SelectColumnParams<TData>) {
+    return columnHelper.display({
+        id: 'select',
+        header: ({ table }) => (
+            <Subscribe source={table.atoms.rowSelection}>
+                {() => (
+                    <Checkbox
+                        checked={
+                            table.getIsAllPageRowsSelected() ||
+                            (table.getIsSomePageRowsSelected() &&
+                                'indeterminate')
+                        }
+                        onCheckedChange={(checked) =>
+                            table.toggleAllPageRowsSelected(checked === true)
+                        }
+                        aria-label={table.options.meta?.t('common.select_all')}
+                    />
+                )}
+            </Subscribe>
+        ),
+        cell: ({ row, table }) => (
+            <Subscribe
+                source={table.atoms.rowSelection}
+                selector={(rowSelection) => rowSelection[row.id]}
+            >
+                {(selected) => (
+                    <Checkbox
+                        checked={selected === true}
+                        onCheckedChange={(checked) =>
+                            row.toggleSelected(checked === true)
+                        }
+                        aria-label={table.options.meta?.t('common.select_row')}
+                    />
+                )}
+            </Subscribe>
+        ),
+    });
+}
+
+function RowActionCell<TData extends DtRowData>({
+    data,
+    action,
+}: RowActionCellProps<TData>) {
+    const { t } = useTranslation();
+    const {
+        view: viewAction,
+        edit: editAction,
+        extra = [],
+        delete: deleteAction,
+    } = action;
+
+    const dropdownActions = [
+        ...extra,
+        ...(deleteAction ? [deleteAction] : []),
+    ].filter((item) => isActionVisible(item, data));
+
+    return (
+        <div className="flex items-center justify-end gap-1">
+            {viewAction && (
+                <ItemButton
+                    title={viewAction.title}
+                    icon={viewAction.icon}
+                    visible={isActionVisible(viewAction, data)}
+                    disabled={viewAction.disabled}
+                    iconOnly={viewAction.iconOnly}
+                    variant={viewAction.variant}
+                    onClick={() => viewAction.click(data)}
+                />
+            )}
+            {editAction && (
+                <ItemButton
+                    title={editAction.title}
+                    icon={editAction.icon}
+                    visible={isActionVisible(editAction, data)}
+                    disabled={editAction.disabled}
+                    iconOnly={editAction.iconOnly}
+                    variant={editAction.variant}
+                    onClick={() => editAction.click(data)}
+                />
+            )}
+
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t('common.actions')}
+                    >
+                        <MoreHorizontal className="size-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {dropdownActions.map((item) => (
+                        <DropdownMenuItem
+                            key={item.title}
+                            disabled={item.disabled}
+                            onSelect={() => item.click(data)}
+                            variant={item.variant}
+                        >
+                            <item.icon />
+                            {item.title}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+    );
+}
+
+function createActionColumn<TData extends DtRowData>({
+    columnHelper,
+    rowAction,
+}: ActionColumnParams<TData>) {
+    return columnHelper.display({
+        id: 'actions',
+        header: 'common.actions',
+        cell: ({ row }) => (
+            <RowActionCell action={rowAction} data={row.original} />
+        ),
+    });
+}
+
+function withActionColumn<TData extends DtRowData>({
+    rowAction,
+    columns,
+}: WithActionColumnParams<TData>) {
+    const columnHelper = createColumnHelper<DataTableFeatures, TData>();
+    const selectColumn = createSelectColumn<TData>({ columnHelper });
+    let finalColumns = [selectColumn, ...columns];
+
+    if (rowAction) {
+        const actionColumnParams: ActionColumnParams<TData> = {
+            columnHelper,
+            rowAction: rowAction,
+        };
+
+        finalColumns = [
+            selectColumn,
+            ...columns,
+            createActionColumn(actionColumnParams),
+        ];
+    }
+
+    return finalColumns;
+}
+
+export default function useDataTable<
+    TItem extends DtRowData,
+    TQuery extends DtQuery = DtQuery,
+>(
+    dtOptions: DataTableOptions<TItem, TQuery>,
+): DataTableInstance<TItem, TQuery> {
+    const {
+        paginated,
+        query,
+        visit,
+        columns,
+        emptyState,
+        noResultsState,
+        title,
+        description,
+        perPageOptions,
+        rowAction,
+    } = dtOptions;
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+    const { t } = useTranslation();
+    const { fetch, hasFilters } = useListQuery({ query, visit });
+
+    /**
+     * ล้าง selection เมื่อชุดข้อมูลเปลี่ยน (หน้า, ตัวกรอง, การเรียง, จำนวนแถว) — visit ใช้
+     * preserveState component จึงไม่ถูก unmount ให้เอง ล้างตอน render ไม่ใช่ใน effect
+     * เพราะการรีเซ็ต state เมื่อ prop เปลี่ยนเป็นรูปที่ React แนะนำไว้เอง ส่วน setState
+     * ใน effect ทำให้ render ซ้อนและ eslint ห้ามไว้
+     */
+    const selectionScope = JSON.stringify([paginated.current_page, query]);
+    const [renderedScope, setRenderedScope] = useState(selectionScope);
+
+    if (renderedScope !== selectionScope) {
+        setRenderedScope(selectionScope);
+        setRowSelection({});
+    }
+
+    /** แปลง query บน URL เป็นรูป sorting state ของ TanStack — เจ้าของ state คือ URL ไม่ใช่ตาราง */
+    const sorting: SortingState = [
+        { id: query.sort, desc: query.direction === 'desc' },
+    ];
+
+    const meta: TableMeta = {
+        emptyState: hasFilters ? (noResultsState ?? emptyState) : emptyState,
+        title,
+        description,
+        t,
+        paginated,
+        onPerPageChange: perPageOptions
+            ? (per_page) => fetch({ per_page } as Partial<TQuery>)
+            : undefined,
+        perPageOptions,
+    };
+
+    const tableColumns = withActionColumn({ rowAction, columns });
+
+    const table = useTable({
+        features,
+        data: paginated.data,
+        columns: tableColumns,
+        manualSorting: true,
+        enableSortingRemoval: false,
+        state: { sorting, rowSelection },
+        meta,
+        getRowId: (row) => row.id,
+        onRowSelectionChange: setRowSelection,
+        onSortingChange: (updater: Updater<SortingState>) => {
+            const next =
+                typeof updater === 'function' ? updater(sorting) : updater;
+            const [target] = next;
+            fetch({
+                sort: target.id,
+                direction: target.desc ? 'desc' : 'asc',
+            } as Partial<TQuery>);
+        },
+    });
+
+    return {
+        table,
+        rowAction,
+        query,
+        fetch,
+        hasFilters,
+    };
+}

@@ -17,7 +17,7 @@ Enforced by the package's `tests/Architecture/ModelsTest.php` (`php artisan test
 
 ## Kit files
 
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
+These live at fixed paths. `php artisan kit:install` writes them from the kit, and *check `kit-files`* fails when one is missing or differs from the kit's copy, so a change to one is a change to the kit.
 - `app/Models/Concerns/KeyedByUuid.php`, with `tests/Feature/Models/Concerns/KeyedByUuidTest.php`
 - `stubs/model.stub`, which uses `KeyedByUuid` and declares `#[Fillable]`, `casts()` and `@use HasFactory`, and `stubs/factory.stub`, which fills `id`
 - `tests/Feature/ModelsTest.php`

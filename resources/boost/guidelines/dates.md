@@ -17,7 +17,7 @@ Enforced by the package's `tests/Architecture/DatesTest.php` and by the package'
 
 ## Kit files
 
-These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). Copy the rest into a new project as they are.
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). `php artisan kit:install` writes the rest from the kit, and the check fails when one is missing or differs from the kit's copy.
 - `resources/js/lib/dates.ts`, the only file that formats a date
 - *package:* `tests/ESLint/dates.js`, imported by `eslint.config.js` (*check `eslint`*), and the fixtures its proof lints in `tests/ESLint/Fixtures/`
 - *package:* `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through

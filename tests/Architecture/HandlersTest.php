@@ -107,13 +107,7 @@ function handlersShapeViolation(array $handler, ReflectionMethod $invoke): ?stri
 
 describe('handlers', function () {
     it('ships the id port and the actor port at their fixed home', function () {
-        $violations = [];
-
-        foreach (handlersSpec()['kit_files'] as $path) {
-            if (! is_file(ruleProjectPath($path))) {
-                $violations[] = ['subject' => $path, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations(handlersSpec()['kit_files']);
 
         $actor = handlersSpec()['actor_port'];
 

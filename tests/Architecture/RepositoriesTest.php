@@ -174,13 +174,7 @@ function repositoriesUsesSoftDeletes(string $interface): bool
 
 describe('repositories', function () {
     it('ships the persistence kit at its fixed home', function () {
-        $violations = [];
-
-        foreach (repositoriesSpec()['kit_files'] as $file) {
-            if (! is_file(ruleProjectPath($file))) {
-                $violations[] = ['subject' => $file, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations(repositoriesSpec()['kit_files']);
 
         expect(ruleUnexcused('repositories', 'kit-files', $violations))->toBe([]);
     });

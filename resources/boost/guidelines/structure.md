@@ -18,12 +18,13 @@ Enforced by the package's `tests/Architecture/StructureManifestTest.php` (`php a
 
 ## Kit files
 
-These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`), and a stub there is replaced by a file of the same name in the project's `stubs/`. Copy the rest into a new project as they are.
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`), and a stub there is replaced by a file of the same name in the project's `stubs/`. `php artisan kit:install` writes the rest from the kit, and the check fails when one is missing or differs from the kit's copy.
 - *package:* `src/Console/Commands/Structure/StructureReader.php`, which reads the code without booting the app
 - *package:* `src/Console/Commands/Structure/StructureFiles.php`, which reads, writes and validates the manifests
 - *package:* `src/Console/Commands/Structure/StructureComparer.php`, the one comparison the check and `kit:plan` report
 - *package:* `src/Console/Commands/Structure/StructurePlanner.php`, `StructureMarkers.php` and `PlansStructure.php`, which plan and apply
 - *package:* `src/Console/Commands/KitImportCommand.php` (`kit:import`) and its test
+- *package:* `src/Console/Commands/KitInstallCommand.php` (`kit:install`) with `Structure/KitInstaller.php`, which writes the kit's files from `resources/kit`: `files/` the project keeps as the kit ships them (`--force` puts a changed one back), `scaffold/` written once and owned by the project
 - *package:* `src/Console/Commands/KitPlanCommand.php` (`kit:plan`), `KitApplyCommand.php` (`kit:apply`) and `KitRetireCommand.php` (`kit:retire`), with `Structure/StructureSwapper.php`, which points code at a replacement
 - *package:* `src/Console/Commands/Structure/StructureGraph.php`, which builds what the screen draws, with `StructureEditor.php` and `StructureResourceEditor.php`, which write what it changes in a context and in an HTTP resource
 - `app/Providers/KitServiceProvider.php`, listed in `bootstrap/providers.php`, with `resources/views/kit/structure.blade.php` and the Vite entry `resources/js/kit/structure.tsx`, listed in `vite.config.ts`

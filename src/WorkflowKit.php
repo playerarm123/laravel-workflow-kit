@@ -5,8 +5,8 @@ namespace Playerarm123\LaravelWorkflowKit;
 /**
  * Where the kit keeps what it ships. Boost reads the guidelines and skills from these folders
  * (`resources/boost/…`) when a project lists this package in boost.json, the kit's own screens
- * read them from here too, and the generators read their stubs from here unless the project
- * publishes its own.
+ * read them from here too, the generators read their stubs from here unless the project
+ * publishes its own, and `kit:install` copies the kit's files from here.
  */
 final class WorkflowKit
 {
@@ -24,6 +24,16 @@ final class WorkflowKit
     public static function skillsPath(): string
     {
         return dirname(__DIR__).'/resources/boost/skills';
+    }
+
+    /**
+     * The folder of the files the kit writes into a project (`kit:install`): `files/` the project
+     * keeps as the kit ships them, `scaffold/` the kit writes once and the project owns. Each
+     * holds them at their path from the project root.
+     */
+    public static function kitPath(): string
+    {
+        return dirname(__DIR__).'/resources/kit';
     }
 
     /**

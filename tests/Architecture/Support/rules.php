@@ -147,6 +147,68 @@ function ruleUnexcused(string $rule, string $check, array $violations): array
 }
 
 /**
+ * The kit's own copy of a project file, which `php artisan kit:install` writes: under
+ * resources/kit/files when the project must keep it as the kit ships it, under
+ * resources/kit/scaffold when the kit writes it once and the project owns it from then on.
+ * A pattern (`database/migrations/*_create_x_table.php`) resolves to the file it matches.
+ *
+ * @return array{path: string, scaffold: bool}|null
+ */
+function ruleKitCopyOf(string $relative): ?array
+{
+    $kit = dirname(__DIR__, 3).'/resources/kit';
+
+    foreach (['files' => false, 'scaffold' => true] as $folder => $scaffold) {
+        $matches = glob($kit.'/'.$folder.'/'.$relative) ?: [];
+
+        if ($matches !== []) {
+            return ['path' => $matches[0], 'scaffold' => $scaffold];
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Every kit file that is missing from the project or no longer reads as the kit's copy. A file
+ * the kit writes once (resources/kit/scaffold) only has to exist. A path under vendor/ ships
+ * in the package itself, so it only has to be installed.
+ *
+ * @param  list<string>  $paths
+ * @return list<array{subject: string, message: string}>
+ */
+function ruleKitFileViolations(array $paths): array
+{
+    $violations = [];
+
+    foreach ($paths as $relative) {
+        $installed = ruleGlob(ruleProjectPath($relative));
+
+        if ($installed === []) {
+            $violations[] = ['subject' => $relative, 'message' => str_starts_with($relative, 'vendor/')
+                ? 'is missing — install playerarm123/laravel-workflow-kit'
+                : 'is missing — run `php artisan kit:install`'];
+
+            continue;
+        }
+
+        if (str_starts_with($relative, 'vendor/')) {
+            continue;
+        }
+
+        $copy = ruleKitCopyOf($relative);
+
+        if ($copy === null) {
+            $violations[] = ['subject' => $relative, 'message' => 'has no copy in the kit\'s resources/kit — the kit must ship it'];
+        } elseif (! $copy['scaffold'] && file_get_contents($installed[0]) !== file_get_contents($copy['path'])) {
+            $violations[] = ['subject' => $relative, 'message' => 'differs from the kit\'s copy — run `php artisan kit:install --force`, or move the change into the kit'];
+        }
+    }
+
+    return $violations;
+}
+
+/**
  * Does an installed version sit on the locked line? `13` matches any 13.x; a 0.x line
  * is locked at the minor (`0.1`) because 0.x minors break like majors do.
  */

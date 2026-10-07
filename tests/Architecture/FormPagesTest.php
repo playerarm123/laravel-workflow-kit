@@ -146,13 +146,7 @@ function formPagesTypeDocblock(string $file, string $type): string
 
 describe('form pages', function () {
     it('ships the form page kit at its fixed home', function () {
-        $violations = [];
-
-        foreach (formPagesSpec()['kit_files'] as $file) {
-            if (! is_file(ruleProjectPath($file))) {
-                $violations[] = ['subject' => $file, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations(formPagesSpec()['kit_files']);
 
         foreach (formPagesSpec()['shadcn_components'] as $component) {
             $file = sprintf('resources/js/components/ui/%s.tsx', $component);

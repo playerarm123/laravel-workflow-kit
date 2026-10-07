@@ -19,7 +19,7 @@ The migrations Laravel and its packages publish (`0001_01_01_*`, passkeys, two-f
 
 ## Kit files
 
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
+These live at fixed paths. `php artisan kit:install` writes them from the kit, and *check `kit-files`* fails when one is missing or differs from the kit's copy, so a change to one is a change to the kit.
 - `stubs/migration.create.stub`, which opens every table with `$table->uuid('id')->primary()`, with `stubs/migration.update.stub` and `stubs/migration.stub`
 - `tests/Feature/Database/MigrationsTest.php`
 

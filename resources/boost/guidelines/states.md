@@ -16,7 +16,7 @@ Enforced by the package's `tests/Architecture/StatesTest.php` (`php artisan test
 
 ## Kit files
 
-These live at fixed paths. Copy them into a new project as they are. *Check `kit-files`.*
+These live at fixed paths. `php artisan kit:install` writes them from the kit, and *check `kit-files`* fails when one is missing or differs from the kit's copy, so a change to one is a change to the kit.
 - `app/Domain/Shared/Concerns/HasTransitions.php`
 - `tests/Unit/Domain/Shared/Concerns/HasTransitionsTest.php`
 

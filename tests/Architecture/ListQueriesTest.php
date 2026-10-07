@@ -83,13 +83,7 @@ function listQueriesShort(string $class): string
 
 describe('list queries', function () {
     it('ships the list read kit at its fixed home', function () {
-        $violations = [];
-
-        foreach (listQueriesSpec()['kit_files'] as $file) {
-            if (! is_file(ruleProjectPath($file))) {
-                $violations[] = ['subject' => $file, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations(listQueriesSpec()['kit_files']);
 
         expect(ruleUnexcused('list-queries', 'kit-files', $violations))->toBe([]);
     });

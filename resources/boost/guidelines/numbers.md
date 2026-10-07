@@ -20,7 +20,7 @@ Enforced by the package's `tests/Architecture/NumbersTest.php` and by the packag
 
 ## Kit files
 
-These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). Copy the rest into a new project as they are.
+These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). `php artisan kit:install` writes the rest from the kit, and the check fails when one is missing or differs from the kit's copy.
 - `app/Domain/Shared/ValueObjects/Money.php` and `Percent.php`, with `Concerns/ParsesScaledDecimal.php`, which reads a decimal string into their integer
 - `app/Domain/Shared/Exceptions/InvalidMoneyException.php` and `InvalidPercentException.php`
 - `tests/Unit/Domain/Shared/ValueObjects/MoneyTest.php` and `PercentTest.php`

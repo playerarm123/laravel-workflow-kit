@@ -134,13 +134,7 @@ function modelsMatches(array $files, array $patterns, ?Closure $subject = null):
 
 describe('models', function () {
     it('ships the kit files', function () {
-        $violations = [];
-
-        foreach (modelsSpec()['kit_files'] as $file) {
-            if (! is_file(ruleProjectPath($file))) {
-                $violations[] = ['subject' => $file, 'message' => 'is missing — copy it from the kit'];
-            }
-        }
+        $violations = ruleKitFileViolations(modelsSpec()['kit_files']);
 
         $modelStub = (string) @file_get_contents(ruleProjectPath(modelsSpec()['model_stub']));
 

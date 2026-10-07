@@ -221,13 +221,11 @@ function layersServiceShapeViolation(ReflectionMethod $handle, string $folder, s
 
 describe('layers', function () {
     it('ships the domain base classes at their fixed home', function () {
-        $violations = [];
-
-        foreach (layersSpec()['base_classes'] as $class => $path) {
-            if (! is_file(ruleProjectPath($path))) {
-                $violations[] = ['subject' => $class, 'message' => sprintf('is missing — copy it to %s', $path)];
-            }
-        }
+        $classes = array_flip(layersSpec()['base_classes']);
+        $violations = array_map(
+            fn (array $violation): array => ['subject' => $classes[$violation['subject']], 'message' => $violation['subject'].' '.$violation['message']],
+            ruleKitFileViolations(array_values(layersSpec()['base_classes'])),
+        );
 
         expect(ruleUnexcused('layers', 'base-classes', $violations))->toBe([]);
     });
