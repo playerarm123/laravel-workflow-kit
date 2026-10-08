@@ -14,133 +14,66 @@
 
 ## สิ่งที่ต้องมี
 
-| | |
-|---|---|
-| PHP | 8.4 |
-| Framework | Laravel 13, Inertia 3 กับ React 19, Wayfinder |
-| Test และ analysis | Pest 5, Larastan 3, ESLint 9, Prettier 3 |
-| Database | PostgreSQL, MySQL หรือ MariaDB โดย `.env.example` กับ `phpunit.xml` ต้องใช้ตัวเดียวกัน (ห้ามใช้ sqlite) |
-| Agents | Laravel Boost 2 สำหรับรับ guidelines และ skills |
-
-รายการ stack ทั้งหมดที่ล็อกเวอร์ชันไว้อยู่ใน [`stack.md`](resources/boost/guidelines/stack.md) และ Architecture suite เป็นตัวตรวจ
+- PHP 8.4, Composer และ Node 22
+- เซิร์ฟเวอร์ PostgreSQL, MySQL หรือ MariaDB อย่างใดอย่างหนึ่ง kit ไม่รองรับ sqlite เพราะเทสต์ต้องรันบน engine เดียวกับ production
+- โปรเจกต์ที่สร้างจาก React starter kit ของ Laravel (Laravel 13, Inertia 3, React 19) ส่วน stack ที่เหลือ `kit:setup` จะจัดให้ตาม [`stack.md`](resources/boost/guidelines/stack.md) ซึ่ง Architecture suite ใช้ตรวจ
 
 ## ติดตั้ง
 
-### 1. Require package
+โปรเจกต์ใหม่ใช้คำสั่งเหล่านี้:
 
 ```bash
-composer require --dev playerarm123/laravel-workflow-kit:^0.1
-```
-
-Laravel ค้นเจอ `WorkflowKitServiceProvider` เองอัตโนมัติ provider นี้ลงทะเบียนคำสั่ง `kit:*` และ `make:*` และเข้าไปแทน `make:controller`, `make:enum` และ `make:policy` ของ framework
-
-### 2. ส่ง guidelines ให้ Boost
-
-เพิ่ม package ลงใน `boost.json` แล้วให้ Boost เขียน guidelines กับ skills `list-page` / `create-page`:
-
-```json
-"packages": ["playerarm123/laravel-workflow-kit"]
-```
-
-```bash
-php artisan boost:update
-```
-
-### 3. วางไฟล์ของ kit
-
-```bash
-php artisan kit:install
-```
-
-คำสั่งนี้คัดลอกไฟล์ kit จาก `resources/kit` ไปไว้ที่ path ที่กำหนด:
-- `resources/kit/files/` คือไฟล์ที่โปรเจกต์ต้องเก็บไว้ให้ตรงกับต้นฉบับทุกไบต์ เช่น `app/Domain/Shared/AggregateRoot.php`, `app/Http/FlashToast.php`, `resources/js/hooks/use-data-table.tsx`, หน้า audit log และ stub ของ migration กับ model check `kit-files` จะล้มเมื่อไฟล์ไหนหายหรือเนื้อหาไม่ตรง
-- `resources/kit/scaffold/` คือไฟล์ที่วางให้ครั้งเดียวแล้วโปรเจกต์เป็นเจ้าของ ตอนนี้มี `app/Application/Auth/UserContext.php` ไฟล์เดียว ซึ่งโปรเจกต์เพิ่ม method ของ role เอง
-
-ไฟล์ที่เนื้อหาไม่ตรงจะไม่ถูกแตะ แค่แสดงรายชื่อ `kit:install --force` จะเขียนต้นฉบับของ kit ทับกลับไป ส่วนไฟล์ scaffold จะไม่ถูกเขียนทับเลย
-
-### 4. ต่อสายเข้ากับโปรเจกต์
-
-`kit:install` พิมพ์ขั้นตอนเหล่านี้ทุกครั้งที่วางไฟล์ใหม่ และ check จะฟ้องจนกว่าจะทำครบ
-
-**Providers** ใน `bootstrap/providers.php`:
-
-```php
-App\Providers\KitServiceProvider::class,   // หน้าจอ /kit/structure และ /kit/docs บนเครื่อง local เท่านั้น
-App\Infra\Audit\AuditServiceProvider::class,
-```
-
-**Exceptions** ([exceptions.md](resources/boost/guidelines/exceptions.md)) เรียกใน `bootstrap/app.php`:
-
-```php
-->withExceptions(function (Exceptions $exceptions): void {
-    ExceptionResponses::register($exceptions);
-})
-```
-
-แล้วเรียกใน `boot()` ของ provider:
-
-```php
-Inertia::handleExceptionsUsing(ExceptionResponses::respond(...));
-```
-
-**Ports ที่โปรเจกต์ต้องทำเอง** ([handlers.md](resources/boost/guidelines/handlers.md)):
-- bind `App\Domain\Shared\Ports\IdGenerator` เข้ากับ adapter ใน `$bindings` ของ provider เช่นตัวสร้าง UUIDv7
-- bind `App\Application\Auth\UserContext` ราย request ใน middleware และในตัวเดียวกันให้เรียก `Context::add('actor_id', $user?->getAuthIdentifier())` เพื่อให้ audit log และทุกบรรทัด log รู้ว่าใครเป็นคนทำ
-
-**Shared props และ toast** ([list-pages.md](resources/boost/guidelines/list-pages.md), [form-pages.md](resources/boost/guidelines/form-pages.md)):
-- share `locale`, `timezone`, `currency` และ `translations` จาก `HandleInertiaRequests::share()`
-- render `<FlashToast />` ไว้ข้าง `<Toaster />` ของ sonner ใน `app.tsx`
-
-**Tests** ใน `phpunit.xml`:
-
-```xml
-<testsuite name="Architecture">
-    <directory>vendor/playerarm123/laravel-workflow-kit/tests/Architecture</directory>
-</testsuite>
-```
-
-**ESLint** ใน `eslint.config.js`:
-
-```js
-import actions from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/actions.js';
-import dates from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/dates.js';
-import formPages from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/form-pages.js';
-import listPages from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/list-pages.js';
-import numbers from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/numbers.js';
-
-export default [
-    // …config ของโปรเจกต์
-    ...listPages,
-    ...formPages,
-    ...actions,
-    ...dates,
-    ...numbers,
-    { ignores: ['**/tests/ESLint/Fixtures/**'] },
-];
-```
-
-**PHPStan** ใน `phpstan.neon`:
-
-```neon
-includes:
-    - vendor/playerarm123/laravel-workflow-kit/tests/PHPStan/write-path.php
-```
-
-**หน้า audit log** ([audit-log.md](resources/boost/guidelines/audit-log.md)) kit ให้หน้ามาแล้ว ส่วนโปรเจกต์ตัดสินใจเองว่าใครเปิดได้:
-- `php artisan make:policy AuditEntry` แล้วเหลือไว้แค่ `viewAny`
-- `Route::resource('audit-entries', AuditEntryController::class)->only(['index'])`
-- `auditLogReader()` และ `auditLogOutsider()` ใน `tests/Pest.php`
-- keys ของหน้านี้ในทุก `lang/*.json`
-
-**Marker สำหรับ `kit:apply`** วาง `// kit:bindings` เป็นบรรทัดสุดท้ายใน `$bindings` ของ provider ตัวหนึ่ง และวาง `// kit:routes` เป็นบรรทัดสุดท้ายของกลุ่ม route ที่หน้าใหม่ควรไปอยู่
-
-### 5. ตรวจ
-
-```bash
+laravel new my-app --react          # เลือก test framework และ package manager แบบไหนก็ได้
+cd my-app
+composer require --dev playerarm123/laravel-workflow-kit
+php artisan kit:setup               # จะถามว่าใช้ฐานข้อมูลอะไร: pgsql, mysql หรือ mariadb
+php artisan migrate:fresh           # หลังสร้างฐานข้อมูลตามชื่อใน .env แล้ว
 php artisan test --testsuite=Architecture
 ```
 
-ทุกจุดที่ล้มจะขึ้นเป็น `[rule:check] subject: message — see rule.md in the workflow kit's guidelines` ให้แก้ตามที่บอกแล้วรันใหม่จนผ่าน
+`kit:setup` ใช้เวลาไม่กี่นาที เพราะต้องติดตั้งแพ็กเกจ จากนั้นเหลือสามอย่างที่ต้องทำเอง:
+
+1. รัน `php artisan boost:install` แล้วเพิ่ม `"playerarm123/laravel-workflow-kit"` ใน `"packages"` ของ `boost.json` เพื่อให้ agent ได้ guidelines และ skill `list-page` / `create-page`
+2. รัน `npx playwright install chromium` สำหรับ Browser tests
+3. กำหนดว่าใครเปิดดู audit log ได้ ค่าเริ่มต้นใน `app/Policies/AuditEntryPolicy.php` ให้ทุกคนที่ยืนยันอีเมลแล้วเปิดได้ ถ้าแก้ policy ต้องแก้ `auditLogReader()` / `auditLogOutsider()` ใน `tests/Pest.php` ให้ตรงกันด้วย
+
+### `kit:setup` ทำอะไรบ้าง
+
+แก้เฉพาะส่วนที่ยังไม่ตรงตามที่ kit ต้องการ จึงรันซ้ำได้ทุกเมื่อ รันรอบที่สองจะไม่เปลี่ยนอะไรเลย ถ้าเจอไฟล์ที่หน้าตาไม่เป็นอย่างที่คาด จะไม่แตะไฟล์นั้นและแจ้งไว้ใต้หัวข้อ *Left to do by hand*
+
+| ขั้น | สิ่งที่แก้ |
+|---|---|
+| Composer packages | ตั้ง `php` เป็น `^8.4`, เอา PHPUnit ออกแล้วใส่ Pest 5 (พร้อม plugin Laravel และ Browser), ใส่ Boost, Nightwatch, spatie/laravel-data และ s3 driver แล้วรัน `composer update` |
+| JavaScript packages | เปลี่ยน `@radix-ui/*` เป็น `radix-ui` (แก้ import ให้ทุกไฟล์), ใส่ ESLint, Prettier, Playwright และไลบรารีตาราง วันที่ และไดอะแกรม, เพิ่ม script `lint` และ `format` แล้วรัน install ด้วย package manager ที่โปรเจกต์ใช้ |
+| Kit files | ไฟล์ทุกตัวที่ `kit:install` เขียน และไฟล์ที่เขียนให้ครั้งเดียวแล้วเป็นของโปรเจกต์: `IdGenerator` แบบ UUIDv7 พร้อม provider, middleware `InitializeUserContext`, `AuditEntryPolicy`, `tests/Pest.php`, `eslint.config.js`, `.prettierrc`, type `SharedProps`, shadcn component สี่ตัวที่หน้าของ kit ใช้, เทสต์ของ middleware ใน starter kit และ `rule-overrides.json` เปล่า ส่วน `ExampleTest` ถูกลบออก |
+| Config | ฐานข้อมูลใน `.env`, `.env.example` และ `phpunit.xml`, `NIGHTWATCH_TOKEN`, Architecture suite, กฎ write-path ของ PHPStan, `app.currency` และ Vite entry ของหน้า structure |
+| Wiring | providers, `ExceptionResponses`, `InitializeUserContext`, props ที่ส่งไปทุกหน้า (`locale`, `timezone`, `currency`, `translations`) ทั้งฝั่ง PHP และ TypeScript และ `<FlashToast />` |
+| Users on uuids | ตาราง users พร้อม sessions และ passkeys, `User`, `UserFactory` และ `CreateNewUser` เปลี่ยนเป็น key แบบ uuid ขั้นนี้แก้ migration เดิมตรง ๆ จึงทำได้เฉพาะก่อน deploy ครั้งแรก |
+| Audit log page | route, marker `// kit:routes` และคำแปลทุกคำที่หน้าของ kit ใช้ ในทุกไฟล์ `lang/*.json` |
+
+สุดท้ายรัน `wayfinder:generate`, `lint` (ESLint แบบ `--fix`) และ `kit:import`
+
+ใส่ `--database=pgsql` เพื่อข้ามคำถาม ส่วน `--skip-dependencies` จะแก้ `composer.json` และ `package.json` โดยไม่รัน install
+
+### ใช้กับโปรเจกต์ที่มีอยู่แล้ว
+
+`kit:setup` เขียนมาสำหรับโปรเจกต์ที่เพิ่งสร้างจาก starter kit ถ้าเป็นโปรเจกต์เก่า ให้ commit ก่อน แล้วรันและดู diff การแก้แต่ละจุดเล็กและตรงกับตารางด้านบน จุดไหนวางเองไม่ได้จะแจ้งไว้ ขั้นตอนแบบทำเองอยู่ในหัวข้อ Kit files ของ [guidelines แต่ละไฟล์](resources/boost/guidelines) และ check ที่ไม่ผ่านจะบอกเองว่าต้องการอะไร
+
+### เมื่อ check ไม่ผ่าน
+
+ข้อความ error จะอยู่ในรูป `[rule:check] subject: message — see rule.md in the workflow kit's guidelines` ที่เจอบ่อยในโปรเจกต์ใหม่:
+
+| ข้อความ | วิธีแก้ |
+|---|---|
+| `[stack:major] x: is declared but missing from composer.lock` (หรือ lockfile ฝั่ง JS) | รัน `composer update` หรือ install ด้วย package manager ของโปรเจกต์ |
+| `[stack:required] x: is required but not declared` | รัน `php artisan kit:setup` อีกรอบ หรือ require แพ็กเกจนั้นเอง |
+| `[stack:database] .env.example DB_CONNECTION: is "sqlite"` | `php artisan kit:setup --database=pgsql` |
+| `[…:kit-files] x: differs from the kit` | `php artisan kit:install --force` เพื่อเอาไฟล์ของ kit กลับมา |
+| `[testing:mirror] X: has no tests/…Test.php` | เขียนเทสต์ไว้ที่ path นั้น (testing.md) |
+| `[structure:in-json] .kit/structure/X.json: is missing` | `php artisan kit:import` |
+| `[audit-log:labels] …` | ใส่ label ให้ event, subject หรือ key ในทุก `lang/*.json` (audit-log.md) |
+
+ถ้ากฎข้อไหนทำตามไม่ได้จริง ๆ เจ้าของโปรเจกต์บันทึกข้อยกเว้นไว้ใน `rule-overrides.json` ([stack.md](resources/boost/guidelines/stack.md)) agent ห้ามเพิ่มเอง
 
 ## ใช้งานเร็ว
 
@@ -183,6 +116,7 @@ generator ทุกตัวเขียน test ไว้ข้างไฟล�
 
 | คำสั่ง | ทำอะไร |
 |---|---|
+| `kit:setup [--database=] [--skip-dependencies]` | ตั้งค่าโปรเจกต์ที่สร้างจาก React starter kit ให้ครบในครั้งเดียว |
 | `kit:install [--force]` | วางไฟล์ของ kit ลงในโปรเจกต์ |
 | `kit:import [--context=] [--resource=] [--force]` | เขียน structure manifest จากโค้ด |
 | `kit:plan [--context=] [--resource=]` | แสดงขั้นตอนที่จะสร้างตาม manifest |
@@ -239,6 +173,8 @@ composer analyse                # PHPStan
 ```
 
 เปลี่ยนกฎข้อไหน ให้แก้ guideline ใน `resources/boost/guidelines` กับ spec ใน `tests/Architecture` ไปพร้อมกัน เปลี่ยนไฟล์ของ kit ให้แก้สำเนาใน `resources/kit` แล้วรัน `php vendor/bin/testbench kit:install --force` เพื่อวางลง workbench
+
+CI ของ kit ยังสร้างโปรเจกต์ใหม่จาก `laravel/react-starter-kit` ติดตั้ง kit จากไฟล์ชุดเดียวกับที่ Packagist แจก แล้วรัน `kit:setup` ตามด้วย Architecture, Unit, Feature suite, PHPStan และ ESLint (job `starter-kit`)
 
 ## License
 

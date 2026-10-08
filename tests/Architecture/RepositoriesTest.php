@@ -30,6 +30,7 @@ function repositoriesSpec(): array
             'app/Infra/Persistence/Eloquent/Repositories/EloquentRepository.php',
             'app/Infra/Persistence/Eloquent/Repositories/WriteMode.php',
             'app/Infra/Logging/EntityPayloads/EntityLogPayload.php',
+            'app/Infra/Logging/HasLogPayload.php',
             'app/Domain/Shared/Exceptions/RepositoryException.php',
             'app/Domain/Shared/Exceptions/EntityNotFoundException.php',
             'app/Domain/Shared/ClonableAggregate.php',

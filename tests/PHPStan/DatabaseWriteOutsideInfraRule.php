@@ -58,6 +58,15 @@ final class DatabaseWriteOutsideInfraRule implements Rule
     private const array ALLOWED_NAMESPACES = ['App\\Infra\\', 'Database\\Factories\\', 'Database\\Seeders\\'];
 
     /**
+     * The starter kit's own account code beside Fortify. Fortify in vendor already writes the auth
+     * columns of users, and these classes are the starter kit's half of that, so the users table
+     * keeps that second writer either way.
+     *
+     * @var list<string>
+     */
+    private const array STARTER_KIT_NAMESPACES = ['App\\Actions\\Fortify\\', 'App\\Http\\Controllers\\Settings\\'];
+
+    /**
      * @param  list<string>  $exemptClasses  from rule-overrides.json, via tests/PHPStan/write-path.php
      */
     public function __construct(
@@ -148,7 +157,7 @@ final class DatabaseWriteOutsideInfraRule implements Rule
 
     private function mayWrite(Scope $scope): bool
     {
-        foreach (self::ALLOWED_NAMESPACES as $namespace) {
+        foreach ([...self::ALLOWED_NAMESPACES, ...self::STARTER_KIT_NAMESPACES] as $namespace) {
             if (str_starts_with($scope->getNamespace().'\\', $namespace)) {
                 return true;
             }

@@ -34,9 +34,9 @@ describe('KeyedByUuid', function () {
         });
 
         it('binds by another column without asking for a uuid', function () {
-            $user = User::factory()->create(['username' => 'not-a-uuid']);
+            $user = User::factory()->create(['email' => 'not-a-uuid@example.com']);
 
-            expect((new User)->resolveRouteBinding('not-a-uuid', 'username')?->is($user))->toBeTrue();
+            expect((new User)->resolveRouteBinding('not-a-uuid@example.com', 'email')?->is($user))->toBeTrue();
         });
     });
 });

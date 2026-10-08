@@ -61,6 +61,8 @@ public function store(StoreCustomerRequest $request, CreateCustomerHandler $crea
 - Flash with `->with()`, `session()->flash()` or `Session::flash()`. The toast hook reads `FlashToast::KEY` only, and the title is translated in PHP. *Check `flash`.*
 - Open a transaction (handlers.md).
 
+The starter kit's settings controllers (`App\Http\Controllers\Settings`) update the signed-in user's own account beside Fortify, with no use case to hand a Command to, so the `store-update` check skips them (authorization.md, Self-service routes).
+
 ## The FormRequest
 
 **Do**

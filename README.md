@@ -14,133 +14,66 @@ The rules themselves live in [`resources/boost/guidelines`](resources/boost/guid
 
 ## Requirements
 
-| | |
-|---|---|
-| PHP | 8.4 |
-| Framework | Laravel 13, Inertia 3 with React 19, Wayfinder |
-| Tests and analysis | Pest 5, Larastan 3, ESLint 9, Prettier 3 |
-| Database | PostgreSQL, MySQL or MariaDB, the same in `.env.example` and `phpunit.xml` (never sqlite) |
-| Agents | Laravel Boost 2, to receive the guidelines and skills |
-
-The full locked stack is in [`stack.md`](resources/boost/guidelines/stack.md), and the Architecture suite checks it.
+- PHP 8.4, Composer, Node 22.
+- A PostgreSQL, MySQL or MariaDB server. The kit never runs on sqlite: tests run on the engine production runs.
+- A project made from Laravel's React starter kit (Laravel 13, Inertia 3, React 19). `kit:setup` brings it to the rest of the locked stack, which [`stack.md`](resources/boost/guidelines/stack.md) lists and the Architecture suite checks.
 
 ## Install
 
-### 1. Require the package
+On a new project, five commands:
 
 ```bash
-composer require --dev playerarm123/laravel-workflow-kit:^0.1
-```
-
-Laravel discovers `WorkflowKitServiceProvider` on its own. It registers the `kit:*` and `make:*` commands, and takes over `make:controller`, `make:enum` and `make:policy`.
-
-### 2. Hand the guidelines to Boost
-
-Add the package to `boost.json`, then let Boost write the guidelines and the `list-page` / `create-page` skills:
-
-```json
-"packages": ["playerarm123/laravel-workflow-kit"]
-```
-
-```bash
-php artisan boost:update
-```
-
-### 3. Write the kit's files
-
-```bash
-php artisan kit:install
-```
-
-It copies the kit's project files from `resources/kit` to their fixed paths:
-- `resources/kit/files/` holds files the project keeps exactly as the kit ships them: `app/Domain/Shared/AggregateRoot.php`, `app/Http/FlashToast.php`, `resources/js/hooks/use-data-table.tsx`, the audit log page, the migration and model stubs, and more. The `kit-files` checks fail when one is missing or differs.
-- `resources/kit/scaffold/` holds files written once and then owned by the project. Today that is `app/Application/Auth/UserContext.php`, which you extend with your roles.
-
-A file that differs is left alone and listed. `kit:install --force` puts the kit's copy back. A scaffold is never overwritten.
-
-### 4. Wire it in
-
-`kit:install` prints these steps after it writes anything. Until each one is done, a check names it.
-
-**Providers.** In `bootstrap/providers.php`:
-
-```php
-App\Providers\KitServiceProvider::class,   // the local-only /kit/structure and /kit/docs screens
-App\Infra\Audit\AuditServiceProvider::class,
-```
-
-**Exceptions** ([exceptions.md](resources/boost/guidelines/exceptions.md)). Call it in `bootstrap/app.php`:
-
-```php
-->withExceptions(function (Exceptions $exceptions): void {
-    ExceptionResponses::register($exceptions);
-})
-```
-
-Then in a provider's `boot()`:
-
-```php
-Inertia::handleExceptionsUsing(ExceptionResponses::respond(...));
-```
-
-**Ports the project implements** ([handlers.md](resources/boost/guidelines/handlers.md)):
-- Bind `App\Domain\Shared\Ports\IdGenerator` to an adapter in a provider's `$bindings`, for example a UUIDv7 generator.
-- Bind `App\Application\Auth\UserContext` per request in a middleware. In the same middleware, call `Context::add('actor_id', $user?->getAuthIdentifier())` so the audit log and every log line carry the actor.
-
-**Shared props and toasts** ([list-pages.md](resources/boost/guidelines/list-pages.md), [form-pages.md](resources/boost/guidelines/form-pages.md)):
-- Share `locale`, `timezone`, `currency` and `translations` from `HandleInertiaRequests::share()`.
-- Render `<FlashToast />` beside sonner's `<Toaster />` in `app.tsx`.
-
-**Tests.** In `phpunit.xml`:
-
-```xml
-<testsuite name="Architecture">
-    <directory>vendor/playerarm123/laravel-workflow-kit/tests/Architecture</directory>
-</testsuite>
-```
-
-**ESLint.** In `eslint.config.js`:
-
-```js
-import actions from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/actions.js';
-import dates from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/dates.js';
-import formPages from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/form-pages.js';
-import listPages from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/list-pages.js';
-import numbers from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/numbers.js';
-
-export default [
-    // …your config
-    ...listPages,
-    ...formPages,
-    ...actions,
-    ...dates,
-    ...numbers,
-    { ignores: ['**/tests/ESLint/Fixtures/**'] },
-];
-```
-
-**PHPStan.** In `phpstan.neon`:
-
-```neon
-includes:
-    - vendor/playerarm123/laravel-workflow-kit/tests/PHPStan/write-path.php
-```
-
-**The audit log page** ([audit-log.md](resources/boost/guidelines/audit-log.md)). The kit ships the page; the project decides who may open it:
-- `php artisan make:policy AuditEntry`, keeping only `viewAny`.
-- `Route::resource('audit-entries', AuditEntryController::class)->only(['index'])`.
-- `auditLogReader()` and `auditLogOutsider()` in `tests/Pest.php`.
-- The page's keys in every `lang/*.json`.
-
-**Markers for `kit:apply`.** Put `// kit:bindings` as the last entry of one provider's `$bindings`, and `// kit:routes` as the last line of the route group new pages belong in.
-
-### 5. Check it
-
-```bash
+laravel new my-app --react          # any test framework and package manager
+cd my-app
+composer require --dev playerarm123/laravel-workflow-kit
+php artisan kit:setup               # asks which database: pgsql, mysql or mariadb
+php artisan migrate:fresh           # once the database .env names exists
 php artisan test --testsuite=Architecture
 ```
 
-Every failure reads `[rule:check] subject: message — see rule.md in the workflow kit's guidelines`. Fix what it names and run it again until it passes.
+`kit:setup` takes a few minutes, because it installs packages. Then finish the three things only you can do:
+
+1. `php artisan boost:install`, and add `"playerarm123/laravel-workflow-kit"` to `"packages"` in `boost.json`, so your agent gets the guidelines and the `list-page` / `create-page` skills.
+2. `npx playwright install chromium`, for the Browser tests.
+3. Decide who may read the audit log: `app/Policies/AuditEntryPolicy.php` lets every user with a verified email in until you change it, and `auditLogReader()` / `auditLogOutsider()` in `tests/Pest.php` change with it.
+
+### What `kit:setup` does
+
+It changes only what is not in shape yet, so you can run it again at any time; a second run changes nothing. A file it cannot read the way it expects is left alone and listed under *Left to do by hand*.
+
+| Step | What it changes |
+|---|---|
+| Composer packages | `php` to `^8.4`; PHPUnit out, Pest 5 (with the Laravel and Browser plugins) in; Boost, Nightwatch, spatie/laravel-data and the s3 driver; then `composer update` |
+| JavaScript packages | the `@radix-ui/*` packages for `radix-ui` (every import rewritten); ESLint, Prettier, Playwright, the table, date and diagram libraries; `lint` and `format` scripts; then your package manager's install |
+| Kit files | every file `kit:install` writes, plus files written once and yours from then on: the UUIDv7 `IdGenerator` and its provider, the `InitializeUserContext` middleware, `AuditEntryPolicy`, `tests/Pest.php`, `eslint.config.js`, `.prettierrc`, the `SharedProps` type, the four shadcn components the kit's pages use, tests for the starter kit's middleware, and an empty `rule-overrides.json`. The `ExampleTest`s go. |
+| Config | the database in `.env`, `.env.example` and `phpunit.xml`; `NIGHTWATCH_TOKEN`; the Architecture suite; the PHPStan write-path rule; `app.currency`; the structure screen's Vite entry |
+| Wiring | the providers, `ExceptionResponses`, `InitializeUserContext`, the props every page shares (`locale`, `timezone`, `currency`, `translations`) in PHP and TypeScript, and `<FlashToast />` |
+| Users on uuids | the users table, its sessions and passkeys, `User`, `UserFactory` and `CreateNewUser` move to uuid keys. This edits the migrations in place, which is safe only before the first deploy. |
+| Audit log page | its route, the `// kit:routes` marker, and every word the kit's pages speak in every `lang/*.json` |
+
+Finally it runs `wayfinder:generate`, `lint` (ESLint with `--fix`) and `kit:import`.
+
+`--database=pgsql` skips the question. `--skip-dependencies` edits `composer.json` and `package.json` but runs no install.
+
+### On an existing project
+
+`kit:setup` is written for a project fresh from the starter kit. On an older one, commit first, run it, and read the diff: every edit is small and named in the table above, and what it cannot place is listed for you. The steps by hand are in [the guidelines' Kit files sections](resources/boost/guidelines), and each failing check names the one it wants.
+
+### When a check fails
+
+Every failure reads `[rule:check] subject: message — see rule.md in the workflow kit's guidelines`. The ones a new project meets most:
+
+| Failure | Fix |
+|---|---|
+| `[stack:major] x: is declared but missing from composer.lock` (or the JS lockfile) | run `composer update` or your package manager's install |
+| `[stack:required] x: is required but not declared` | run `php artisan kit:setup` again, or require the package |
+| `[stack:database] .env.example DB_CONNECTION: is "sqlite"` | `php artisan kit:setup --database=pgsql` |
+| `[…:kit-files] x: differs from the kit` | `php artisan kit:install --force` takes the kit's copy |
+| `[testing:mirror] X: has no tests/…Test.php` | write that test at that path (testing.md) |
+| `[structure:in-json] .kit/structure/X.json: is missing` | `php artisan kit:import` |
+| `[audit-log:labels] …` | label the event, subject or key in every `lang/*.json` (audit-log.md) |
+
+A rule that cannot hold in one place is recorded by the project's owner in `rule-overrides.json` ([stack.md](resources/boost/guidelines/stack.md)). An agent never adds one.
 
 ## Quick usage
 
@@ -183,6 +116,7 @@ Each generator writes the test beside what it writes, with a `->todo()` per case
 
 | Command | What it does |
 |---|---|
+| `kit:setup [--database=] [--skip-dependencies]` | Set up a project made from the React starter kit, in one run |
 | `kit:install [--force]` | Write the kit's files into the project |
 | `kit:import [--context=] [--resource=] [--force]` | Write the structure manifest from the code |
 | `kit:plan [--context=] [--resource=]` | Show the steps that build the manifest |
@@ -239,6 +173,8 @@ composer analyse                # PHPStan
 ```
 
 A change to a rule changes its guideline in `resources/boost/guidelines` and its spec in `tests/Architecture` together. A change to a kit file changes its copy in `resources/kit`; run `php vendor/bin/testbench kit:install --force` to put it into the workbench.
+
+The kit's CI also builds a project with `laravel/react-starter-kit`, installs the kit from the archive Packagist would serve, runs `kit:setup` and holds it to the Architecture, Unit and Feature suites, PHPStan and ESLint (the `starter-kit` job).
 
 ## License
 

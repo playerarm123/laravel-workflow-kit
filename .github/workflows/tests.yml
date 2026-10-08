@@ -54,3 +54,100 @@ jobs:
 
       - name: Tests
         run: vendor/bin/pest --testsuite=Feature
+
+  # A project fresh from Laravel's React starter kit, with the kit installed from the archive
+  # Packagist serves and set up by kit:setup, must pass the kit's own checks.
+  starter-kit:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: laravel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: kit
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Pack the kit the way Packagist serves it
+        run: |
+          mkdir kit-dist
+          git -C kit archive HEAD | tar -x -C kit-dist
+          (cd kit-dist && composer config version 0.2.99)
+
+      - name: Create a project from the React starter kit
+        run: |
+          composer create-project laravel/react-starter-kit app dev-main --stability=dev --no-interaction --no-scripts
+          cd app
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+          # What `laravel new` does once the starter kit's feature picker has run.
+          rm -f chisel.php chisel-paths.php app/Console/Commands/InstallFeaturesCommand.php
+          sed -i '/install:features/d' composer.json
+          npm install
+
+      - name: Require the kit
+        working-directory: app
+        run: |
+          composer config repositories.kit '{"type": "path", "url": "../kit-dist", "options": {"symlink": false}}'
+          composer require --dev playerarm123/laravel-workflow-kit:^0.2 --no-interaction
+
+      - name: kit:setup
+        working-directory: app
+        run: php artisan kit:setup --database=pgsql --no-interaction
+
+      - name: kit:setup changes nothing on a second run
+        working-directory: app
+        run: |
+          git init -q && git add -A && git -c user.name=ci -c user.email=ci@example.com commit -qm setup
+          php artisan kit:setup --database=pgsql --skip-dependencies --no-interaction
+          git status --porcelain -- . ':!.kit' ':!resources/js/actions' ':!resources/js/routes' ':!resources/js/wayfinder'
+          test -z "$(git status --porcelain -- . ':!.kit' ':!resources/js/actions' ':!resources/js/routes' ':!resources/js/wayfinder')"
+
+      - name: Migrate and build
+        working-directory: app
+        run: |
+          psql -h 127.0.0.1 -U postgres -c 'create database testing'
+          php artisan migrate:fresh --force
+          npm run build
+
+      - name: Architecture
+        working-directory: app
+        run: vendor/bin/pest --testsuite=Architecture
+
+      - name: Unit
+        working-directory: app
+        run: vendor/bin/pest --testsuite=Unit
+
+      - name: Feature
+        working-directory: app
+        run: vendor/bin/pest --testsuite=Feature
+
+      - name: PHPStan
+        working-directory: app
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+      - name: ESLint
+        working-directory: app
+        run: npm run lint:check

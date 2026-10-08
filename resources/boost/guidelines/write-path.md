@@ -46,4 +46,4 @@ Delete{X}Handler:
 ## Exceptions
 An exception is an entry in `rule-overrides.json` with `"rule": "write-path"`, `"check": "outside-infra"` and `"subject"` set to the class. Only the user may add one, with a reason. Changing the list re-runs the analysis, because the list is part of PHPStan's config.
 
-Today's exceptions are the starter-kit code beside Fortify (`App\Actions\Fortify\ResetUserPassword` and the `Settings` controllers). Fortify in vendor already writes the auth columns of `users` (password, 2FA, passkeys, email verification), so that table has a second writer either way.
+The starter kit's account code beside Fortify needs no entry: the rule lets `App\Actions\Fortify` and `App\Http\Controllers\Settings` write. Fortify in vendor already writes the auth columns of `users` (password, 2FA, passkeys, email verification), so that table has a second writer either way.

@@ -11,6 +11,7 @@
 /pint.json          export-ignore
 /testbench.yaml     export-ignore
 /tests/Feature      export-ignore
+/tests/Fixtures     export-ignore
 /tests/Pest.php     export-ignore
 /tests/TestCase.php export-ignore
 /workbench          export-ignore

@@ -247,18 +247,92 @@ function ruleComposerInstalled(): array
 }
 
 /**
- * @return array<string, string> package => installed version, from package-lock.json
+ * The JavaScript lockfile the project keeps: npm's, pnpm's or bun's, whichever is there.
+ */
+function ruleNpmLockfile(): string
+{
+    foreach (['package-lock.json', 'pnpm-lock.yaml', 'bun.lock'] as $lockfile) {
+        if (is_file(ruleProjectPath($lockfile))) {
+            return $lockfile;
+        }
+    }
+
+    return 'package-lock.json';
+}
+
+/**
+ * @return array<string, string> package => installed version, from the lockfile ruleNpmLockfile() names
  */
 function ruleNpmInstalled(): array
 {
+    return match (ruleNpmLockfile()) {
+        'pnpm-lock.yaml' => rulePnpmInstalled((string) file_get_contents(ruleProjectPath('pnpm-lock.yaml'))),
+        'bun.lock' => ruleBunInstalled((string) file_get_contents(ruleProjectPath('bun.lock'))),
+        default => ruleNpmLockInstalled(ruleReadJson('package-lock.json')),
+    };
+}
+
+/**
+ * @param  array<string, mixed>  $lock
+ * @return array<string, string>
+ */
+function ruleNpmLockInstalled(array $lock): array
+{
     $installed = [];
 
-    foreach (ruleReadJson('package-lock.json')['packages'] ?? [] as $path => $package) {
+    foreach ($lock['packages'] ?? [] as $path => $package) {
         if (! str_starts_with($path, 'node_modules/') || str_contains(substr($path, 13), 'node_modules/')) {
             continue;
         }
 
         $installed[substr($path, 13)] = $package['version'] ?? '';
+    }
+
+    return $installed;
+}
+
+/**
+ * The root importer of pnpm-lock.yaml (v6 and later), read without a YAML parser: each direct
+ * dependency is a name at six spaces with its `version:` at eight, the peer suffix cut off.
+ *
+ * @return array<string, string>
+ */
+function rulePnpmInstalled(string $lock): array
+{
+    if (preg_match('/^importers:\n\n?  \.:\n((?:(?:    .*)?\n)*)/m', $lock, $root) !== 1) {
+        return [];
+    }
+
+    preg_match_all("/^      '?([^'\s:]+)'?:\n        specifier: .*\n        version: ([^\s(]+)/m", $root[1], $matches, PREG_SET_ORDER);
+
+    $installed = [];
+
+    foreach ($matches as [, $package, $version]) {
+        $installed[$package] = $version;
+    }
+
+    return $installed;
+}
+
+/**
+ * bun.lock is JSON with trailing commas. Each top-level package reads `"name": ["name@version", …]`;
+ * a nested one is keyed under its parent (`parent/name`).
+ *
+ * @return array<string, string>
+ */
+function ruleBunInstalled(string $lock): array
+{
+    $decoded = json_decode((string) preg_replace('/,(\s*[}\]])/', '$1', $lock), true);
+    $installed = [];
+
+    foreach ((is_array($decoded) ? $decoded['packages'] ?? [] : []) as $package => $entry) {
+        $package = (string) $package;
+
+        if (substr_count($package, '/') > (str_starts_with($package, '@') ? 1 : 0) || ! is_array($entry) || ! is_string($entry[0] ?? null)) {
+            continue;
+        }
+
+        $installed[$package] = substr($entry[0], (int) strrpos($entry[0], '@') + 1);
     }
 
     return $installed;

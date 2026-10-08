@@ -7,7 +7,7 @@ Enforced by the package's `tests/Architecture/RepositoriesTest.php`. The spec in
 ## Kit files
 These live at fixed paths. `php artisan kit:install` writes them from the kit, and *check `kit-files`* fails when one is missing or differs from the kit's copy, so a change to one is a change to the kit.
 - `app/Infra/Persistence/Eloquent/Repositories/EloquentRepository.php` and `WriteMode.php`
-- `app/Infra/Logging/EntityPayloads/EntityLogPayload.php`
+- `app/Infra/Logging/EntityPayloads/EntityLogPayload.php` and the interface it implements, `app/Infra/Logging/HasLogPayload.php`
 - `app/Domain/Shared/Exceptions/RepositoryException.php` and `EntityNotFoundException.php`
 - `app/Domain/Shared/ClonableAggregate.php`
 - `tests/Feature/Infra/Persistence/Eloquent/RepositoryContract.php`

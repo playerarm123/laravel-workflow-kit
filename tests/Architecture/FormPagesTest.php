@@ -27,6 +27,7 @@ require_once __DIR__.'/Support/rules.php';
  *     controllers_path: string,
  *     requests_path: string,
  *     write_methods: list<string>,
+ *     starter_kit: list<string>,
  *     list_command_prefix: string,
  *     form_values_glob: string,
  *     types_path: string,
@@ -66,6 +67,7 @@ function formPagesSpec(): array
         'controllers_path' => 'app/Http/Controllers',
         'requests_path' => 'app/Http/Requests',
         'write_methods' => ['store', 'update'],
+        'starter_kit' => ['App\Http\Controllers\Settings'],
         'list_command_prefix' => 'List',
         'form_values_glob' => 'app/Http/Requests/*/*FormValues.php',
         'types_path' => 'resources/js/types',
@@ -204,6 +206,10 @@ describe('form pages', function () {
         $violations = [];
 
         foreach (formPagesClassesIn(formPagesSpec()['controllers_path']) as $controller) {
+            if (array_filter(formPagesSpec()['starter_kit'], fn (string $namespace): bool => str_starts_with($controller, $namespace.'\\')) !== []) {
+                continue;
+            }
+
             foreach (formPagesSpec()['write_methods'] as $name) {
                 if (! method_exists($controller, $name)) {
                     continue;

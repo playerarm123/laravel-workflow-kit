@@ -26,7 +26,7 @@ These live at fixed paths. `php artisan kit:install` writes them from the kit, a
 - the read-only page every project ships, listed in `page_files` of the spec:
   - the use case `app/Application/Audit/UseCases/ListAuditEntries/`, the sort `app/Application/Audit/AuditEntryListSort.php` and the adapter `app/Infra/Persistence/Eloquent/Queries/EloquentListAuditEntriesQuery.php`, bound in `AuditServiceProvider`
   - `app/Http/Controllers/AuditEntryController.php` and `database/factories/AuditEntryFactory.php`
-  - `resources/js/pages/audit-entries/index.tsx`, `resources/js/components/audit-entry/{detail-dialog,table-toolbar}.tsx` and `resources/js/types/audit-entry.ts`
+  - `resources/js/pages/audit-entries/index.tsx`, `resources/js/components/audit-entry/{detail-dialog,table-toolbar}.tsx`, `resources/js/components/detail-field.tsx` and `resources/js/types/audit-entry.ts`
   - the tests of the handler, the adapter, the controller (`AuditEntryController/IndexTest.php`) and the page (`tests/Browser/AuditEntries/IndexTest.php`)
 
 ## The port
