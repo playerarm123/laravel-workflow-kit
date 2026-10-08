@@ -36,7 +36,7 @@ function stackSpec(): array
                 'pestphp/pest-plugin-browser' => '5',
                 'larastan/larastan' => '3',
                 'laravel/pint' => '1',
-                'playerarm123/laravel-workflow-kit' => '0.1',
+                'playerarm123/laravel-workflow-kit' => '0.2',
             ],
             'optional' => [
                 'intervention/image' => '4',

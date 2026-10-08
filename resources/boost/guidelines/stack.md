@@ -22,7 +22,7 @@ Enforced by the package's `tests/Architecture/StackTest.php` (`php artisan test 
 | UI | react 19 · react-dom 19 · typescript 5 · vite 8 · tailwindcss 4 · @tailwindcss/vite 4 · laravel-vite-plugin 3 |
 | Components | shadcn 4 · radix-ui 1 (the single package, not `@radix-ui/*`) |
 | Icons | lucide-react 1, and `components.json` `"iconLibrary": "lucide"` |
-| Rule kit (dev) | playerarm123/laravel-workflow-kit 0.1, which ships these guidelines and their skills through Boost (`boost.json` `"packages"`) |
+| Rule kit (dev) | playerarm123/laravel-workflow-kit 0.2, which ships these guidelines and their skills through Boost (`boost.json` `"packages"`) |
 
 **Don't** move a package to a new major on your own. A major upgrade changes this file, `stackSpec()` and the code in one reviewed change.
 

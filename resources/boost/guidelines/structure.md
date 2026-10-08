@@ -25,6 +25,7 @@ These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship i
 - *package:* `src/Console/Commands/Structure/StructurePlanner.php`, `StructureMarkers.php` and `PlansStructure.php`, which plan and apply
 - *package:* `src/Console/Commands/KitImportCommand.php` (`kit:import`)
 - *package:* `src/Console/Commands/KitInstallCommand.php` (`kit:install`) with `Structure/KitInstaller.php`, which writes the kit's files from `resources/kit`: `files/` the project keeps as the kit ships them (`--force` puts a changed one back), `scaffold/` written once and owned by the project
+- *package:* `src/Console/Commands/KitSetupCommand.php` (`kit:setup`) with `Setup/`, which sets up a project made from Laravel's React starter kit: the stack's packages, the kit's files, the config and wiring, and the files in `resources/kit/setup` it writes once
 - *package:* `src/Console/Commands/KitPlanCommand.php` (`kit:plan`), `KitApplyCommand.php` (`kit:apply`) and `KitRetireCommand.php` (`kit:retire`), with `Structure/StructureSwapper.php`, which points code at a replacement
 - *package:* `src/Console/Commands/Structure/StructureGraph.php`, which builds what the screen draws, with `StructureEditor.php` and `StructureResourceEditor.php`, which write what it changes in a context and in an HTTP resource
 - `app/Providers/KitServiceProvider.php`, listed in `bootstrap/providers.php`, with `resources/views/kit/structure.blade.php` and the Vite entry `resources/js/kit/structure.tsx`, listed in `vite.config.ts`, and the screen it draws, in the rest of `resources/js/kit/`
