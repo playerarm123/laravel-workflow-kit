@@ -12,7 +12,7 @@ The structure of the project is written down in `.kit/structure/`, one manifest 
   ⇄ /kit/structure                     draws it and changes it, on a local environment only
 ```
 
-The manifest is the source of truth for **structure**: which contexts there are, with each one's aggregates, domain services, ports and use cases, the enums and value objects their aggregates speak in with where each status may go next, the behaviours and assertions of each entity with what each one throws, and which HTTP resources there are, with each one's controller, actions, policy and pages. It is not the truth for behaviour. The body of an entity's method, the rules inside a value object, the methods of an enum other than `transitions()`, the body of a handler and the fields of a form are still written in PHP and TypeScript.
+The manifest is the source of truth for **structure**: which contexts there are, with each one's aggregates, domain services, ports and use cases, the enums and value objects their aggregates speak in with where each status may go next, the exceptions that refuse or reject with where each one lives, the behaviours and assertions of each entity with what each one throws, and which HTTP resources there are, with each one's controller, actions, policy and pages. It is not the truth for behaviour. The body of an entity's method, the rules inside a value object, the methods of an enum other than `transitions()`, the body of a handler and the fields of a form are still written in PHP and TypeScript.
 
 Enforced by the package's `tests/Architecture/StructureManifestTest.php` (`php artisan test --testsuite=Architecture`). The spec in `structureManifestSpec()` is the machine-checked copy of this file: change the two together. The reader and the files are proven in the package's `tests/Feature/Console/Commands/Structure/`, which the project runs as its `Kit` testsuite.
 
@@ -42,7 +42,7 @@ These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship i
         "Crate": { "children": ["Lid"], "repository": true }
     },
     "services": {
-        "PackCrate": { "shape": "creates", "creates": "Crate", "repositories": ["Crate"] }
+        "PackCrate": { "shape": "creates", "creates": "Crate", "repositories": ["Crate"], "exception": false }
     },
     "ports": {
         "Scale": { "layer": "domain", "adapter": "Infra/Shipping/DigitalScale" }
@@ -61,6 +61,11 @@ These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship i
     "valueObjects": {
         "CrateLabel": { "aggregate": "Crate", "fields": { "grade": "CrateGrade", "note": "?string", "price": "Shared/Money" } }
     },
+    "exceptions": {
+        "CrateSealedException": { "kind": "refusal", "aggregate": "Crate", "useCase": null },
+        "CrateLabelInvalidException": { "kind": "value", "aggregate": "Crate", "useCase": null },
+        "CrateQuotaReachedException": { "kind": "application", "aggregate": null, "useCase": "CreateCrate" }
+    },
     "entities": {
         "Crate": {
             "aggregate": "Crate",
@@ -77,7 +82,7 @@ These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship i
 
 Each value is read off the code:
 - `aggregates`: a folder `{Context}/{Aggregate}/` whose `{Aggregate}Entity` extends `AggregateRoot` (layers.md). `children` are the classes in its `Entities/`, and `repository` says whether `{Aggregate}Repository` exists.
-- `services`: `{Context}/Services/{Name}/{Name}Service`. Its `shape` is one of the three `handle()` shapes in layers.md: `creates`, `data` or `plain`. `creates` names the aggregate a `creates` service builds, and is `null` for the other shapes.
+- `services`: `{Context}/Services/{Name}/{Name}Service`. Its `shape` is one of the three `handle()` shapes in layers.md: `creates`, `data` or `plain`. `creates` names the aggregate a `creates` service builds, and is `null` for the other shapes. `exception` says whether `{Name}Exception` sits beside it (`make:domain-service --exception`).
 - `ports`: an interface in `Domain/{Context}/Ports/` (`layer: domain`), or at the root of `Application/{Context}/` (`layer: application`). `adapter` is what a provider's `$bindings` binds it to, as a path under `App`, or `null`.
 - `useCases`: a handler under `Application/{Context}/UseCases/`. Its `shape` is one of the three in handlers.md: `command-result`, `command` or `plain`. The other keys are:
   - `returns`: what the handler returns;
@@ -91,6 +96,12 @@ Each value is read off the code:
   - a class of the shared kernel as `Shared/{Name}`;
   - a class of another aggregate as `{Context}/{Aggregate}/{Name}`;
   - any other class by its full name (`DateTimeImmutable`).
+- `exceptions`: each exception the context's code may throw by name, keyed by its class name, with its `kind` (exceptions.md):
+  - `refusal`: a class in `{Context}/{Aggregate}/Exceptions/` that extends `{Context}DomainException`, with `aggregate` naming the aggregate;
+  - `value`: an invalid value, a class there that extends `DomainValueException`; in the shared kernel, one in `Shared/Exceptions/`, with `aggregate` null;
+  - `application`: a use case's refusal, a class in `Application/{Context}/` that extends `ApplicationException`. `useCase` names the use case whose folder holds it, or is `null` for one at the context's root.
+
+  `useCase` is `null` for the other kinds. Left out: a repository's `{Aggregate}NotFoundException` and `{Aggregate}RepositoryException`, which `repository` owns, the context's base `{Context}DomainException`, a domain service's exception, which its `exception` key owns, and the kit's own exceptions in the shared kernel.
 - `entities`: an aggregate's root or one of its children, by its name without `Entity`, with the public methods it declares itself. `aggregate` names the aggregate that holds it. An entity that declares neither kind of method is left out.
   - `behaviours`: the methods that change the entity: not static, returning `void`, and not named `assert…`.
   - `assertions`: the methods named `assert…`.
@@ -141,7 +152,7 @@ The starter kit's controllers (`App\Http\Controllers\Settings`) and the kit's ow
 
 ## The shared kernel
 
-`.kit/structure/Shared.json` lists the enums and value objects of `app/Domain/Shared/{Enums,ValueObjects}`, which every context may use (layers.md). Its other sections stay empty, because the rest of the shared kernel is the kit's own: its base classes and `IdGenerator`. The kit's `Money` and `Percent` are left out too (numbers.md). An entry of the shared kernel has `"aggregate": null`; an entry of any other context names its aggregate.
+`.kit/structure/Shared.json` lists the enums and value objects of `app/Domain/Shared/{Enums,ValueObjects}`, which every context may use (layers.md), and the invalid values of `app/Domain/Shared/Exceptions` that guard them. Its other sections stay empty, because the rest of the shared kernel is the kit's own: its base classes and `IdGenerator`. The kit's `Money` and `Percent` are left out too (numbers.md), with their exceptions and the kit's own `DomainValueException`, `EntityNotFoundException` and `RepositoryException`. An entry of the shared kernel has `"aggregate": null`; an entry of any other context names its aggregate.
 
 **Do**
 - Keep one manifest for every context under `app/Domain` or `app/Application`, and one for the shared kernel. The kit's other folders (`Audit`, `Auth`, `Concerns`) have none. *Check `in-json`.*
@@ -173,7 +184,8 @@ Each step is a `make:*` generator or one line written into a project file. They 
 |---|---|---|
 | aggregate, child, repository | `make:entity`, `make:entity --child`, `make:eloquent-repository` | the root, for a child or a repository |
 | enum, value object | `make:enum --case=…` (a status adds `--transitions --transition=Case:Next,Next`), `make:value-object --field=…` | for a value object, every enum and class its fields name |
-| exception, method | `make:domain-exception --kind=refusal`, `make:entity-method --param=… --throws=…` | for a method, its entity, every class its parameters name and every exception it throws |
+| exception, method | `make:domain-exception --kind=refusal\|value` (the shared kernel's first, with `--domain=Shared`), `make:entity-method --param=… --throws=…` | for an exception, its aggregate's root; for a method, its entity, every class its parameters name and every exception it throws |
+| use case refusal | `make:domain-exception --kind=application [--use-case=…]` | the use case it names |
 | port, service, use case | `make:port`, `make:domain-service`, `make:use-case` | nothing |
 | binding | a line above `// kit:bindings` | the port and its adapter |
 | model, policy | `make:model --factory`, `make:policy` | nothing |
@@ -183,7 +195,7 @@ Each step is a `make:*` generator or one line written into a project file. They 
 | list page | `make:list-page` | a key other than `id` in its Row's `toArray()` |
 | route | a line above `// kit:routes` | the controller |
 
-An exception step builds only an exception of the method's own aggregate whose name ends with `Exception`. One of the shared kernel or of another aggregate is built by hand, and the method waits for it. `make:entity-method` writes the method with `@throws` and an empty body, and gives the entity's Unit test a `describe()` for it with a todo for the case that passes and one per exception. The `throw` lines are written by hand, and `matches` names each one the body still lacks.
+An exception step builds each exception `exceptions` designs, of its own kind and in its own home, and a domain service's step passes `--exception` when its `exception` is true. A name a method throws that no manifest designs is built as a refusal of the method's own aggregate when it is named bare. One of the shared kernel or of another aggregate is built from the manifest that designs it, and the method waits for it; one no manifest designs is built by hand. `make:entity-method` writes the method with `@throws` and an empty body, and gives the entity's Unit test a `describe()` for it with a todo for the case that passes and one per exception. The `throw` lines are written by hand, and `matches` names each one the body still lacks.
 
 A step that waits for code a person writes (a Command's fields, a Row's keys) is named with its reason. Fill that code in and run `kit:apply` again: a plan is read from the code as it stands, so it picks up where the last run stopped. A step that fails is not run again in the same call.
 
@@ -200,10 +212,10 @@ A step-by-step guide to the screen, with screenshots, is at `/kit/docs/guides/st
 
 Open `/kit/structure` on a local environment. It draws the manifest with React Flow (stack.md):
 - the overview, with one card per context and per HTTP resource, and the calls between them;
-- one context: its aggregates, domain services, ports and use cases, with the repositories each one injects. Its enums and value objects show when the **Vocabulary** switch is on, each tied to the aggregate that holds it and each value object to the classes its fields name. Its entities that list methods show when the **Behaviour** switch is on, each tied to its aggregate as the root or a child, and to the classes its methods' parameters name. The shared kernel's view is its vocabulary alone, so it always shows;
+- one context: its aggregates, domain services, ports and use cases, with the repositories each one injects. Its enums and value objects show when the **Vocabulary** switch is on, each tied to the aggregate that holds it and each value object to the classes its fields name. Its entities that list methods show when the **Behaviour** switch is on, each tied to its aggregate as the root or a child, and to the classes its methods' parameters name. Its exceptions show when the **Exceptions** switch is on, each tied to the aggregate that refuses or rejects with it or to the use case that refuses with it, and, with **Behaviour** on too, to each method that throws it. The shared kernel's view is its vocabulary and its invalid values alone, so they always show;
 - one HTTP resource: its model, policy, controller, actions and pages, with the use cases they call.
 
-Each kind of card has a shape, a colour and an icon of its own, and a legend on the canvas names the kinds the view draws. Shapes follow DDD and hexagonal diagrams: a port is a hexagon, a model a cylinder, a page a sheet, an enum a label tag, a value object a soft-cornered card. Colours follow Event Storming: an aggregate is amber, and so is each of its entities, a use case blue, a list use case green. An enum's card lists its cases, a value object's its fields, and an entity's its methods, up to six lines. A status gets an icon of its own, and its card lists where each case may go (`Open → Sealed`, `Sealed · final`) in place of the values; the side panel lists them all, with each method's parameters and the exceptions it throws. Double-click a card to open what it names. A card of another context opens that context.
+Each kind of card has a shape, a colour and an icon of its own, and a legend on the canvas names the kinds the view draws. Shapes follow DDD and hexagonal diagrams: a port is a hexagon, a model a cylinder, a page a sheet, an enum a label tag, a value object a soft-cornered card, an exception a red card with a warning sign. Colours follow Event Storming: an aggregate is amber, and so is each of its entities, a use case blue, a list use case green. An enum's card lists its cases, a value object's its fields, and an entity's its methods, up to six lines. A status gets an icon of its own, and its card lists where each case may go (`Open → Sealed`, `Sealed · final`) in place of the values; the side panel lists them all, with each method's parameters and the exceptions it throws. Double-click a card to open what it names. A card of another context opens that context.
 
 Every card carries the status `kit:plan` gives it. `done` means it is built. `ready` shows the command `kit:apply` runs, and `waiting` shows what a person writes first. `differs` shows the check's own message where the code is built another way. What the code holds and the manifest does not have a card for is listed beside the diagram as work by hand.
 
@@ -215,7 +227,7 @@ Every card carries the status `kit:plan` gives it. `done` means it is built. `re
 
 ## Editing the manifest
 
-The structure screen changes the manifests too. From the overview, create a context or an HTTP resource. Open a context to add an aggregate, a domain service, a port, a use case, an enum, a value object or a method of an entity, and the shared kernel to add an enum or a value object. Open a resource to add a controller method, an action or a page, or to set its model and the abilities of its policy. Select a card to change or remove what it shows. Every change is saved at once, in canonical form, and git keeps what was there before.
+The structure screen changes the manifests too. From the overview, create a context or an HTTP resource. Open a context to add an aggregate, a domain service (with or without its own exception), a port, a use case, an enum, a value object, an exception or a method of an entity, and the shared kernel to add an enum, a value object or an invalid value. Open a resource to add a controller method, an action or a page, or to set its model and the abilities of its policy. Select a card to change or remove what it shows. Every change is saved at once, in canonical form, and git keeps what was there before.
 
 `StructureEditor` checks each change before it writes it:
 - the manifest's shape, the same checks as `files`;
@@ -233,7 +245,8 @@ The structure screen changes the manifests too. From the overview, create a cont
   - an enum that lists where its cases may go is a status, named `*Status`, and lets at least one case become another (states.md). Each case goes only to other cases of the enum, and a case the form leaves out is final;
   - a field's type is a builtin, a class a manifest designs (an enum, a value object, an entity) or a class the code already has, so a value object can name an enum that is only designed;
   - a method belongs to a root or a child of an aggregate of its own context, and its group follows from its name: an `assert…` method is an assertion, any other a behaviour. Its name and its parameters are camelCase, each parameter's type is one a field could name, and only the last is variadic;
-  - an exception a method throws ends with `Exception`. One of the entity's own aggregate is named bare, and `kit:apply` builds it when it is missing; one of the shared kernel or of another aggregate must exist already, because nothing builds it;
+  - an exception ends with `Exception`. A refusal or an invalid value belongs to an aggregate of its own context, a use case's refusal to a use case of its own context or to none, and the shared kernel holds invalid values only (exceptions.md);
+  - an exception a method throws ends with `Exception`. One of the entity's own aggregate is named bare, and `kit:apply` builds it when it is missing; one of the shared kernel or of another aggregate is one a manifest designs or the code already has;
 - that the manifest did not change on disk since the page loaded.
 
 A refused change comes back under the field that holds it, and nothing is written.
@@ -241,8 +254,8 @@ A refused change comes back under the field that holds it, and nothing is writte
 **Do**
 - Change through the screen only what the code does not have yet. A piece the code already has is locked there, because changing it in the manifest alone would turn `matches` or `in-code` red at once. Changing what is built is a replacement. *Review only.*
 - Change an entity one method at a time. A built entity takes new methods, but a method the code already has is locked, and the entity's entry goes with its last method. The editor keeps an aggregate, and a child, while the manifest lists methods for it. *Review only.*
-- Keep an aggregate's name, and its repository, while a service or a use case in any context injects it, or while it holds an enum or a value object. The editor refuses both, and lists who still needs it. *Review only.*
-- Keep an enum's or a value object's name while a value object's field names it. *Review only.*
+- Keep an aggregate's name, and its repository, while a service or a use case in any context injects it, or while it holds an enum, a value object or an exception. Keep a use case's name while a refusal of its own belongs to it. The editor refuses all of these, and lists who still needs it. *Review only.*
+- Keep an enum's or a value object's name while a value object's field names it, and an exception's while a method throws it. *Review only.*
 - Keep `index` while a list page needs it, and the last of `store` and `update` while a form page posts to it. *Review only.*
 
 **Why:** a design written straight into the manifest is checked against the rules before any code exists, so `kit:apply` never builds a piece the architecture checks would refuse.

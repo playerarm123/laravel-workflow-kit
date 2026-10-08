@@ -606,12 +606,30 @@ final class StructureEditor
         foreach ($throws as $exception) {
             if (! is_string($exception) || preg_match('#^([A-Z][A-Za-z0-9]*/){0,2}[A-Z][A-Za-z0-9]*Exception$#', $exception) !== 1) {
                 $errors['throws'][] = 'An exception is a StudlyCase name ending with Exception, bare or as Shared/Name or Context/Aggregate/Name: '.(is_string($exception) ? $exception : json_encode($exception)).' is not.';
-            } elseif (str_contains($exception, '/') && $this->reader->exceptionClass($exception, $context, $aggregate) === null) {
-                $errors['throws'][] = "The code has no {$exception}, and only one of {$aggregate} is built for you. Write it first.";
+            } elseif (str_contains($exception, '/') && $this->reader->exceptionClass($exception, $context, $aggregate) === null && ! $this->designsException($exception)) {
+                $errors['throws'][] = "No manifest designs {$exception} and the code has none. Add it as an exception of its own context first.";
             }
         }
 
         return $errors;
+    }
+
+    /**
+     * Whether a manifest designs the exception a method names from elsewhere: `Shared/Name` an invalid
+     * value of the shared kernel, `Context/Aggregate/Name` a refusal or invalid value of that aggregate.
+     */
+    private function designsException(string $exception): bool
+    {
+        $segments = explode('/', $exception);
+        $name = (string) array_pop($segments);
+        $owner = $segments[0];
+        $entry = $this->manifest($owner)['exceptions'][$name] ?? null;
+
+        return is_array($entry) && match (count($segments)) {
+            1 => $owner === StructureFiles::SHARED,
+            2 => $entry['kind'] !== 'application' && $entry['aggregate'] === $segments[1],
+            default => false,
+        };
     }
 
     /**
@@ -781,8 +799,18 @@ final class StructureEditor
             $errors = $this->merge($errors, $this->useCaseErrors($context, $name, $entry));
         }
 
-        if ($context === StructureFiles::SHARED && ! in_array($section, self::VOCABULARY, true)) {
-            $errors['section'][] = 'The shared kernel lists only enums and value objects.';
+        if ($context === StructureFiles::SHARED && ! in_array($section, [...self::VOCABULARY, 'exceptions'], true)) {
+            $errors['section'][] = 'The shared kernel lists only enums, value objects and invalid values.';
+        }
+
+        if ($section === 'exceptions' && $context !== StructureFiles::SHARED) {
+            if ($entry['kind'] !== 'application' && ! (is_string($entry['aggregate']) && isset($aggregates[$entry['aggregate']]))) {
+                $errors['aggregate'][] = "{$context} has no aggregate ".(is_string($entry['aggregate']) ? $entry['aggregate'] : '').' to hold it.';
+            }
+
+            if (is_string($entry['useCase']) && ! isset($manifest['useCases'][$entry['useCase']])) {
+                $errors['useCase'][] = "{$context} has no use case {$entry['useCase']}.";
+            }
         }
 
         if (in_array($section, self::VOCABULARY, true)) {
@@ -915,8 +943,56 @@ final class StructureEditor
         return match ($section) {
             'aggregates' => $this->referencesTo($context, $name),
             'enums', 'valueObjects' => $this->fieldUsersOf($context, $name),
+            'exceptions' => $this->throwersOf($context, $name),
+            'useCases' => $this->refusalsOf($context, $name),
             default => [],
         };
+    }
+
+    /**
+     * The entity methods, in any context, whose `throws` name this exception: bare inside its own
+     * aggregate, `Shared/Name` from the shared kernel, `Context/Aggregate/Name` anywhere else.
+     *
+     * @return list<string>
+     */
+    private function throwersOf(string $context, string $name): array
+    {
+        $holder = $this->manifest($context)['exceptions'][$name]['aggregate'] ?? null;
+        $names = $context === StructureFiles::SHARED ? [StructureFiles::SHARED."/{$name}"] : ["{$context}/{$holder}/{$name}"];
+        $users = [];
+
+        foreach ($this->files->contexts() as $owner) {
+            /** @var array<string, array{aggregate: string, behaviours: array<string, array{throws: list<string>}>, assertions: array<string, array{throws: list<string>}>}> $entities */
+            $entities = $this->manifest($owner)['entities'] ?? [];
+
+            foreach ($entities as $entity => $entry) {
+                $bare = $owner === $context && $entry['aggregate'] === $holder ? [$name] : [];
+
+                foreach ([...$entry['behaviours'], ...$entry['assertions']] as $method => $definition) {
+                    if (array_intersect($definition['throws'], [...$names, ...$bare]) !== []) {
+                        $users[] = "{$owner}/{$entity}::{$method}";
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($users));
+    }
+
+    /**
+     * The use case refusals this context designs in a use case's folder.
+     *
+     * @return list<string>
+     */
+    private function refusalsOf(string $context, string $useCase): array
+    {
+        /** @var array<string, array{useCase: string|null}> $exceptions */
+        $exceptions = $this->manifest($context)['exceptions'] ?? [];
+
+        return array_map(
+            fn (string $exception): string => "{$context}/{$exception}",
+            array_keys(array_filter($exceptions, fn (array $entry): bool => $entry['useCase'] === $useCase)),
+        );
     }
 
     /**
@@ -1003,7 +1079,7 @@ final class StructureEditor
     {
         $users = [];
 
-        foreach ($repositoriesOnly ? [] : [...self::VOCABULARY, 'entities'] as $section) {
+        foreach ($repositoriesOnly ? [] : [...self::VOCABULARY, 'exceptions', 'entities'] as $section) {
             /** @var array<string, array{aggregate: string|null}> $entries */
             $entries = $this->manifest($context)[$section] ?? [];
 

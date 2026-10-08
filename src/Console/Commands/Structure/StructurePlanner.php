@@ -166,6 +166,11 @@ final class StructurePlanner
 
         $planned = [];
 
+        foreach ($this->exceptionSteps($context, $manifest['exceptions']) as $step) {
+            $planned[$step['key']] = true;
+            $steps[] = $step;
+        }
+
         foreach ($entities as $entity => $entry) {
             foreach ($this->entitySteps($context, $entity, $entry) as $step) {
                 if (! isset($planned[$step['key']])) {
@@ -264,7 +269,7 @@ final class StructurePlanner
 
             $replaces = is_string($entry['replaces'] ?? null) ? $entry['replaces'] : null;
 
-            if ($replaces !== null && is_file($this->rootOf()."/app/Domain/{$context}/Services/{$replaces}/{$replaces}Exception.php")) {
+            if (($entry['exception'] ?? false) === true || ($replaces !== null && is_file($this->rootOf()."/app/Domain/{$context}/Services/{$replaces}/{$replaces}Exception.php"))) {
                 $arguments['--exception'] = true;
             }
 
@@ -318,6 +323,62 @@ final class StructurePlanner
             if (is_string($entry['replaces'] ?? null)) {
                 $steps[] = $this->useCaseSwap($context, $entry['replaces'], $useCase, $entry['query']);
             }
+        }
+
+        return $steps;
+    }
+
+    /**
+     * The steps that build the exceptions a manifest designs (exceptions.md), each with the
+     * make:domain-exception its kind takes. An aggregate's refusal or invalid value is keyed as the
+     * exception a method's `throws` would build, so a designed one stands in for it. A use case's
+     * refusal waits for the use case whose folder it goes in.
+     *
+     * @param  array<string, array{kind: string, aggregate: string|null, useCase: string|null}>  $exceptions
+     * @return list<PlannedStep>
+     */
+    private function exceptionSteps(string $context, array $exceptions): array
+    {
+        $steps = [];
+
+        foreach ($exceptions as $exception => $entry) {
+            $name = (string) preg_replace('/Exception$/', '', $exception);
+            $node = [StructureComparer::contextNode($context, 'exceptions', $exception)];
+
+            if ($entry['kind'] === 'application') {
+                $useCase = $entry['useCase'];
+                $arguments = ['name' => $name, '--domain' => $context, '--kind' => 'application'];
+                $namespace = "App\\Application\\{$context}";
+
+                if ($useCase !== null) {
+                    $arguments['--use-case'] = $useCase;
+                    $namespace .= "\\UseCases\\{$useCase}";
+                }
+
+                $steps[] = $this->generator(
+                    7,
+                    'exception '.($useCase === null ? $context : "{$context}/{$useCase}")."/{$exception}",
+                    class_exists("{$namespace}\\{$exception}"),
+                    $useCase !== null && $this->handlerClass($context, $useCase) === null ? "the use case {$context}/{$useCase} comes first" : null,
+                    'make:domain-exception',
+                    $arguments,
+                    $node,
+                );
+
+                continue;
+            }
+
+            $domain = $context === StructureFiles::SHARED ? StructureFiles::SHARED : "{$context}/{$entry['aggregate']}";
+
+            $steps[] = $this->generator(
+                $context === StructureFiles::SHARED ? 1 : 2,
+                "exception {$domain}/{$exception}",
+                class_exists('App\\Domain\\'.str_replace('/', '\\', $domain)."\\Exceptions\\{$exception}"),
+                null,
+                'make:domain-exception',
+                ['name' => $name, '--domain' => $domain, '--kind' => $entry['kind']],
+                $node,
+            );
         }
 
         return $steps;

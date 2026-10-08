@@ -123,7 +123,7 @@ describe('StructureEditor', function () {
     describe('createContext', function () {
         it('writes the empty manifest of a new context', function () {
             expect(samplingEditor()->createContext(SAMPLING_EDIT_NEW))->toBe([])
-                ->and(samplingEditManifest(SAMPLING_EDIT_NEW))->toBe(['context' => SAMPLING_EDIT_NEW, 'aggregates' => [], 'services' => [], 'ports' => [], 'useCases' => [], 'enums' => [], 'valueObjects' => [], 'entities' => []]);
+                ->and(samplingEditManifest(SAMPLING_EDIT_NEW))->toBe(['context' => SAMPLING_EDIT_NEW, 'aggregates' => [], 'services' => [], 'ports' => [], 'useCases' => [], 'enums' => [], 'valueObjects' => [], 'exceptions' => [], 'entities' => []]);
         });
 
         it('refuses a name that is not a new context of the project', function (string $name, string $message) {
@@ -266,7 +266,7 @@ describe('StructureEditor', function () {
             $before = (new StructureFiles(base_path()))->version('Shared');
 
             expect(samplingEditor()->savePiece('Shared', $before, 'aggregates', null, 'SamplingEditCrate', ['children' => [], 'repository' => false]))
-                ->toBe(['section' => ['The shared kernel lists only enums and value objects.']])
+                ->toBe(['section' => ['The shared kernel lists only enums, value objects and invalid values.']])
                 ->and((new StructureFiles(base_path()))->version('Shared'))->toBe($before);
         });
 
@@ -490,8 +490,8 @@ describe('StructureEditor', function () {
             it('starts replacing a domain service beside the old one', function () {
                 expect(samplingEditor()->replace(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'services', 'PackCrate', 'PackCrateTightly'))->toBe([])
                     ->and(samplingEditManifest()['services'])->toBe([
-                        'PackCrate' => ['shape' => 'plain', 'creates' => null, 'repositories' => ['Crate']],
-                        'PackCrateTightly' => ['shape' => 'plain', 'creates' => null, 'repositories' => ['Crate'], 'replaces' => 'PackCrate'],
+                        'PackCrate' => ['shape' => 'plain', 'creates' => null, 'repositories' => ['Crate'], 'exception' => false],
+                        'PackCrateTightly' => ['shape' => 'plain', 'creates' => null, 'repositories' => ['Crate'], 'exception' => false, 'replaces' => 'PackCrate'],
                     ]);
             });
 
@@ -511,12 +511,57 @@ describe('StructureEditor', function () {
                 $editor->replace(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'services', 'PackCrate', 'PackCrateTightly');
 
                 expect($editor->cancelReplacement(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'services', 'PackCrateTightly'))->toBe([])
-                    ->and(samplingEditManifest()['services'])->toBe(['PackCrate' => ['shape' => 'plain', 'creates' => null, 'repositories' => ['Crate']]]);
+                    ->and(samplingEditManifest()['services'])->toBe(['PackCrate' => ['shape' => 'plain', 'creates' => null, 'repositories' => ['Crate'], 'exception' => false]]);
             });
         });
 
         it('refuses a piece that replaces nothing', function () {
             expect(samplingEditor()->cancelReplacement(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'useCases', 'LoadPallet'))->toHaveKey('name');
+        });
+    });
+
+    describe('exceptions', function () {
+        $refusal = fn (string $aggregate): array => ['kind' => 'refusal', 'aggregate' => $aggregate, 'useCase' => null];
+
+        it('designs an exception of each kind, in the home its kind gives it', function () {
+            $editor = samplingEditor();
+
+            expect($editor->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'exceptions', null, 'CrateLostException', ['kind' => 'refusal', 'aggregate' => 'Crate']))->toBe([])
+                ->and($editor->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'exceptions', null, 'CrateBentException', ['kind' => 'value', 'aggregate' => 'Crate', 'useCase' => '']))->toBe([])
+                ->and($editor->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'exceptions', null, 'PalletLateException', ['kind' => 'application', 'aggregate' => null, 'useCase' => 'LoadPallet']))->toBe([])
+                ->and(samplingEditManifest()['exceptions'])->toBe([
+                    'CrateBentException' => ['kind' => 'value', 'aggregate' => 'Crate', 'useCase' => null],
+                    'CrateLostException' => ['kind' => 'refusal', 'aggregate' => 'Crate', 'useCase' => null],
+                    'PalletLateException' => ['kind' => 'application', 'aggregate' => null, 'useCase' => 'LoadPallet'],
+                ]);
+        });
+
+        it('refuses an aggregate or a use case the context does not have, and a name without Exception', function () {
+            $editor = samplingEditor();
+
+            expect($editor->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'exceptions', null, 'LorryLostException', ['kind' => 'refusal', 'aggregate' => 'Lorry']))->toHaveKey('aggregate')
+                ->and($editor->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'exceptions', null, 'LorryLateException', ['kind' => 'application', 'aggregate' => null, 'useCase' => 'DriveLorry']))->toHaveKey('useCase')
+                ->and($editor->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'exceptions', null, 'CrateLost', ['kind' => 'refusal', 'aggregate' => 'Crate']))->toHaveKey('name')
+                ->and(samplingEditManifest()['exceptions'])->toBe([]);
+        });
+
+        it('keeps an exception a method throws, an aggregate it lives in and a use case it refuses for', function () use ($refusal) {
+            $editor = samplingEditor();
+            $editor->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'exceptions', null, 'CrateLostException', $refusal('Pallet'));
+            $editor->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'exceptions', null, 'PalletLateException', ['kind' => 'application', 'aggregate' => null, 'useCase' => 'LoadPallet']);
+            $editor->saveMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', null, 'stack', [], [SAMPLING_EDIT_CONTEXT.'/Pallet/CrateLostException']);
+
+            expect($editor->removePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'exceptions', 'CrateLostException')['name'][0])->toContain(SAMPLING_EDIT_CONTEXT.'/Crate::stack')
+                ->and($editor->removePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'aggregates', 'Pallet')['name'][0])->toContain(SAMPLING_EDIT_CONTEXT.'/CrateLostException')
+                ->and($editor->removePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'useCases', 'LoadPallet')['name'][0])->toContain(SAMPLING_EDIT_CONTEXT.'/PalletLateException');
+        });
+
+        it('lets a method throw an exception another context designs, but not one nobody designs', function () use ($refusal) {
+            $editor = samplingEditor();
+            $editor->savePiece(SAMPLING_EDIT_OTHER, samplingEditVersion(SAMPLING_EDIT_OTHER), 'exceptions', null, 'BinFullException', $refusal('Bin'));
+
+            expect($editor->saveMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', null, 'stack', [], [SAMPLING_EDIT_OTHER.'/Bin/BinFullException']))->toBe([])
+                ->and($editor->saveMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', null, 'tip', [], [SAMPLING_EDIT_OTHER.'/Bin/BinGoneException']))->toHaveKey('throws');
         });
     });
 

@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\File;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureFiles;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureReader;
 
 /**
@@ -56,6 +57,14 @@ function writeSamplingReaderFixtures(): void
         "Domain/{$context}/Pallet/ValueObjects/PalletSpot.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Pallet\\ValueObjects;\n\nfinal class PalletSpot {}\n",
         'Domain/Shared/Enums/SamplingReaderTone.php' => "<?php\n\nnamespace App\\Domain\\Shared\\Enums;\n\nenum SamplingReaderTone: string\n{\n    case Loud = 'loud';\n}\n",
         'Domain/Shared/ValueObjects/SamplingReaderSpan.php' => "<?php\n\nnamespace App\\Domain\\Shared\\ValueObjects;\n\nuse App\\Domain\\Shared\\Enums\\SamplingReaderTone;\n\nfinal class SamplingReaderSpan\n{\n    public function __construct(private SamplingReaderTone \$tone, private Money \$price) {}\n}\n",
+        "Domain/{$context}/Exceptions/{$context}DomainException.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Exceptions;\n\nabstract class {$context}DomainException extends \\App\\Domain\\Shared\\DomainException {}\n",
+        "Domain/{$context}/Crate/Exceptions/CrateLostException.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\Exceptions;\n\nuse App\\Domain\\{$context}\\Exceptions\\{$context}DomainException;\n\nfinal class CrateLostException extends {$context}DomainException {}\n",
+        "Domain/{$context}/Crate/Exceptions/CrateWeightException.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\Exceptions;\n\nuse App\\Domain\\Shared\\Exceptions\\DomainValueException;\n\nfinal class CrateWeightException extends DomainValueException {}\n",
+        "Domain/{$context}/Crate/Exceptions/CrateNotFoundException.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\Exceptions;\n\nuse App\\Domain\\Shared\\Exceptions\\EntityNotFoundException;\n\nfinal class CrateNotFoundException extends EntityNotFoundException {}\n",
+        "Domain/{$context}/Services/PackCrate/PackCrateException.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Services\\PackCrate;\n\nfinal class PackCrateException extends \\App\\Domain\\Shared\\DomainException {}\n",
+        "Application/{$context}/CrateQuotaException.php" => "<?php\n\nnamespace App\\Application\\{$context};\n\nuse App\\Application\\ApplicationException;\n\nfinal class CrateQuotaException extends ApplicationException {}\n",
+        "Application/{$context}/UseCases/CreateCrate/CrateTakenException.php" => "<?php\n\nnamespace App\\Application\\{$context}\\UseCases\\CreateCrate;\n\nuse App\\Application\\ApplicationException;\n\nfinal class CrateTakenException extends ApplicationException {}\n",
+        'Domain/Shared/Exceptions/SamplingReaderSpanException.php' => "<?php\n\nnamespace App\\Domain\\Shared\\Exceptions;\n\nfinal class SamplingReaderSpanException extends DomainValueException {}\n",
     ];
 
     foreach ($fixtures as $relative => $contents) {
@@ -106,6 +115,7 @@ function forgetSamplingReaderFixtures(): void
     ]));
     File::delete(app_path('Domain/Shared/Enums/SamplingReaderTone.php'));
     File::delete(app_path('Domain/Shared/ValueObjects/SamplingReaderSpan.php'));
+    File::delete(app_path('Domain/Shared/Exceptions/SamplingReaderSpanException.php'));
     File::deleteDirectory(resource_path('js/pages/sampling-trays'));
     File::deleteDirectory(resource_path('js/pages/sampling-reports'));
 
@@ -143,8 +153,8 @@ describe('StructureReader', function () {
 
         it('reads each domain service with its shape and the repositories it injects', function () {
             expect($this->reader->read(SAMPLING_READER_CONTEXT)['services'])->toBe([
-                'PackCrate' => ['shape' => 'creates', 'creates' => 'Crate', 'repositories' => ['Crate']],
-                'WeighCrate' => ['shape' => 'plain', 'creates' => null, 'repositories' => []],
+                'PackCrate' => ['shape' => 'creates', 'creates' => 'Crate', 'repositories' => ['Crate'], 'exception' => true],
+                'WeighCrate' => ['shape' => 'plain', 'creates' => null, 'repositories' => [], 'exception' => false],
             ]);
         });
 
@@ -172,6 +182,7 @@ describe('StructureReader', function () {
                 'useCases' => [],
                 'enums' => [],
                 'valueObjects' => [],
+                'exceptions' => [],
                 'entities' => [],
             ]);
         });
@@ -233,6 +244,54 @@ describe('StructureReader', function () {
         });
     });
 
+    describe('exceptions', function () {
+        it('reads each refusal, invalid value and use case refusal by kind and home, and leaves out what another generator owns', function () {
+            expect($this->reader->read(SAMPLING_READER_CONTEXT)['exceptions'])->toBe([
+                'CrateLostException' => ['kind' => 'refusal', 'aggregate' => 'Crate', 'useCase' => null],
+                'CrateQuotaException' => ['kind' => 'application', 'aggregate' => null, 'useCase' => null],
+                'CrateTakenException' => ['kind' => 'application', 'aggregate' => null, 'useCase' => 'CreateCrate'],
+                'CrateWeightException' => ['kind' => 'value', 'aggregate' => 'Crate', 'useCase' => null],
+            ]);
+        });
+
+        it('reads the shared kernel\'s invalid values, the kit\'s own aside', function () {
+            expect($this->reader->read('Shared')['exceptions'])->toHaveKey('SamplingReaderSpanException')
+                ->and($this->reader->read('Shared')['exceptions']['SamplingReaderSpanException'])->toBe(['kind' => 'value', 'aggregate' => null, 'useCase' => null])
+                ->and(array_keys($this->reader->read('Shared')['exceptions']))->not->toContain(...StructureReader::KIT_SHARED_EXCEPTIONS);
+        });
+
+        it('names the class of an exception, wherever it lives', function () {
+            $context = SAMPLING_READER_CONTEXT;
+
+            expect($this->reader->classOf($context, 'exceptions', 'CrateLostException'))->toBe("App\\Domain\\{$context}\\Crate\\Exceptions\\CrateLostException")
+                ->and($this->reader->classOf($context, 'exceptions', 'CrateTakenException'))->toBe("App\\Application\\{$context}\\UseCases\\CreateCrate\\CrateTakenException");
+        });
+
+        it('lets a manifest written before exceptions read what it predates from the code, so a project that has them stays as it was', function () {
+            $context = SAMPLING_READER_CONTEXT;
+            $path = base_path(".kit/structure/{$context}.json");
+            File::put($path, (string) json_encode([
+                'context' => $context,
+                'aggregates' => [], 'ports' => [], 'useCases' => [], 'enums' => [], 'valueObjects' => [], 'entities' => [],
+                'services' => [
+                    'PackCrate' => ['shape' => 'creates', 'creates' => 'Crate', 'repositories' => ['Crate']],
+                    'WeighCrate' => ['shape' => 'plain', 'creates' => null, 'repositories' => []],
+                ],
+            ]));
+
+            try {
+                $read = (new StructureFiles(base_path()))->read($context);
+            } finally {
+                File::delete($path);
+            }
+
+            expect($read['exceptions'])->toBe($this->reader->read($context)['exceptions'])
+                ->and($read['exceptions'])->toHaveKey('CrateLostException')
+                ->and($read['services']['PackCrate']['exception'])->toBeTrue()
+                ->and($read['services']['WeighCrate']['exception'])->toBeFalse();
+        });
+    });
+
     describe('clashes', function () {
         it('names an enum two aggregates of one context both declare', function () {
             expect($this->reader->clashes(SAMPLING_READER_CONTEXT))->toBe(['enums' => ['CrateGrade' => ['Crate', 'Pallet']]]);
@@ -265,7 +324,7 @@ describe('StructureReader', function () {
 
             expect($this->reader->exceptionClass('CrateSealedException', $context, 'Crate'))->toBe("App\\Domain\\{$context}\\Crate\\Exceptions\\CrateSealedException")
                 ->and($this->reader->exceptionClass('Shared/InvalidMoneyException', $context, 'Crate'))->toBe('App\\Domain\\Shared\\Exceptions\\InvalidMoneyException')
-                ->and($this->reader->exceptionClass('CrateLostException', $context, 'Crate'))->toBeNull()
+                ->and($this->reader->exceptionClass('CrateStolenException', $context, 'Crate'))->toBeNull()
                 ->and($this->reader->exceptionClass('CrateGrade', $context, 'Crate'))->toBeNull();
         });
     });

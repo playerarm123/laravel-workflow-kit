@@ -278,11 +278,12 @@ final class StructureGraph
         }
 
         [$vocabularyNodes, $vocabularyEdges, $vocabularyExternal] = $this->vocabulary($context, $manifest, $built);
+        [$exceptionNodes, $exceptionEdges] = $this->exceptions($context, $manifest, $built);
         [$entityNodes, $entityEdges, $entityExternal] = $this->entities($context, $manifest);
 
         return [
-            'nodes' => [...$nodes, ...$vocabularyNodes, ...$entityNodes, ...array_values([...$external, ...$vocabularyExternal, ...$entityExternal])],
-            'edges' => $this->unique([...$edges, ...$vocabularyEdges, ...$entityEdges]),
+            'nodes' => [...$nodes, ...$vocabularyNodes, ...$exceptionNodes, ...$entityNodes, ...array_values([...$external, ...$vocabularyExternal, ...$entityExternal])],
+            'edges' => $this->unique([...$edges, ...$vocabularyEdges, ...$exceptionEdges, ...$entityEdges]),
         ];
     }
 
@@ -364,6 +365,44 @@ final class StructureGraph
     }
 
     /**
+     * A context's exceptions (exceptions.md), each tied to what refuses with it: an aggregate's
+     * refusal or invalid value to the aggregate, a use case's refusal to its use case.
+     *
+     * @param  array<string, mixed>  $manifest
+     * @param  array<string, mixed>  $built  what the code holds, as StructureReader::read() reads it
+     * @return array{0: list<Node>, 1: list<Edge>}
+     */
+    private function exceptions(string $context, array $manifest, array $built): array
+    {
+        $nodes = [];
+        $edges = [];
+
+        /** @var array<string, array{kind: string, aggregate: string|null, useCase: string|null}> $exceptions */
+        $exceptions = $manifest['exceptions'];
+        /** @var array<string, mixed> $builtExceptions */
+        $builtExceptions = $built['exceptions'] ?? [];
+
+        foreach ($exceptions as $exception => $entry) {
+            $id = StructureComparer::contextNode($context, 'exceptions', $exception);
+            $nodes[] = $this->node($id, 'exception', $exception, [
+                ['refusal' => 'refusal', 'value' => 'invalid value', 'application' => 'use case refusal'][$entry['kind']] ?? $entry['kind'],
+                ...($entry['aggregate'] !== null ? ["in {$entry['aggregate']}"] : []),
+                ...($entry['useCase'] !== null ? ["of {$entry['useCase']}"] : []),
+            ], editable: ! isset($builtExceptions[$exception]), variant: $entry['kind']);
+
+            if ($entry['aggregate'] !== null && isset($manifest['aggregates'][$entry['aggregate']])) {
+                $edges[] = $this->edge("aggregate:{$context}/{$entry['aggregate']}", $id, $entry['kind'] === 'value' ? 'rejects' : 'refuses');
+            }
+
+            if ($entry['useCase'] !== null && isset($manifest['useCases'][$entry['useCase']])) {
+                $edges[] = $this->edge("useCase:{$context}/{$entry['useCase']}", $id, 'refuses');
+            }
+        }
+
+        return [$nodes, $edges];
+    }
+
+    /**
      * A context's entities that list methods: each tied to the aggregate that holds it, as its root
      * or a child, and to the classes its methods' parameters name, each line labelled with the
      * method. A card is never editable as a whole: the screen changes one method at a time, and
@@ -394,6 +433,21 @@ final class StructureGraph
             foreach ([...$entry['behaviours'], ...$entry['assertions']] as $method => $definition) {
                 $lines[] = $method.'('.implode(', ', $definition['params']).')';
 
+                foreach ($definition['throws'] as $exception) {
+                    $target = $this->exceptionTarget($context, $entry['aggregate'], $exception, $manifest);
+
+                    if ($target === null) {
+                        continue;
+                    }
+
+                    if (str_starts_with($target, 'external:')) {
+                        $owner = explode('/', substr($target, strlen('external:')))[0];
+                        $external[$target] = $this->node($target, 'external', str_replace('/', ' / ', substr($target, strlen('external:'))), [], ['view' => 'context', 'name' => $owner]);
+                    }
+
+                    $edges[] = $this->edge($id, $target, (string) $method);
+                }
+
                 foreach ($definition['params'] as $type) {
                     foreach (preg_split('/[|&]/', ltrim((string) preg_replace('/^\.\.\./', '', $type), '?')) ?: [] as $part) {
                         $target = $this->typeTarget($context, $part, $enums, $valueObjects, $aggregates);
@@ -420,6 +474,30 @@ final class StructureGraph
         }
 
         return [$nodes, $edges, $external];
+    }
+
+    /**
+     * The card a method's exception points at: a designed exception of this context, a card that
+     * opens the context of one designed elsewhere, or null for one no manifest designs.
+     *
+     * @param  array<string, mixed>  $manifest
+     */
+    private function exceptionTarget(string $context, string $aggregate, string $exception, array $manifest): ?string
+    {
+        $segments = explode('/', $exception);
+        $name = (string) array_pop($segments);
+        $owner = $segments === [] ? $context : $segments[0];
+        $holder = $segments[1] ?? ($segments === [] ? $aggregate : null);
+
+        if ($owner === $context) {
+            $entry = $manifest['exceptions'][$name] ?? null;
+
+            return is_array($entry) && $entry['aggregate'] === $holder ? StructureComparer::contextNode($context, 'exceptions', $name) : null;
+        }
+
+        $elsewhere = $this->files->exists($owner) ? $this->files->read($owner) : null;
+
+        return is_array($elsewhere) && is_array($elsewhere['exceptions'][$name] ?? null) ? 'external:'.$exception : null;
     }
 
     /**

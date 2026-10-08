@@ -72,6 +72,8 @@ Every `lang/*.json` carries the keys the kit speaks: `common.forbidden`, `common
 | Refusal of a domain service | `php artisan make:domain-service {Name} --domain={Context} --exception` |
 | Not found, failure | `php artisan make:eloquent-repository` writes both |
 
+A refusal, an invalid value or a use case's refusal can be designed on `/kit/structure` instead, and a domain service's exception with the service, so `kit:apply` runs the command above (structure.md).
+
 **Don't** run Laravel's `make:exception`. It writes to `app/Exceptions` with `render()` and `report()`. An exception carries a reason and leaves the answer to its catcher and `ExceptionResponses`. *Check `home`.*
 
 ## Refusals in a controller

@@ -126,6 +126,44 @@ describe('StructureComparer', function () {
                 ->and($plain)->toContain(['matches', 'enums.CrateStatus.transitions is '.$inCode.' in the code but null in the manifest']);
         });
 
+        it('tells an exception only the code has, one only the manifest has, one of another kind, and a service exception still to write', function () {
+            $context = SAMPLING_COMPARE_CONTEXT;
+            File::deleteDirectory(app_path("Domain/{$context}/Pallet"));
+            $classes = [
+                "Domain/{$context}/Exceptions/{$context}DomainException.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Exceptions;\n\nabstract class {$context}DomainException extends \\App\\Domain\\Shared\\DomainException {}\n",
+                "Domain/{$context}/Crate/Exceptions/CrateBrokenException.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\Exceptions;\n\nfinal class CrateBrokenException extends \\App\\Domain\\{$context}\\Exceptions\\{$context}DomainException {}\n",
+                "Domain/{$context}/Crate/Exceptions/CrateBentException.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\Exceptions;\n\nfinal class CrateBentException extends \\App\\Domain\\Shared\\Exceptions\\DomainValueException {}\n",
+                "Domain/{$context}/Services/PackCrate/PackCrateService.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Services\\PackCrate;\n\nfinal class PackCrateService\n{\n    public function handle(): void {}\n}\n",
+            ];
+
+            foreach ($classes as $relative => $contents) {
+                File::ensureDirectoryExists(dirname(app_path($relative)));
+                File::put(app_path($relative), $contents);
+            }
+
+            (new StructureFiles(base_path()))->write([
+                'context' => $context,
+                'aggregates' => ['Crate' => ['children' => [], 'repository' => false]],
+                'services' => ['PackCrate' => ['shape' => 'plain', 'creates' => null, 'repositories' => [], 'exception' => true]],
+                'enums' => [
+                    'CrateGrade' => ['aggregate' => 'Crate', 'backing' => 'string', 'cases' => ['Top' => 'top', 'Low' => 'low']],
+                    'CrateStatus' => samplingCompareStatus(['Open' => ['Sealed', 'Shipped'], 'Sealed' => ['Shipped'], 'Shipped' => []]),
+                ],
+                'exceptions' => [
+                    'CrateBentException' => ['kind' => 'refusal', 'aggregate' => 'Crate', 'useCase' => null],
+                    'CrateLostException' => ['kind' => 'refusal', 'aggregate' => 'Crate', 'useCase' => null],
+                ],
+            ]);
+
+            $differences = samplingCompareDifferences(withNode: true);
+
+            expect($differences)->toContain(
+                ['in-json', 'is not in .kit/structure/'.$context.'.json — add it under "exceptions" (`php artisan kit:import --context='.$context.' --force` reads the whole file back from the code)', null],
+                ['in-code', 'lists exceptions.CrateLostException, which the code does not have yet — build it, or take it out of the manifest', 'exception:'.$context.'/CrateLostException'],
+                ['matches', 'exceptions.CrateBentException.kind is "value" in the code but "refusal" in the manifest', 'exception:'.$context.'/CrateBentException'],
+            )->and(array_column($differences, 1))->toContain('services.PackCrate.exception is true in the manifest, but the code has no PackCrateException beside the service — write it by hand, extending DomainException (make:domain-service adds one only to a service it builds)');
+        });
+
         it('tells each method of an entity apart: one only the code has, one only the manifest has, and one that throws something else', function () {
             $context = SAMPLING_COMPARE_CONTEXT;
             File::deleteDirectory(app_path("Domain/{$context}/Crate"));

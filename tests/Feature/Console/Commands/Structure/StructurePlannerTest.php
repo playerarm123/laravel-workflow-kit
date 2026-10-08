@@ -53,7 +53,7 @@ function writeSamplingPlanFixtures(): void
         ],
         'services' => [
             'PackSack' => ['shape' => 'creates', 'creates' => 'Sack', 'repositories' => ['Sack']],
-            'WeighSack' => ['shape' => 'plain', 'creates' => null, 'repositories' => ['Sack']],
+            'WeighSack' => ['shape' => 'plain', 'creates' => null, 'repositories' => ['Sack'], 'exception' => true],
         ],
         'ports' => [
             'Weigher' => ['layer' => 'domain', 'adapter' => 'Infra/Scales/DigitalWeigher'],
@@ -77,6 +77,13 @@ function writeSamplingPlanFixtures(): void
         'valueObjects' => [
             'SackSeal' => ['aggregate' => 'Sack', 'fields' => ['colour' => 'SackColour', 'code' => 'string|int', 'price' => 'Shared/Money']],
             'SackTag' => ['aggregate' => 'Sack', 'fields' => ['grade' => 'SackGrade', 'note' => '?string', 'bin' => 'Elsewhere/Bin/BinKind']],
+        ],
+        'exceptions' => [
+            'SackFullException' => ['kind' => 'refusal', 'aggregate' => 'Sack', 'useCase' => null],
+            'SackWetException' => ['kind' => 'value', 'aggregate' => 'Sack', 'useCase' => null],
+            'SamplingPlanQuotaException' => ['kind' => 'application', 'aggregate' => null, 'useCase' => null],
+            'SackTakenException' => ['kind' => 'application', 'aggregate' => null, 'useCase' => 'ShipSack'],
+            'StitchRefusedException' => ['kind' => 'application', 'aggregate' => null, 'useCase' => 'StitchSack'],
         ],
         'entities' => [
             'Sack' => [
@@ -201,6 +208,17 @@ describe('StructurePlanner', function () {
                 ->and($steps)->not->toHaveKey("exception {$domain}/Shared/SamplingPlanScaleException");
         });
 
+        it('builds each exception the manifest designs with the generator its kind takes, a use case\'s once the use case exists', function () {
+            $steps = samplingPlanSteps();
+            $domain = SAMPLING_PLAN_CONTEXT;
+
+            expect($steps["exception {$domain}/Sack/SackWetException"])->toBe([StructurePlanner::READY, "php artisan make:domain-exception SackWet --domain={$domain}/Sack --kind=value"])
+                ->and($steps["exception {$domain}/Sack/SackFullException"])->toBe([StructurePlanner::READY, "php artisan make:domain-exception SackFull --domain={$domain}/Sack --kind=refusal"])
+                ->and($steps["exception {$domain}/SamplingPlanQuotaException"])->toBe([StructurePlanner::READY, "php artisan make:domain-exception SamplingPlanQuota --domain={$domain} --kind=application"])
+                ->and($steps["exception {$domain}/StitchSack/StitchRefusedException"])->toBe([StructurePlanner::READY, "php artisan make:domain-exception StitchRefused --domain={$domain} --kind=application --use-case=StitchSack"])
+                ->and($steps["exception {$domain}/ShipSack/SackTakenException"])->toBe([StructurePlanner::WAITING, "the use case {$domain}/ShipSack comes first"]);
+        });
+
         it('passes a method its parameters in order', function () {
             File::put(app_path('Domain/'.SAMPLING_PLAN_CONTEXT.'/Sack/Exceptions/SackFullException.php'), "<?php\n\nnamespace App\\Domain\\".SAMPLING_PLAN_CONTEXT."\\Sack\\Exceptions;\n\nfinal class SackFullException extends \\RuntimeException {}\n");
             $domain = SAMPLING_PLAN_CONTEXT;
@@ -218,7 +236,7 @@ describe('StructurePlanner', function () {
 
             expect($steps["port {$domain}/Weigher"][1])->toBe("php artisan make:port Weigher --domain={$domain} --adapter=Digital --infra=Scales")
                 ->and($steps["service {$domain}/PackSack"][1])->toBe("php artisan make:domain-service PackSack --domain={$domain} --creates=Sack")
-                ->and($steps["service {$domain}/WeighSack"][1])->toBe("php artisan make:domain-service WeighSack --domain={$domain} --plain --repo=Sack")
+                ->and($steps["service {$domain}/WeighSack"][1])->toBe("php artisan make:domain-service WeighSack --domain={$domain} --plain --repo=Sack --exception")
                 ->and($steps["use case {$domain}/ShipSack"][1])->toBe("php artisan make:use-case ShipSack --domain={$domain} --command --result --creates --repo=Sack")
                 ->and($steps["use case {$domain}/TidySacks"][1])->toBe("php artisan make:use-case TidySacks --domain={$domain} --plain")
                 ->and($steps["use case {$domain}/ListSamplingSacks"][0])->toBe(StructurePlanner::DONE)

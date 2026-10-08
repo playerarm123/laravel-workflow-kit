@@ -116,15 +116,42 @@ function startingValues(
 }
 
 /**
- * The exceptions the aggregate's entities already throw, offered first for a new method.
+ * The exceptions a method may throw, written the way the manifest writes them: those of the
+ * entity's own aggregate bare, designed or already thrown by its entities, then the invalid values
+ * of the shared kernel and the exceptions of other aggregates with their prefix. A use case's
+ * refusal is left out, because the domain never throws one.
  */
 function exceptionChoices(
-    manifest: ContextManifest | undefined,
+    graph: StructureGraph,
+    context: string,
     aggregate: string | null,
 ): string[] {
-    const choices = new Set<string>();
+    const own = new Set<string>();
+    const elsewhere = new Set<string>();
 
-    for (const entry of Object.values(manifest?.entities ?? {})) {
+    for (const [owner, manifest] of Object.entries(graph.manifests)) {
+        for (const [name, entry] of Object.entries(
+            manifest?.exceptions ?? {},
+        )) {
+            if (entry === undefined || entry.kind === 'application') {
+                continue;
+            }
+
+            if (owner === context && entry.aggregate === aggregate) {
+                own.add(name);
+            } else {
+                elsewhere.add(
+                    entry.aggregate === null
+                        ? `${owner}/${name}`
+                        : `${owner}/${entry.aggregate}/${name}`,
+                );
+            }
+        }
+    }
+
+    for (const entry of Object.values(
+        graph.manifests[context]?.entities ?? {},
+    )) {
         if (entry === undefined || entry.aggregate !== aggregate) {
             continue;
         }
@@ -134,12 +161,12 @@ function exceptionChoices(
             ...Object.values(entry.assertions),
         ]) {
             for (const exception of method?.throws ?? []) {
-                choices.add(exception);
+                (exception.includes('/') ? elsewhere : own).add(exception);
             }
         }
     }
 
-    return [...choices].sort();
+    return [...[...own].sort(), ...[...elsewhere].sort()];
 }
 
 /**
@@ -325,9 +352,11 @@ export function MethodForm({
 
             <Field label="Throws" error={errors.throws}>
                 <datalist id={exceptionsId}>
-                    {exceptionChoices(manifest, aggregate).map((exception) => (
-                        <option key={exception} value={exception} />
-                    ))}
+                    {exceptionChoices(graph, context, aggregate).map(
+                        (exception) => (
+                            <option key={exception} value={exception} />
+                        ),
+                    )}
                 </datalist>
                 <div className="space-y-2">
                     {data.throwRows.map((exception, index) => (
