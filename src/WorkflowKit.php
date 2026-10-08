@@ -19,6 +19,15 @@ final class WorkflowKit
     }
 
     /**
+     * The folder of the kit's guides: how to use its screens, one Markdown file per guide in
+     * English (`{name}.md`) and in Thai (`{name}.th.md`), with their screenshots in `images/`.
+     */
+    public static function docsPath(): string
+    {
+        return dirname(__DIR__).'/docs';
+    }
+
+    /**
      * The folder of the kit's skills, one folder with a SKILL.md per skill.
      */
     public static function skillsPath(): string

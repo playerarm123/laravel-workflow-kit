@@ -196,6 +196,8 @@ A step that waits for code a person writes (a Command's fields, a Row's keys) is
 
 ## Reading the manifest
 
+A step-by-step guide to the screen, with screenshots, is at `/kit/docs/guides/structure-screen` (the package's `docs/structure-screen.md`).
+
 Open `/kit/structure` on a local environment. It draws the manifest with React Flow (stack.md):
 - the overview, with one card per context and per HTTP resource, and the calls between them;
 - one context: its aggregates, domain services, ports and use cases, with the repositories each one injects. Its enums and value objects show when the **Vocabulary** switch is on, each tied to the aggregate that holds it and each value object to the classes its fields name. Its entities that list methods show when the **Behaviour** switch is on, each tied to its aggregate as the root or a child, and to the classes its methods' parameters name. The shared kernel's view is its vocabulary alone, so it always shows;

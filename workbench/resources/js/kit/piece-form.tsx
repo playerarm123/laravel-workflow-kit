@@ -357,7 +357,12 @@ export function PieceForm({
                                 }
                             />
                         ) : (
+                            /*
+                             * Keyed on the shape: Radix Select clears its value when the options
+                             * change under it, which would post an empty return type.
+                             */
                             <Choice
+                                key={data.shape}
                                 value={data.returns}
                                 onChange={(returns) =>
                                     setData('returns', returns)

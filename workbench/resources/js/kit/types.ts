@@ -188,6 +188,7 @@ export type StructureEndpoints = {
     saveResourcePiece: string;
     removeResourcePiece: string;
     docs: string;
+    guide: string;
 };
 
 export type StructurePayload = {

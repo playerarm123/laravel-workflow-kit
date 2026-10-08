@@ -19,6 +19,7 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructurePlanner;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureReader;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureResourceEditor;
 use Playerarm123\LaravelWorkflowKit\WorkflowKit;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -40,8 +41,34 @@ class KitServiceProvider extends ServiceProvider
             return;
         }
 
+        Route::middleware('web')->get('kit/docs/guides/{guide}', function (Request $request, string $guide): View {
+            $docs = $this->kitDocs();
+            $shown = $docs->guide($guide, $request->string('lang', 'en')->toString());
+
+            if ($shown === null) {
+                throw new NotFoundHttpException;
+            }
+
+            return view('kit.docs', [
+                'guides' => $docs->guides(),
+                'guidelines' => $docs->guidelines(),
+                'page' => $shown,
+                'commands' => [],
+            ]);
+        })->name('kit.docs.guide');
+
+        Route::middleware('web')->get('kit/docs/images/{file}', function (string $file): BinaryFileResponse {
+            $path = $this->kitDocs()->image($file);
+
+            if ($path === null) {
+                throw new NotFoundHttpException;
+            }
+
+            return response()->file($path, ['Content-Type' => 'image/png']);
+        })->name('kit.docs.image');
+
         Route::middleware('web')->get('kit/docs/{page?}', function (?string $page = null): View {
-            $docs = new KitDocs(WorkflowKit::guidelinesPath(), $this->app->make(Kernel::class), fn (string $name): string => route('kit.docs', ['page' => $name]));
+            $docs = $this->kitDocs();
             $shown = $page === null ? null : $docs->page($page);
 
             if ($page !== null && $shown === null) {
@@ -49,6 +76,7 @@ class KitServiceProvider extends ServiceProvider
             }
 
             return view('kit.docs', [
+                'guides' => $docs->guides(),
                 'guidelines' => $docs->guidelines(),
                 'page' => $shown,
                 'commands' => $page === null ? $docs->commands() : [],
@@ -71,6 +99,7 @@ class KitServiceProvider extends ServiceProvider
                     'saveResourcePiece' => route('kit.structure.resource-pieces.store', ['resource' => '__RESOURCE__']),
                     'removeResourcePiece' => route('kit.structure.resource-pieces.remove', ['resource' => '__RESOURCE__']),
                     'docs' => route('kit.docs'),
+                    'guide' => route('kit.docs.guide', ['guide' => 'structure-screen']),
                 ],
             ]))->name('');
 
@@ -196,6 +225,21 @@ class KitServiceProvider extends ServiceProvider
     private function resourceEditor(): StructureResourceEditor
     {
         return new StructureResourceEditor(new StructureFiles(base_path()), new StructureReader(base_path()));
+    }
+
+    /**
+     * The kit's rules and guides, read from the package as it stands.
+     */
+    private function kitDocs(): KitDocs
+    {
+        return new KitDocs(
+            WorkflowKit::guidelinesPath(),
+            $this->app->make(Kernel::class),
+            fn (string $name): string => route('kit.docs', ['page' => $name]),
+            WorkflowKit::docsPath(),
+            fn (string $name, string $locale): string => route('kit.docs.guide', $locale === 'en' ? ['guide' => $name] : ['guide' => $name, 'lang' => $locale]),
+            fn (string $file): string => route('kit.docs.image', ['file' => $file]),
+        );
     }
 
     private function structureGraph(): StructureGraph
