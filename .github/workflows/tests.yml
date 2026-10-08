@@ -60,6 +60,15 @@ jobs:
   starter-kit:
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        # `laravel new` offers both: PHPUnit keeps the starter kit as it ships, Pest adds its own
+        # tests/Pest.php, which kit:setup has to complete rather than replace.
+        tests: [phpunit, pest]
+
+    name: starter-kit (${{ matrix.tests }})
+
     services:
       postgres:
         image: postgres:16
@@ -106,6 +115,15 @@ jobs:
           rm -f chisel.php chisel-paths.php app/Console/Commands/InstallFeaturesCommand.php
           sed -i '/install:features/d' composer.json
           npm install
+
+      - name: Switch the project to Pest, as `laravel new --pest` does
+        if: matrix.tests == 'pest'
+        working-directory: app
+        run: |
+          composer remove phpunit/phpunit --dev --no-update --no-interaction
+          composer require pestphp/pest pestphp/pest-plugin-laravel --dev -W --no-interaction
+          vendor/bin/pest --init --no-interaction
+          test -f tests/Pest.php
 
       - name: Require the kit
         working-directory: app
