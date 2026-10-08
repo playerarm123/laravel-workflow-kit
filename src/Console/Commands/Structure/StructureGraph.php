@@ -53,8 +53,10 @@ final class StructureGraph
      * `resourceVersions` the same for HTTP resources (StructureResourceEditor). `resourceBuilt`
      * names each resource entry the code already has, so the screen offers to change only the rest,
      * and `entityMethodsBuilt` names each entity method the code already has, as `{Entity}.{method}`.
+     * `outOfStep` and `resourceOutOfStep` name each built entry the code describes another way, by
+     * the path StructureSync takes it back from the code with.
      *
-     * @return array{overview: View, contexts: array<string, View>, resources: array<string, View>, byHand: list<Difference>, manifests: array<string, array<string, mixed>>, versions: array<string, string>, resourceManifests: array<string, array<string, mixed>>, resourceVersions: array<string, string>, resourceBuilt: array<string, list<string>>, entityMethodsBuilt: array<string, list<string>>}
+     * @return array{overview: View, contexts: array<string, View>, resources: array<string, View>, byHand: list<Difference>, manifests: array<string, array<string, mixed>>, versions: array<string, string>, resourceManifests: array<string, array<string, mixed>>, resourceVersions: array<string, string>, resourceBuilt: array<string, list<string>>, entityMethodsBuilt: array<string, list<string>>, outOfStep: array<string, list<string>>, resourceOutOfStep: array<string, list<string>>}
      */
     public function graph(): array
     {
@@ -65,6 +67,8 @@ final class StructureGraph
         $contextManifests = [];
         $versions = [];
         $methodsBuilt = [];
+        $outOfStep = [];
+        $sync = new StructureSync($this->files, $this->reader);
 
         foreach ($this->files->contexts() as $context) {
             $manifest = $this->files->read($context);
@@ -74,6 +78,7 @@ final class StructureGraph
                 $contextManifests[$context] = $manifest;
                 $versions[$context] = $this->files->version($context);
                 $methodsBuilt[$context] = $this->builtMethods($context);
+                $outOfStep[$context] = $sync->contextOutOfStep($context);
             }
         }
 
@@ -81,6 +86,7 @@ final class StructureGraph
         $manifests = [];
         $resourceVersions = [];
         $resourceBuilt = [];
+        $resourceOutOfStep = [];
 
         foreach ($this->files->resources() as $resource) {
             $manifest = $this->files->readResource($resource);
@@ -90,6 +96,7 @@ final class StructureGraph
                 $resources[$resource] = $this->resourceView($resource, $manifest, $resourceBuilt[$resource]);
                 $manifests[$resource] = $manifest;
                 $resourceVersions[$resource] = $this->files->resourceVersion($resource);
+                $resourceOutOfStep[$resource] = $sync->resourceOutOfStep($resource);
             }
         }
 
@@ -104,6 +111,8 @@ final class StructureGraph
             'resourceVersions' => $resourceVersions,
             'resourceBuilt' => $resourceBuilt,
             'entityMethodsBuilt' => $methodsBuilt,
+            'outOfStep' => $outOfStep,
+            'resourceOutOfStep' => $resourceOutOfStep,
         ];
     }
 

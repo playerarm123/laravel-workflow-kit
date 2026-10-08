@@ -226,6 +226,31 @@ final class StructureEditor
     }
 
     /**
+     * Takes one built piece back from the code once the code has changed, or one method of an
+     * entity when `$entity` names it. What only the manifest says (`replaces`) stays.
+     *
+     * @return array<string, list<string>> what is wrong, by field; empty when it was written
+     */
+    public function sync(string $context, string $version, string $section, string $name, ?string $entity = null): array
+    {
+        $manifest = $this->manifest($context);
+        $refused = $this->refusal($context, $manifest, $version, $section, byMethod: $entity !== null);
+
+        if ($refused !== null || $manifest === null) {
+            return $refused ?? [];
+        }
+
+        $sync = new StructureSync($this->files, $this->reader);
+        $synced = $entity !== null ? $sync->syncMethod($context, $entity, $name) : $sync->syncPiece($context, $section, $name);
+
+        if (isset($synced['error'])) {
+            return ['name' => [$synced['error']]];
+        }
+
+        return $this->writeChecked($context, $synced['manifest']);
+    }
+
+    /**
      * Starts replacing a built piece: a port's adapter with a new one, or a use case or a domain
      * service with a new one beside it, which every HTTP resource or caller then uses instead.
      * kit:apply builds the new piece and swaps it in; kit:retire removes the old one once the

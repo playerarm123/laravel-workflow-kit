@@ -785,6 +785,42 @@ function Details({
                         />
                     </div>
                 )}
+            {contextSection !== undefined &&
+                context !== null &&
+                (graph.outOfStep[context] ?? []).includes(
+                    `${contextSection}.${name}`,
+                ) && (
+                    <SyncButton
+                        url={endpoints.syncPiece.replace(
+                            '__CONTEXT__',
+                            encodeURIComponent(context),
+                        )}
+                        version={graph.versions[context] ?? ''}
+                        section={contextSection}
+                        name={name}
+                        onSynced={onChanged}
+                    />
+                )}
+            {resource !== null &&
+                (resourceSection !== undefined ||
+                    node.kind === 'model' ||
+                    node.kind === 'policy') &&
+                (graph.resourceOutOfStep[resource] ?? []).includes(
+                    resourceSection !== undefined
+                        ? `${resourceSection}.${name}`
+                        : node.kind,
+                ) && (
+                    <SyncButton
+                        url={endpoints.syncResourcePiece.replace(
+                            '__RESOURCE__',
+                            encodeURIComponent(resource),
+                        )}
+                        version={graph.resourceVersions[resource] ?? ''}
+                        section={resourceSection ?? node.kind}
+                        name={resourceSection !== undefined ? name : ''}
+                        onSynced={onChanged}
+                    />
+                )}
             {replaceable !== null &&
                 context !== null &&
                 !node.editable &&
@@ -882,7 +918,8 @@ function Details({
             {(contextSection !== undefined || resourceSection !== undefined) &&
                 !node.editable && (
                     <p className="text-xs text-muted-foreground">
-                        The code already has it, so it changes by replacing it.
+                        The code already has it. Change the code and sync it, or
+                        replace it.
                     </p>
                 )}
         </section>
@@ -908,6 +945,7 @@ function Methods({
 }) {
     const controller = graph.resourceManifests[resource]?.controller ?? {};
     const built = graph.resourceBuilt[resource] ?? [];
+    const outOfStep = graph.resourceOutOfStep[resource] ?? [];
 
     return (
         <ul className="space-y-3">
@@ -923,8 +961,22 @@ function Methods({
                         </div>
                     ))}
                     {built.includes(`controller.${method}`) ? (
-                        <div className="text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             built
+                            {outOfStep.includes(`controller.${method}`) && (
+                                <SyncButton
+                                    url={endpoints.syncResourcePiece.replace(
+                                        '__RESOURCE__',
+                                        encodeURIComponent(resource),
+                                    )}
+                                    version={
+                                        graph.resourceVersions[resource] ?? ''
+                                    }
+                                    section="controller"
+                                    name={method}
+                                    onSynced={onRemoved}
+                                />
+                            )}
                         </div>
                     ) : (
                         <div className="flex gap-2">
@@ -983,6 +1035,7 @@ function EntityMethods({
     const manifest = graph.manifests[context];
     const entry = manifest?.entities[entity];
     const built = graph.entityMethodsBuilt[context] ?? [];
+    const outOfStep = graph.outOfStep[context] ?? [];
     const methods = [
         ...Object.keys(entry?.behaviours ?? {}),
         ...Object.keys(entry?.assertions ?? {}),
@@ -1012,8 +1065,25 @@ function EntityMethods({
                                 </div>
                             ))}
                             {built.includes(`${entity}.${method}`) ? (
-                                <div className="text-xs text-muted-foreground">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                     built
+                                    {outOfStep.includes(
+                                        `entities.${entity}.${method}`,
+                                    ) && (
+                                        <SyncButton
+                                            url={endpoints.syncPiece.replace(
+                                                '__CONTEXT__',
+                                                encodeURIComponent(context),
+                                            )}
+                                            version={
+                                                graph.versions[context] ?? ''
+                                            }
+                                            section="entities"
+                                            name={method}
+                                            entity={entity}
+                                            onSynced={onRemoved}
+                                        />
+                                    )}
                                 </div>
                             ) : (
                                 <div className="flex gap-2">
@@ -1166,5 +1236,53 @@ function ByHand({ graph }: { graph: StructureGraph }) {
                 ))}
             </ul>
         </section>
+    );
+}
+
+/**
+ * Takes a built piece back from the code once the code has changed, so the manifest says what the
+ * code holds again. What is not built yet stays as designed.
+ */
+function SyncButton({
+    url,
+    version,
+    section,
+    name,
+    entity = '',
+    onSynced,
+}: {
+    url: string;
+    version: string;
+    section: string;
+    name: string;
+    entity?: string;
+    onSynced: (graph: StructureGraph) => void;
+}) {
+    const form = useHttp<
+        { version: string; section: string; name: string; entity: string },
+        { graph: StructureGraph }
+    >({ version, section, name, entity });
+    const error =
+        form.errors.name ??
+        form.errors.version ??
+        form.errors.section ??
+        form.errors.entity;
+
+    return (
+        <div className="flex flex-col items-start gap-1">
+            <Button
+                size="sm"
+                variant="outline"
+                disabled={form.processing}
+                onClick={() =>
+                    form.post(url, {
+                        onSuccess: (response) => onSynced(response.graph),
+                    })
+                }
+            >
+                Sync from code
+            </Button>
+            <InputError message={error} />
+        </div>
     );
 }

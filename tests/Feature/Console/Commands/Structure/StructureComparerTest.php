@@ -158,7 +158,7 @@ describe('StructureComparer', function () {
             $differences = samplingCompareDifferences(withNode: true);
 
             expect($differences)->toContain(
-                ['in-json', 'is not in .kit/structure/'.$context.'.json — add it under "exceptions" (`php artisan kit:import --context='.$context.' --force` reads the whole file back from the code)', null],
+                ['in-json', 'is not in .kit/structure/'.$context.'.json — add it under "exceptions" (`php artisan kit:import --context='.$context.' --sync` adds it, keeping what is not built yet)', null],
                 ['in-code', 'lists exceptions.CrateLostException, which the code does not have yet — build it, or take it out of the manifest', 'exception:'.$context.'/CrateLostException'],
                 ['matches', 'exceptions.CrateBentException.kind is "value" in the code but "refusal" in the manifest', 'exception:'.$context.'/CrateBentException'],
             )->and(array_column($differences, 1))->toContain('services.PackCrate.exception is true in the manifest, but the code has no PackCrateException beside the service — write it by hand, extending DomainException (make:domain-service adds one only to a service it builds)');
@@ -180,7 +180,7 @@ describe('StructureComparer', function () {
             ]);
 
             expect(samplingCompareDifferences(withNode: true))->toBe([
-                ['in-json', 'is not in .kit/structure/'.$context.'.json — add it under "entities.Bin.behaviours" (`php artisan kit:import --context='.$context.' --force` reads the whole file back from the code)', null],
+                ['in-json', 'is not in .kit/structure/'.$context.'.json — add it under "entities.Bin.behaviours" (`php artisan kit:import --context='.$context.' --sync` adds it, keeping what is not built yet)', null],
                 ['matches', 'entities.Bin.fill.throws is ["RuntimeException"] in the code but [] in the manifest', "entity:{$context}/Bin"],
                 ['in-code', 'lists entities.Bin.tip, which the code does not have yet — build it, or take it out of the manifest', "entity:{$context}/Bin"],
             ]);

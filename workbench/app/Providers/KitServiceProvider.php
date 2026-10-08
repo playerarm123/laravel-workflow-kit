@@ -94,10 +94,12 @@ class KitServiceProvider extends ServiceProvider
                     'cancelReplacement' => route('kit.structure.replacements.cancel', ['context' => '__CONTEXT__']),
                     'saveMethod' => route('kit.structure.methods.store', ['context' => '__CONTEXT__']),
                     'removeMethod' => route('kit.structure.methods.remove', ['context' => '__CONTEXT__']),
+                    'syncPiece' => route('kit.structure.pieces.sync', ['context' => '__CONTEXT__']),
                     'createResource' => route('kit.structure.resources.store'),
                     'saveResource' => route('kit.structure.resources.update', ['resource' => '__RESOURCE__']),
                     'saveResourcePiece' => route('kit.structure.resource-pieces.store', ['resource' => '__RESOURCE__']),
                     'removeResourcePiece' => route('kit.structure.resource-pieces.remove', ['resource' => '__RESOURCE__']),
+                    'syncResourcePiece' => route('kit.structure.resource-pieces.sync', ['resource' => '__RESOURCE__']),
                     'docs' => route('kit.docs'),
                     'guide' => route('kit.docs.guide', ['guide' => 'structure-screen']),
                 ],
@@ -167,6 +169,16 @@ class KitServiceProvider extends ServiceProvider
                 ),
             ))->name('.methods.remove');
 
+            Route::post('contexts/{context}/sync', fn (Request $request, string $context): JsonResponse => $this->answer(
+                $this->structureEditor()->sync(
+                    $context,
+                    $request->string('version')->toString(),
+                    $request->string('section')->toString(),
+                    $request->string('name')->toString(),
+                    $request->filled('entity') ? $request->string('entity')->toString() : null,
+                ),
+            ))->name('.pieces.sync');
+
             Route::post('resources', fn (Request $request): JsonResponse => $this->answer(
                 $this->resourceEditor()->createResource(
                     $request->string('name')->toString(),
@@ -202,6 +214,15 @@ class KitServiceProvider extends ServiceProvider
                     $request->string('name')->toString(),
                 ),
             ))->name('.resource-pieces.remove');
+
+            Route::post('resources/{resource}/sync', fn (Request $request, string $resource): JsonResponse => $this->answer(
+                $this->resourceEditor()->syncPiece(
+                    $resource,
+                    $request->string('version')->toString(),
+                    $request->string('section')->toString(),
+                    $request->string('name')->toString(),
+                ),
+            ))->name('.resource-pieces.sync');
         });
     }
 

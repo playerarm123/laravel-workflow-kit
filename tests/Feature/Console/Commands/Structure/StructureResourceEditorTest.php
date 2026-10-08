@@ -205,4 +205,17 @@ describe('StructureResourceEditor', function () {
             expect(samplingRouteEditor()->removePiece(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), 'controller', 'index'))->toHaveKey('name');
         });
     });
+
+    describe('syncPiece', function () {
+        it('takes a built entry back from the code, and refuses one the code does not have or a stale page', function () {
+            $manifest = samplingRouteManifest(SAMPLING_ROUTE_BUILT);
+            (new StructureFiles(base_path()))->writeResource([...$manifest, 'controller' => [...$manifest['controller'], 'index' => [samplingRouteUseCase('ListSamplingRouteCases')]]]);
+            $editor = samplingRouteEditor();
+
+            expect($editor->syncPiece(SAMPLING_ROUTE_BUILT, 'stale', 'controller', 'index'))->toHaveKey('version')
+                ->and($editor->syncPiece(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), 'controller', 'show'))->toBe(['name' => ['The code has no show, so there is nothing to sync from.']])
+                ->and($editor->syncPiece(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), 'controller', 'index'))->toBe([])
+                ->and(samplingRouteManifest(SAMPLING_ROUTE_BUILT)['controller'])->toBe(['index' => [], 'show' => []]);
+        });
+    });
 });

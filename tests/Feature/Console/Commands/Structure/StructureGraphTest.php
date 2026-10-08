@@ -198,6 +198,14 @@ describe('StructureGraph', function () {
                 ->and(samplingGraphNode($graph['resources']['Product'], 'page:Product/products/index')['editable'])->toBeFalse();
         });
 
+        it('hands the screen the built entries a sync from the code would rewrite, leaving a replacement to finish on its own', function () {
+            $graph = samplingGraph();
+
+            expect($graph['outOfStep'][SAMPLING_GRAPH_CONTEXT])->toBe([])
+                ->and($graph['resourceOutOfStep'][SAMPLING_GRAPH_RESOURCE])->toBe([])
+                ->and(samplingGraphNode($graph['contexts'][SAMPLING_GRAPH_CONTEXT], 'useCase:'.SAMPLING_GRAPH_CONTEXT.'/ShipBox')['status'])->toBe(StructureGraph::DIFFERS);
+        });
+
         it('draws a replacement beside what it replaces, waiting on the swap', function () {
             $view = samplingGraph()['contexts'][SAMPLING_GRAPH_CONTEXT];
             $domain = SAMPLING_GRAPH_CONTEXT;

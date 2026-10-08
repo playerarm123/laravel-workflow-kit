@@ -324,9 +324,28 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 
 แก้ได้เฉพาะสิ่งที่โค้ดยังไม่มี:
 
-- การ์ดที่สร้างแล้วจะขึ้นข้อความ *The code already has it, so it changes by replacing it.* แทนปุ่ม Edit และ Remove
+- การ์ดที่สร้างแล้วจะขึ้นข้อความ *The code already has it. Change the code and sync it, or replace it.* แทนปุ่ม Edit และ Remove
 - entity กับ controller ล็อกทีละ method: method ที่สร้างแล้วจะขึ้นว่า **built** ส่วนที่เหลือยังแก้ได้
 - ชิ้นที่ยังมีชิ้นอื่นใช้อยู่ เปลี่ยนชื่อหรือลบไม่ได้ จนกว่าจะไม่มีใครใช้ เช่น aggregate ที่ use case inject อยู่หรือมี exception สังกัดอยู่, enum ที่ field ของ value object อ้างถึง, exception ที่ method throw อยู่, use case ที่มี refusal ของตัวเอง, `index` ขณะที่ยังมีหน้ารายการต้องใช้
+
+### Sync ของที่สร้างแล้วจากโค้ด
+
+ชิ้นที่สร้างแล้วต้องแก้ที่โค้ด เช่น เปลี่ยนชื่อพารามิเตอร์ เพิ่มพารามิเตอร์ เพิ่ม case ของ enum หรือ inject repository เพิ่ม การ์ดจะขึ้น **differs** และ panel จะมีปุ่ม **Sync from code** ซึ่งดึงชิ้นนั้นชิ้นเดียวจากโค้ดเข้า manifest ส่วน method ของ entity หรือ controller ที่สร้างแล้ว จะมีปุ่ม **Sync from code** ของตัวเองอยู่ข้างคำว่า **built**
+
+![Sync from code บนการ์ดที่ differs](images/structure-sync.png)
+
+ถ้าจะทำทั้ง context หรือทั้ง resource ในครั้งเดียว ให้รัน:
+
+```bash
+php artisan kit:import --context=Shipping --sync --dry-run   # ดูว่าจะเปลี่ยนอะไร
+php artisan kit:import --context=Shipping --sync             # เขียนจริง
+```
+
+- ทุกชิ้นที่มีในโค้ดใช้รูปตามโค้ด
+- ชิ้นที่มีแค่ใน manifest ถูกเก็บไว้ และแสดงใต้ *Kept … but not in the code* อาจเป็นชิ้นที่ออกแบบไว้แต่ยังไม่สร้าง หรือชื่อเก่าของสิ่งที่ rename ในโค้ดไปแล้ว ใส่ `--prune` ถ้าต้องการลบออกด้วย
+- ชิ้นที่อยู่ระหว่างการแทนที่จะคงไว้ตามแบบ
+
+ถ้าจะเปลี่ยนชื่อ method ที่สร้างแล้ว: เปลี่ยนชื่อในโค้ด (รวมจุดที่เรียกและเทสต์) แล้วรัน `kit:import --context=X --sync --prune` หรือ sync โดยไม่ใส่ `--prune` แล้วลบชื่อเก่าบนหน้าจอ
 
 ถ้า manifest บนดิสก์เปลี่ยนไปหลังจากเปิดหน้า (เช่น แก้จากอีกแท็บ, รัน `kit:import` หรือ `git checkout`) การบันทึกจะถูกปฏิเสธด้วยข้อความ *The manifest changed since this page loaded. Reload it, then make the change again.*
 
@@ -359,7 +378,7 @@ port ที่มี adapter แล้ว use case หรือ domain service �
 
 สี่คำสั่งทำงานกับไฟล์ชุดเดียวกัน:
 
-- `kit:import` เขียน manifest จากโค้ด
+- `kit:import` เขียน manifest จากโค้ด หรือใช้ `--sync` เพื่อรวมโค้ดเข้ากับ manifest ที่มีอยู่
 - `kit:plan` แสดงขั้นตอนที่หน้าจอแสดงเป็นสถานะ
 - `kit:apply` สร้างโค้ดตามขั้นตอนเหล่านั้น
 - `kit:retire` ปิดการแทนที่
@@ -373,7 +392,7 @@ check `structure` ใน Architecture suite เทียบโค้ดกับ
 | `/kit/structure` ขึ้น 404 | `APP_ENV` ไม่ใช่ `local` หรือไม่มี `KitServiceProvider` ใน `bootstrap/providers.php` |
 | หน้าขาว หรือ error เรื่อง Vite manifest | Vite ไม่ได้รันอยู่ หรือไม่มี `resources/js/kit/structure.tsx` ใน `vite.config.ts` ให้รัน `npm run dev` |
 | context หรือ resource หายไปจากหน้าภาพรวม | JSON ของมันผิดรูปแบบ หน้าจอจะข้าม manifest ที่อ่านไม่ได้ ให้รัน `php artisan test --testsuite=Architecture` แล้ว check `structure:files` จะบอกว่าผิดตรงไหน |
-| การ์ดขึ้น **differs** | โค้ดสร้างไม่ตรงกับแบบ อ่านข้อความใน panel แล้วแก้โค้ด (หรือแก้ manifest ถ้าชิ้นนั้นยังไม่ถูกสร้าง) |
-| ชื่อถูกปฏิเสธเพราะมีในโค้ดแล้ว | manifest ตามไม่ทันโค้ด ให้รัน `php artisan kit:import --context=X --force` คำสั่งนี้อ่านทั้งไฟล์กลับจากโค้ด แบบที่ยังไม่ได้สร้างจะหายไป |
+| การ์ดขึ้น **differs** | โค้ดสร้างไม่ตรงกับแบบ ถ้าโค้ดถูกแล้วให้กด **Sync from code** ไม่อย่างนั้นแก้โค้ด (หรือแก้ manifest ถ้าชิ้นนั้นยังไม่ถูกสร้าง) |
+| ชื่อถูกปฏิเสธเพราะมีในโค้ดแล้ว | manifest ตามไม่ทันโค้ด ให้รัน `php artisan kit:import --context=X --sync` ซึ่งเพิ่มสิ่งที่โค้ดมี และเก็บแบบที่ยังไม่ได้สร้างไว้ |
 | *The manifest changed since this page loaded* | รีโหลดหน้าแล้วแก้ใหม่อีกครั้ง |
-| ไม่มีปุ่ม **Edit** | ชิ้นนั้นสร้างแล้ว ให้เปลี่ยนด้วยการแทนที่ หรือแก้ที่โค้ด |
+| ไม่มีปุ่ม **Edit** | ชิ้นนั้นสร้างแล้ว ให้แก้โค้ดแล้ว sync หรือเปลี่ยนด้วยการแทนที่ |
