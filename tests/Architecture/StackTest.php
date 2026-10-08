@@ -210,7 +210,7 @@ describe('stack', function () {
     it('installs every required package on its locked line', function () {
         $violations = [
             ...stackOffLine(stackSpec()['composer']['required'], ruleComposerDeclared(), ruleComposerInstalled(), 'composer.lock'),
-            ...stackOffLine(stackSpec()['npm']['required'], ruleNpmDeclared(), ruleNpmInstalled(), 'package-lock.json'),
+            ...stackOffLine(stackSpec()['npm']['required'], ruleNpmDeclared(), ruleNpmInstalled(), ruleNpmLockfile()),
         ];
 
         $php = ruleComposerDeclared()['php'] ?? '';
@@ -228,7 +228,7 @@ describe('stack', function () {
     it('keeps every installed optional package on its locked line', function () {
         $violations = [
             ...stackOffLine(stackSpec()['composer']['optional'], ruleComposerDeclared(), ruleComposerInstalled(), 'composer.lock'),
-            ...stackOffLine(stackSpec()['npm']['optional'], ruleNpmDeclared(), ruleNpmInstalled(), 'package-lock.json'),
+            ...stackOffLine(stackSpec()['npm']['optional'], ruleNpmDeclared(), ruleNpmInstalled(), ruleNpmLockfile()),
         ];
 
         expect(ruleUnexcused('stack', 'optional-major', $violations))->toBe([]);

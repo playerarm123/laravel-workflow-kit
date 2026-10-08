@@ -67,6 +67,11 @@ final class WritePathRuleTest extends RuleTestCase
         $this->analyse([self::FIXTURES.'/ExemptWrites.php'], []);
     }
 
+    public function test_it_lets_the_starter_kits_account_code_write(): void
+    {
+        $this->analyse([self::FIXTURES.'/StarterKitWrites.php'], []);
+    }
+
     private function message(string $method, string $call): string
     {
         return sprintf(
