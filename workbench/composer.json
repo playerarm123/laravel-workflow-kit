@@ -1,0 +1,12 @@
+{
+    "name": "playerarm123/laravel-workflow-kit-workbench",
+    "description": "The Laravel app the workflow kit's own tests run on. Not published.",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    }
+}

@@ -1,0 +1,23 @@
+{
+    "context": "Catalog",
+    "aggregates": {
+        "Product": {
+            "children": [],
+            "repository": false
+        }
+    },
+    "services": {},
+    "ports": {},
+    "useCases": {
+        "ListProducts": {
+            "shape": "command-result",
+            "returns": "result",
+            "creates": false,
+            "query": true,
+            "repositories": []
+        }
+    },
+    "enums": {},
+    "valueObjects": {},
+    "entities": {}
+}

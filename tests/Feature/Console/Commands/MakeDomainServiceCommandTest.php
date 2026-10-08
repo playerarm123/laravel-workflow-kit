@@ -4,8 +4,8 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Testing\PendingCommand;
 
 /**
- * โฟลเดอร์ทดลองของไฟล์นี้ ห้ามซ้ำกับไฟล์เทสต์ generator ตัวอื่น มิฉะนั้น --parallel
- * จะลบของกันเองกลางคัน
+ * This file's scratch folder must not match any other generator test file's, or --parallel
+ * runs delete each other's files midway.
  */
 const SAMPLING_SERVICE_CONTEXT = 'SamplingService';
 

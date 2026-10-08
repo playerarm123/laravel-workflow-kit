@@ -1,0 +1,35 @@
+<?php
+
+namespace App\Application\Catalog\UseCases\ListProducts;
+
+use Illuminate\Contracts\Support\Arrayable;
+
+/**
+ * One row of the list, in the shape the table renders it.
+ *
+ * Deliberately a plain class rather than a spatie/laravel-data object: a Data item type
+ * makes the library treat the paginator carrying it as a DataPaginator and reshape the
+ * payload into {data, links, meta}, which is not the envelope the frontend reads.
+ *
+ * toArray() is what puts the keys on the wire, so it — not the property names — is the
+ * contract the frontend row type mirrors.
+ *
+ * @implements Arrayable<string, string|int|bool|null>
+ */
+final class ProductListRow implements Arrayable
+{
+    public function __construct(
+        public readonly string $id,
+        // describe the rest of the row here
+    ) {}
+
+    /**
+     * @return array{id: string}
+     */
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+        ];
+    }
+}

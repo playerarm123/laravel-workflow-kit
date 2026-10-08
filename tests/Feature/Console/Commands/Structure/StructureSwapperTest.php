@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\File;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureSwapper;
 
 /**
- * A project of its own under storage, so no case touches motto's code.
+ * A project of its own under storage, so no case touches the workbench app's code.
  */
 function samplingSwapRoot(): string
 {

@@ -1,15 +1,16 @@
 <?php
 
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Testing\PendingCommand;
 
-/** The project's rule helpers, until they ship in this package too. */
+/** The Architecture rule helpers. */
 require_once dirname(__DIR__, 3).'/Architecture/Support/rules.php';
 
 /**
- * ชื่อ aggregate ทดลองของไฟล์นี้ ห้ามซ้ำกับไฟล์เทสต์ generator ตัวอื่น มิฉะนั้น --parallel
- * จะลบของกันเองกลางคัน
+ * This file's scratch aggregate name must not match any other generator test file's, or --parallel
+ * runs delete each other's files midway.
  */
 const FORM_PAGE_SUBJECT = 'SamplingPallet';
 
@@ -187,9 +188,9 @@ it('never overwrites a form or a page that already exists', function () {
 });
 
 it('reports the routes and translation keys the pages still need', function () {
-    runMakeFormPage()
-        ->expectsOutputToContain('Routes [sampling-pallets.index')
-        ->expectsOutputToContain('lang/en.json is missing')
-        ->expectsOutputToContain('sampling-pallets.create_title')
-        ->assertSuccessful();
+    expect(Artisan::call('make:form-page', ['name' => FORM_PAGE_SUBJECT]))->toBe(0)
+        ->and(Artisan::output())
+        ->toContain('Routes [sampling-pallets.index')
+        ->toContain('lang/en.json is missing')
+        ->toContain('sampling-pallets.create_title');
 });

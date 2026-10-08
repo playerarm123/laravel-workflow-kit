@@ -1,0 +1,15 @@
+{
+    "context": "Billing",
+    "aggregates": {
+        "Wallet": {
+            "children": [],
+            "repository": true
+        }
+    },
+    "services": {},
+    "ports": {},
+    "useCases": {},
+    "enums": {},
+    "valueObjects": {},
+    "entities": {}
+}

@@ -13,7 +13,7 @@ interface {{ class }}
     public function save({{ entity }} $entity): void;
 
     /**
-     * ความหมายเดียวกับ `save()` แต่หลายรายการในคำสั่งเดียว — insert หรือเขียนทับของเดิมตาม id
+     * Means the same as `save()`, for many entities in one statement: inserts, or overwrites the existing row by id.
      *
      * @param  array<{{ entity }}>  $entities
      *

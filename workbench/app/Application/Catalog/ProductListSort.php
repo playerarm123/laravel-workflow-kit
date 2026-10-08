@@ -1,0 +1,22 @@
+<?php
+
+namespace App\Application\Catalog;
+
+/**
+ * The columns this list sorts by, as the query string spells them.
+ *
+ * Add one case per sortable column; the adapter's sortColumn() must match every case.
+ */
+enum ProductListSort: string
+{
+    case CreatedAt = 'created_at';
+
+    /**
+     * Anything the list does not sort by falls back to the default instead of failing:
+     * a hand-edited URL gets a page, not a 422.
+     */
+    public static function fromInput(string $value): self
+    {
+        return self::tryFrom($value) ?? self::CreatedAt;
+    }
+}

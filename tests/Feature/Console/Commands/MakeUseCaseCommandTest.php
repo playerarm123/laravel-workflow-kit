@@ -271,7 +271,7 @@ it('offers the domains found under app/Application and app/Domain', function () 
 
     expect(domainChoicesOf('make:use-case'))
         ->toContain('Sampling')
-        ->toContain('Agency')
+        ->toContain('Catalog')
         ->not->toContain('Shared');
 
     $this->artisan('make:use-case', ['name' => 'ArchiveSamplingItem'])

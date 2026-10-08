@@ -1,0 +1,27 @@
+{
+    "context": "Shared",
+    "aggregates": {},
+    "services": {},
+    "ports": {},
+    "useCases": {},
+    "enums": {
+        "CurrencyCode": {
+            "aggregate": null,
+            "backing": "string",
+            "cases": {
+                "Thb": "THB",
+                "Usd": "USD"
+            },
+            "transitions": null
+        }
+    },
+    "valueObjects": {
+        "EmailAddress": {
+            "aggregate": null,
+            "fields": {
+                "value": "string"
+            }
+        }
+    },
+    "entities": {}
+}

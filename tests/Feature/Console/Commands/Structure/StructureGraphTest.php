@@ -50,7 +50,7 @@ function writeSamplingGraphFixtures(): void
             'Gauge' => ['layer' => 'domain', 'adapter' => "Infra/{$context}/LaserGauge", 'replaces' => "Infra/{$context}/DialGauge"],
         ],
         'useCases' => [
-            'ShipBox' => ['shape' => 'command', 'returns' => 'int', 'creates' => false, 'query' => false, 'repositories' => ['Box', 'Credit/Wallet']],
+            'ShipBox' => ['shape' => 'command', 'returns' => 'int', 'creates' => false, 'query' => false, 'repositories' => ['Box', 'Billing/Wallet']],
             'ShipBoxSafely' => ['shape' => 'command', 'returns' => 'int', 'creates' => false, 'query' => false, 'repositories' => [], 'replaces' => 'ShipBox'],
         ],
     ]);
@@ -136,7 +136,7 @@ describe('StructureGraph', function () {
                 'target' => ['view' => 'context', 'name' => SAMPLING_GRAPH_CONTEXT],
             ])
                 ->and(samplingGraphNode($overview, 'resource:'.SAMPLING_GRAPH_RESOURCE)['status'])->toBe(StructurePlanner::WAITING)
-                ->and(samplingGraphEdgesFrom($overview, 'context:'.SAMPLING_GRAPH_CONTEXT))->toBe([['context:'.SAMPLING_GRAPH_CONTEXT, 'context:Credit', 'uses']])
+                ->and(samplingGraphEdgesFrom($overview, 'context:'.SAMPLING_GRAPH_CONTEXT))->toBe([['context:'.SAMPLING_GRAPH_CONTEXT, 'context:Billing', 'uses']])
                 ->and(samplingGraphEdgesFrom($overview, 'resource:'.SAMPLING_GRAPH_RESOURCE))->toBe([['resource:'.SAMPLING_GRAPH_RESOURCE, 'context:'.SAMPLING_GRAPH_CONTEXT, '2 use cases']]);
         });
 
@@ -149,10 +149,10 @@ describe('StructureGraph', function () {
                 ->and(samplingGraphNode($view, "aggregate:{$domain}/Lid"))->toMatchArray(['status' => StructurePlanner::READY, 'command' => "php artisan make:entity Lid --domain={$domain}/Lid"])
                 ->and($shipBox)->toMatchArray(['items' => ['command', 'returns int'], 'status' => StructureGraph::DIFFERS])
                 ->and($shipBox['reason'])->toBe('useCases.ShipBox.returns is "void" in the code but "int" in the manifest')
-                ->and(samplingGraphNode($view, 'external:Credit/Wallet'))->toMatchArray(['kind' => 'external', 'status' => null, 'target' => ['view' => 'context', 'name' => 'Credit']])
+                ->and(samplingGraphNode($view, 'external:Billing/Wallet'))->toMatchArray(['kind' => 'external', 'status' => null, 'target' => ['view' => 'context', 'name' => 'Billing']])
                 ->and(samplingGraphEdgesFrom($view, "useCase:{$domain}/ShipBox"))->toBe([
+                    ["useCase:{$domain}/ShipBox", 'external:Billing/Wallet', null],
                     ["useCase:{$domain}/ShipBox", "aggregate:{$domain}/Box", null],
-                    ["useCase:{$domain}/ShipBox", 'external:Credit/Wallet', null],
                 ]);
         });
 
@@ -178,7 +178,7 @@ describe('StructureGraph', function () {
 
             expect(samplingGraphNode($view, "aggregate:{$domain}/Box")['editable'])->toBeFalse()
                 ->and(samplingGraphNode($view, "aggregate:{$domain}/Lid")['editable'])->toBeTrue()
-                ->and(samplingGraphNode($view, 'external:Credit/Wallet')['editable'])->toBeFalse()
+                ->and(samplingGraphNode($view, 'external:Billing/Wallet')['editable'])->toBeFalse()
                 ->and(samplingGraphNode($graph['resources'][SAMPLING_GRAPH_RESOURCE], 'controller:'.SAMPLING_GRAPH_RESOURCE)['editable'])->toBeFalse()
                 ->and($graph['manifests'][$domain]['aggregates'])->toHaveKeys(['Box', 'Lid'])
                 ->and($graph['versions'][$domain])->toBe((new StructureFiles(base_path()))->version($domain));
@@ -192,10 +192,10 @@ describe('StructureGraph', function () {
             expect($graph['resourceManifests'][$resource]['model'])->toBe($resource)
                 ->and($graph['resourceVersions'][$resource])->toBe((new StructureFiles(base_path()))->resourceVersion($resource))
                 ->and($graph['resourceBuilt'][$resource])->toBe([])
-                ->and($graph['resourceBuilt']['Agent'])->toContain('model', 'controller.index', 'pages.agents/index')
+                ->and($graph['resourceBuilt']['Product'])->toContain('model', 'controller.index', 'pages.products/index')
                 ->and(samplingGraphNode($view, "action:{$resource}/Ship")['editable'])->toBeTrue()
                 ->and(samplingGraphNode($view, "page:{$resource}/sampling-graph-boxes/index")['editable'])->toBeTrue()
-                ->and(samplingGraphNode($graph['resources']['Agent'], 'page:Agent/agents/index')['editable'])->toBeFalse();
+                ->and(samplingGraphNode($graph['resources']['Product'], 'page:Product/products/index')['editable'])->toBeFalse();
         });
 
         it('draws a replacement beside what it replaces, waiting on the swap', function () {
@@ -233,9 +233,9 @@ describe('StructureGraph', function () {
             $domain = SAMPLING_GRAPH_CONTEXT;
 
             expect(samplingGraphNode($graph['contexts'][$domain], "useCase:{$domain}/ShipBox")['variant'])->toBeNull()
-                ->and(samplingGraphNode($graph['contexts']['Agency'], 'useCase:Agency/ListAgents')['variant'])->toBe('query')
+                ->and(samplingGraphNode($graph['contexts']['Catalog'], 'useCase:Catalog/ListProducts')['variant'])->toBe('query')
                 ->and(samplingGraphNode($graph['resources'][SAMPLING_GRAPH_RESOURCE], 'page:'.SAMPLING_GRAPH_RESOURCE.'/sampling-graph-boxes/index')['variant'])->toBe('table')
-                ->and(samplingGraphNode($graph['resources']['Agent'], 'page:Agent/agents/create')['variant'])->toBe('form')
+                ->and(samplingGraphNode($graph['resources']['Product'], 'page:Product/products/create')['variant'])->toBe('form')
                 ->and(samplingGraphNode($graph['overview'], "context:{$domain}")['variant'])->toBeNull();
         });
 
@@ -341,7 +341,7 @@ describe('StructureGraph', function () {
             sort($kinds);
 
             expect($kinds)->toBe(['enum', 'valueObject'])
-                ->and(samplingGraphNode($shared, 'enum:Shared/BankCode')['editable'])->toBeFalse();
+                ->and(samplingGraphNode($shared, 'enum:Shared/CurrencyCode')['editable'])->toBeFalse();
         });
 
         it('lists what the code holds and the manifest does not as work by hand', function () {

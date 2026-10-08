@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\File;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureMarkers;
 
 /**
- * A project of its own under storage, so no case ever writes into motto's providers or routes.
+ * A project of its own under storage, so no case ever writes into the workbench app's providers or routes.
  */
 function samplingMarkersRoot(): string
 {

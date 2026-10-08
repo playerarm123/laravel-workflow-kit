@@ -1,0 +1,5 @@
+vendor/
+node_modules/
+/workbench/node_modules/
+.phpunit.result.cache
+composer.lock

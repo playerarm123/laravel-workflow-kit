@@ -2,15 +2,51 @@
     "name": "playerarm123/laravel-workflow-kit",
     "description": "The rules, generators and checks that keep every Laravel project built the same way.",
     "type": "library",
-    "version": "0.1.0",
-    "license": "proprietary",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "ddd",
+        "architecture",
+        "generators",
+        "inertia",
+        "boost",
+        "guidelines"
+    ],
+    "homepage": "https://github.com/playerarm123/laravel-workflow-kit",
+    "support": {
+        "issues": "https://github.com/playerarm123/laravel-workflow-kit/issues",
+        "source": "https://github.com/playerarm123/laravel-workflow-kit"
+    },
+    "authors": [
+        {
+            "name": "playerarm123",
+            "homepage": "https://github.com/playerarm123"
+        }
+    ],
     "require": {
         "php": "^8.4",
         "laravel/framework": "^13.0"
     },
+    "require-dev": {
+        "inertiajs/inertia-laravel": "^3.0",
+        "larastan/larastan": "^3.9",
+        "laravel/pint": "^1.27",
+        "orchestra/testbench": "^11.3",
+        "pestphp/pest": "^5.1",
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "spatie/laravel-data": "^4.23"
+    },
     "autoload": {
         "psr-4": {
             "Playerarm123\\LaravelWorkflowKit\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Playerarm123\\LaravelWorkflowKit\\Tests\\": "tests/",
+            "App\\": "workbench/app/",
+            "Database\\Factories\\": "workbench/database/factories/",
+            "Database\\Seeders\\": "workbench/database/seeders/"
         }
     },
     "extra": {
@@ -18,6 +54,20 @@
             "providers": [
                 "Playerarm123\\LaravelWorkflowKit\\WorkflowKitServiceProvider"
             ]
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "@php bin/link-package.php"
+        ],
+        "test": "@php vendor/bin/pest --testsuite=Feature",
+        "lint": "@php vendor/bin/pint --test",
+        "analyse": "@php vendor/bin/phpstan analyse"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
         }
     },
     "minimum-stability": "stable",

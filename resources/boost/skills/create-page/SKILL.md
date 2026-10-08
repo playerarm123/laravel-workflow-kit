@@ -5,77 +5,77 @@ description: "Build a create/edit form page end to end (Create{Aggregate} + Upda
 
 # Create Page
 
-หน้าสร้าง/แก้ไข = ฟอร์มเดียวที่ใช้ทั้งสองหน้า ทางเดินของข้อมูลตาม guideline `form-pages.md`:
+A create or edit page is one form that serves both pages. Its data takes the path in the `form-pages.md` guideline:
 
 ```
 props.defaults ({X}FormValues) → <Form {...action}> → Store/Update{X}Request (authorize + rules) → toCommand() → handler → flash toast → to_route
 ```
 
-skill นี้พาทำทั้งสาย backend → frontend → tests ด้วย generator ของ kit แล้วเติมส่วนที่ generator เขียนให้ไม่ได้ (enum select, ฟิลด์ที่โชว์ตามเงื่อนไข, กฎข้ามฟิลด์, ค่าที่ต้องแปลงก่อนแสดง, ไฟล์)
+This skill walks the whole line, backend → frontend → tests, with the kit's generators, then fills in what the generators cannot write: an enum select, fields shown by a condition, rules across fields, values converted before they are shown, and files.
 
-ถ้าโปรเจกต์มีฟอร์มที่ทำเสร็จแล้ว ให้เปิดดูหนึ่งชุดเป็นแบบ (หา `components/*/form.tsx`) — แต่สิ่งที่ generator เขียนคือความจริง ถ้าขัดกันให้เชื่อ generator และ guideline
+If the project already has a finished form, open one set as a model (look for `components/*/form.tsx`). What the generator writes is the truth, though: when the two disagree, trust the generator and the guideline.
 
-**ขอบเขต:** `create`/`store`/`edit`/`update` + ปุ่มเข้าไปจากหน้า list + form component ตัวเดียว — ไม่แก้ `DataTable` กลางนอกจากใช้ slot `headerActions` ที่มีอยู่
+**Scope:** `create`/`store`/`edit`/`update`, the button that leads in from the list page, and one form component. Don't change the shared `DataTable`, beyond using its existing `headerActions` slot.
 
-กฎที่ต้องอ่านก่อนแตะไฟล์: guideline `form-pages.md` (กฎกลางที่ `FormPagesTest` + ESLint คุม), `handlers.md`, `authorization.md`, `exceptions.md`, `numbers.md`, `testing.md` และ `.ai/rules` ของโปรเจกต์ถ้ามี (อ่าน `.ai/rules/index.md` หาไฟล์ที่ตรงกับ path)
+Read these rules before you touch a file: the `form-pages.md` guideline (the shared rules that `FormPagesTest` and ESLint enforce), `handlers.md`, `authorization.md`, `exceptions.md`, `numbers.md`, `testing.md`, and the project's `.ai/rules` when it has them (read `.ai/rules/index.md` to find the files that match the path).
 
 ---
 
-## ขั้น 0 — เก็บสเปกฟอร์มให้ครบก่อนแตะไฟล์ (เกตบังคับ)
+## Step 0 — Collect the full form spec before you touch a file (a hard gate)
 
-**กฎ: ห้ามเดา** ทุกข้อด้านล่างต้องมีคำตอบจากผู้ใช้ หรืออ่านได้ชัดจากโค้ดที่มีอยู่ (Entity `create()` และ method ที่แก้ค่า, migration, Enum, VO, Policy) ก่อนสร้างไฟล์แรก
+**Rule: never guess.** Every item below needs an answer from the user, or a clear reading of the existing code (the Entity's `create()` and the methods that change values, the migration, Enums, VOs, the Policy), before the first file is created.
 
-วิธีถาม:
-- ใช้ `AskUserQuestion` ทีละชุด (สูงสุด 4 คำถามต่อครั้ง) เรียงชุด A → D
-- ก่อนถามแต่ละชุด **อ่านโค้ดก่อน** แล้วเอาสิ่งที่เจอมาเป็นตัวเลือก — พารามิเตอร์ของ `{Aggregate}Entity::create()`, คอลัมน์ใน migration + unique key, enum ใน `app/Domain/**/Enums`, VO ที่ throw เมื่อค่าผิดรูป (`X::from…()`), VO ที่ถือกฎข้ามฟิลด์, method ใน Policy
-- ถ้าผู้ใช้ตอบคลุมเครือ ("เอาแบบเดิม" / "ตามที่คิดว่าเหมาะ") ให้ **ถามซ้ำให้แคบลง** โดยเสนอค่าที่จะใช้จริงให้ยืนยันทีละข้อ
-- ไม่ลงมือจนกว่าจะปิดครบทุกชุด แล้ว **สรุปสเปกเป็นตารางเดียวให้ผู้ใช้ยืนยันหนึ่งครั้ง** ก่อนเริ่มขั้น 1
+How to ask:
+- Use `AskUserQuestion` one set at a time (at most 4 questions per call), in order from set A to set D.
+- Before each set, **read the code first** and offer what you find as options: the parameters of `{Aggregate}Entity::create()`, the migration's columns and unique keys, the enums in `app/Domain/**/Enums`, the VOs that throw on a malformed value (`X::from…()`), the VOs that hold a rule across fields, the methods in the Policy.
+- When the user answers vaguely ("like the old one" / "whatever you think fits"), **ask again, narrower**: propose the values you will actually use and have them confirm each one.
+- Don't start until every set is closed. Then **summarize the spec in one table for the user to confirm once** before step 1.
 
-### ชุด A — ตัวตน
+### Set A — Identity
 
-- aggregate / Model / context → namespace `App\Application\{Context}`, route `{aggregates}`, lang prefix `{aggregates}.`, หน้า `pages/{aggregates}/{create,edit}.tsx`, component `components/{aggregate}/form.tsx`
-- ใครสร้าง/แก้ได้ (Policy `create()`/`update()`) Policy มีอยู่แล้วหรือต้องสร้าง (`make:policy`)
-- หน้า list ของ aggregate นี้มีแล้วหรือยัง (ปุ่มสร้างไปวางที่ `headerActions` ของ `<DataTable>` + `can.create` จาก controller index)
+- The aggregate / Model / context → namespace `App\Application\{Context}`, route `{aggregates}`, lang prefix `{aggregates}.`, pages `pages/{aggregates}/{create,edit}.tsx`, component `components/{aggregate}/form.tsx`
+- Who may create and edit (Policy `create()`/`update()`), and whether the Policy exists or must be created (`make:policy`)
+- Whether this aggregate's list page exists yet (the create button goes in the `headerActions` of `<DataTable>`, with `can.create` from the index controller)
 
-### ชุด B — ฟิลด์
+### Set B — Fields
 
-- ฟิลด์ **ทีละตัว**: ชื่อ (snake_case ตรง request), มาจากพารามิเตอร์ไหนของ Command, ชนิด input (`Input` text / `type="time"` / `Select` enum / `ToggleGroup` หลายค่า / checkbox / รูป), required ไหม, ค่าตั้งต้นตอนสร้าง
-- ฟิลด์ไหน **แก้ไม่ได้** ในหน้า edit (form component รับ `mode: 'create' | 'edit'` แล้วซ่อน)
-- ฟิลด์ที่โชว์/ซ่อนตามฟิลด์อื่น (เช่น `days` ตาม `frequency`) — ฟิลด์ที่ไม่ใช้ในเงื่อนไขนั้นต้อง `exclude` ฝั่ง PHP
-- **รูป/ไฟล์**: อัปโหลดตรงผ่าน `UploadedFile` ใน Command แล้ว handler เขียนผ่าน storage port (`form-pages.md` หัวข้อ File uploads) หรือถ้าโปรเจกต์มีคลังไฟล์ของตัวเอง ให้ถามว่าฟิลด์นี้เลือกจากคลังแทนไหม
-- enum ทุกตัว → ตัวเลือกใน TS เป็นค่าคงที่พร้อม `@see` ไฟล์ PHP + คำแปล `{aggregates}.{field}.{value}` ในทุก `lang/*.json`
+- Each field **one at a time**: its name (snake_case, matching the request), the Command parameter it comes from, the input type (`Input` text / `type="time"` / `Select` enum / `ToggleGroup` for several values / checkbox / image), whether it is required, and its starting value on create
+- Which fields **cannot be changed** on the edit page (the form component takes `mode: 'create' | 'edit'` and hides them)
+- Fields shown or hidden by another field (such as `days` by `frequency`). A field that does not apply under that condition must be `exclude`d on the PHP side.
+- **Images and files**: uploaded directly as an `UploadedFile` in the Command, then written by the handler through the storage port (`form-pages.md`, section File uploads). If the project has its own file library, ask whether this field picks from the library instead.
+- Every enum → its options in TS are a constant with `@see` to the PHP file, plus a translation `{aggregates}.{field}.{value}` in every `lang/*.json`
 
-### ชุด C — Validation
+### Set C — Validation
 
-- unique key ของตาราง (composite ไหม → `Rule::unique()->where(...)`, ฝั่ง update `->ignore(...)`)
-- รูปแบบค่าที่ VO ฝั่ง domain รับ (เช่น `HH:mm` → `date_format:H:i`) — ให้ FormRequest ปฏิเสธก่อน domain throw
-- ขอบเขตค่าที่ enum/VO ถืออยู่ (`minDay/maxDay`) → ดึงจาก enum ใน `rules()` ไม่เขียนเลขซ้ำ
-- กฎข้ามฟิลด์ที่ domain ถืออยู่แล้ว → ตรวจใน `after()` โดย **reuse** VO เดิม และ error ไปที่ฟิลด์ไหน
-- validation อยู่ที่ **FormRequest** เสมอ (ไม่ใช่ spatie Data validation, ไม่ใช่ inline ใน controller)
+- The table's unique key (composite? → `Rule::unique()->where(...)`, and `->ignore(...)` on update)
+- The value format the domain VO accepts (for example `HH:mm` → `date_format:H:i`), so the FormRequest refuses before the domain throws
+- The bounds an enum or VO holds (`minDay/maxDay`) → read them from the enum in `rules()`, never repeat the numbers
+- Rules across fields the domain already holds → check them in `after()` by **reusing** the existing VO, and name the field the error goes to
+- Validation always lives in the **FormRequest** (not spatie Data validation, not inline in the controller)
 
-### ชุด D — หลังบันทึก
+### Set D — After saving
 
-- redirect ไปไหน: `show` ของรายการ (default) หรือ `index`
-- ข้อความ toast `{aggregates}.created` / `{aggregates}.updated` ใส่ `:name` ไหม
-- ค่าที่ต้องแปลงก่อนแสดงในหน้า edit (นาที → `HH:mm`, json camelCase → ช่อง snake_case) — แปลงใน `{X}FormValues::of()` ไม่ใช่ฝั่ง TS
+- Where to redirect: the item's `show` (the default) or `index`
+- Whether the toast `{aggregates}.created` / `{aggregates}.updated` carries `:name`
+- Values converted before the edit page shows them (minutes → `HH:mm`, camelCase json → snake_case fields). Convert in `{X}FormValues::of()`, not in TS.
 
-### สิ่งที่ตัดสินใจเองได้ ไม่ต้องถาม (แต่ต้องอยู่ในตารางสรุป)
+### What you decide yourself, without asking (but list it in the summary table)
 
-ชื่อไฟล์/คลาสตาม convention, ลำดับฟิลด์ตามที่ผู้ใช้ไล่มา, การจัด Card ตามกลุ่มฟิลด์, คีย์คำแปลตาม prefix, ชื่อ test case/helper, การ reset ฟิลด์ลูกเมื่อฟิลด์แม่เปลี่ยน
+File and class names by convention, the field order the user gave, grouping fields into Cards, translation keys under the prefix, test case and helper names, resetting child fields when their parent field changes.
 
-### ตารางสรุปสเปก (ให้ผู้ใช้ยืนยันก่อนขั้น 1)
+### Spec summary table (the user confirms it before step 1)
 
-| หัวข้อ | ค่า |
+| Topic | Value |
 | --- | --- |
 | Aggregate / Context / route / lang prefix | |
-| Policy / ใครสร้าง/แก้ได้ | |
-| ฟิลด์ (name → input → Command param → ค่าตั้งต้น) | |
-| ฟิลด์ที่แก้ไม่ได้ในหน้า edit | |
-| ฟิลด์ตามเงื่อนไข | |
-| รูป/ไฟล์ | |
-| unique key | |
-| กฎข้ามฟิลด์ (VO ที่ reuse) | |
-| หลังบันทึก (redirect + toast) | |
+| Policy / who may create and edit | |
+| Fields (name → input → Command param → starting value) | |
+| Fields locked on the edit page | |
+| Conditional fields | |
+| Images / files | |
+| Unique key | |
+| Rules across fields (VO reused) | |
+| After saving (redirect + toast) | |
 
 ---
 
@@ -83,62 +83,62 @@ skill นี้พาทำทั้งสาย backend → frontend → tests 
 
 ### 1. Backend
 
-ถ้าโปรเจกต์ใช้ structure manifest (`.kit/structure/`) ให้ออกแบบ use case, controller method และ page ลง manifest ก่อน แล้วให้ `php artisan kit:apply` รัน generator ให้ (guideline `structure.md`) — ขั้นที่ apply หยุดรอคือส่วนที่คนต้องเติม
+If the project uses the structure manifest (`.kit/structure/`), design the use cases, controller methods and pages in the manifest first, then let `php artisan kit:apply` run the generators (the `structure.md` guideline). A step where apply stops and waits is the part a person fills in.
 
-ลำดับ:
+Order:
 
-1. `php artisan make:use-case Create{Aggregate} --domain={Context} --repo={Aggregate} --command --creates --no-interaction` (handler มินต์ id ผ่าน `IdGenerator` แล้วคืน `string`) และ `php artisan make:use-case Update{Aggregate} --domain={Context} --repo={Aggregate} --command --no-interaction` — id ของรายการที่แก้เป็น field ของ Command (`id` หรือ `{aggregate}Id`) ไม่ส่งแยก (`handlers.md`)
-2. เขียน **Command** ให้ครบก่อน — ชนิดของแต่ละพารามิเตอร์คือสิ่งที่ generator ขั้นถัดไปใช้เดา rule: string / `?string` / int / bool / enum / `array` / `UploadedFile` เวลาเป็น `HH:mm` string ให้ handler แปลงเป็น VO; เงิน/อัตรา/ตัวคูณเป็น decimal string (`'1500.50'`) หรือ VO — **ห้าม `float`** (numbers.md, เทสต์ `no-float`)
-3. เขียน **Handler**: `{Aggregate}Entity::create(...)` → `$this->repo->save()` (create) หรือ `getById()` → method ของ entity → `update()` (update) ทุก handler ที่เขียนเปิด `DB::transaction` และบันทึก audit entry ในนั้น (`audit-log.md`) ใส่ `@throws` ทุก domain exception ที่ทะลุได้
-4. `php artisan make:form-request {Aggregate} --domain={Context} --no-interaction` ได้ `Validates{Aggregate}` + `Store`/`Update{Aggregate}Request` + `{Aggregate}FormValues` แล้วเขียนต่อ:
-   - rules ที่ generator เดาเป็นแค่จุดเริ่ม: เติม unique (`abstract protected function {x}UniqueRule(): Unique` ใน trait ให้แต่ละ request เขียนเอง), ขอบเขตจาก enum, `exclude`, `after()` reuse VO, ไฟล์ด้วย `File::image()/types()` + ขนาดจาก `config()`
-   - `rules()` ต้อง `return [...]` เป็น array literal (เทสต์อ่านคีย์จากตรงนี้)
-   - `toCommand()` ใช้ `new {Name}Command(...)` + named args เท่านั้น ห้าม `::from([...])`
-   - helper แคบ type (**ห้ามชื่อ `image()`** — `Request::image()` มีอยู่แล้ว)
-   - `{Aggregate}FormValues`: คีย์ของ `toArray()` = คีย์ระดับบนของ `Store{Aggregate}Request::rules()` (เทสต์ `form-values` ตรวจ) เขียน `empty()` (ค่าตั้งต้นตอนสร้าง) และ `of($model)` (แปลงค่าที่เก็บเป็นค่าที่ input แสดง) ให้ครบ — `of()` โยน `LogicException` จนกว่าจะเขียน
-5. **Controller**: `php artisan make:controller {Aggregate} --domain={Context} --only=create,store,edit,update --no-interaction` (เพิ่ม `--update=`/`--create=` เมื่อ use case ไม่ได้ชื่อ `Update{Aggregate}`/`Create{Aggregate}`) — **ห้ามเขียน method เอง** generator เติม 4 method นี้ลง controller เดิม (หรือสร้างใหม่) ตามลำดับ resource ไม่แตะ method เดิม และเขียน `CreateTest`/`StoreTest`/`EditTest`/`UpdateTest` ที่มี `->todo()` จากนั้นเติมสิ่งที่มันไม่รู้ตามคำเตือนที่มันพิมพ์ (บรรทัด `can` ของ index ที่ขาด, ability, คีย์คำแปล):
-   - `index`: `'create' => Gate::allows('create', Model::class)` ใน `can`
+1. `php artisan make:use-case Create{Aggregate} --domain={Context} --repo={Aggregate} --command --creates --no-interaction` (the handler mints the id through `IdGenerator` and returns a `string`) and `php artisan make:use-case Update{Aggregate} --domain={Context} --repo={Aggregate} --command --no-interaction`. The id of the item being edited is a field of the Command (`id` or `{aggregate}Id`), never passed beside it (`handlers.md`).
+2. Write the **Command** in full first. The type of each parameter is what the next generator guesses the rule from: string / `?string` / int / bool / enum / `array` / `UploadedFile`. A time is an `HH:mm` string that the handler turns into a VO. Money, rates and multipliers are a decimal string (`'1500.50'`) or a VO. **Never `float`** (numbers.md, test `no-float`).
+3. Write the **Handler**: `{Aggregate}Entity::create(...)` → `$this->repo->save()` (create), or `getById()` → the entity's method → `update()` (update). Every handler that writes opens a `DB::transaction` and records an audit entry inside it (`audit-log.md`). Add `@throws` for every domain exception that can pass through.
+4. `php artisan make:form-request {Aggregate} --domain={Context} --no-interaction` writes `Validates{Aggregate}`, `Store`/`Update{Aggregate}Request` and `{Aggregate}FormValues`. Then write on:
+   - The rules the generator guesses are only a start. Add unique (`abstract protected function {x}UniqueRule(): Unique` in the trait, which each request writes itself), bounds from the enum, `exclude`, `after()` reusing the VO, and files with `File::image()/types()` and a size from `config()`.
+   - `rules()` must `return [...]` as an array literal (the test reads the keys from it).
+   - `toCommand()` uses `new {Name}Command(...)` with named args only. Never `::from([...])`.
+   - Helpers that narrow a type (**never name one `image()`**: `Request::image()` already exists).
+   - `{Aggregate}FormValues`: the keys of `toArray()` are the top-level keys of `Store{Aggregate}Request::rules()` (the `form-values` test checks this). Write `empty()` (the starting values on create) and `of($model)` (the stored values turned into what the inputs show) in full. `of()` throws `LogicException` until you write it.
+5. **Controller**: `php artisan make:controller {Aggregate} --domain={Context} --only=create,store,edit,update --no-interaction` (add `--update=`/`--create=` when the use case is not named `Update{Aggregate}`/`Create{Aggregate}`). **Never write the methods yourself.** The generator adds these 4 methods to the existing controller (or creates it) in resource order, leaves the existing methods alone, and writes `CreateTest`/`StoreTest`/`EditTest`/`UpdateTest` with `->todo()`. Then fill in what it cannot know, following the warnings it prints (the missing `can` line of index, the ability, the translation keys):
+   - `index`: `'create' => Gate::allows('create', Model::class)` in `can`
    - `create()`: `Gate::authorize('create', Model::class)` → `Inertia::render('{aggregates}/create', ['defaults' => {X}FormValues::empty()])`
-   - `store(Store{X}Request $request, Create{X}Handler $handler)`: ไม่ `Gate::authorize` ซ้ำ → `$id = $handler($request->toCommand())` → `Inertia::flash(FlashToast::KEY, FlashToast::success(...))` เป็น statement → `return to_route('{aggregates}.show', $id)`
-   - `edit($model)`: `Gate::authorize('update', $model)` → render ด้วย `'{model}' => $model` (breadcrumb + `update.form()`) และ `'defaults' => {X}FormValues::of($model)`
+   - `store(Store{X}Request $request, Create{X}Handler $handler)`: no second `Gate::authorize` → `$id = $handler($request->toCommand())` → `Inertia::flash(FlashToast::KEY, FlashToast::success(...))` as a statement → `return to_route('{aggregates}.show', $id)`
+   - `edit($model)`: `Gate::authorize('update', $model)` → render with `'{model}' => $model` (breadcrumb + `update.form()`) and `'defaults' => {X}FormValues::of($model)`
    - `update(Update{X}Request $request, $model, Update{X}Handler $handler)`: `$handler($request->toCommand())` → flash → `to_route('{aggregates}.show', $model)`
-   - ห้ามสร้าง Command ใน controller และห้ามเปิด transaction ที่นี่
-6. ทุก `lang/*.json` (เรียงคีย์): `{aggregates}.create` (ปุ่ม), `form_title`, `create_title`, `create_description`, `edit_title`, `edit_description`, `created`/`updated` (`:name`), label ของทุกฟิลด์, `validation.{rule}` สำหรับ error จาก `after()`
+   - Never build a Command in the controller, and never open a transaction there.
+6. Every `lang/*.json` (keys sorted): `{aggregates}.create` (the button), `form_title`, `create_title`, `create_description`, `edit_title`, `edit_description`, `created`/`updated` (`:name`), the label of every field, and `validation.{rule}` for errors from `after()`
 7. `php artisan wayfinder:generate --with-form`
 
 ### 2. Frontend
 
-ลำดับ:
+Order:
 
-1. `php artisan make:form-page {Aggregate} --no-interaction` อ่าน `@return array{…}` ของ `{X}FormValues::toArray()` แล้วเขียน type `{X}FormValues` ลง `types/{aggregate}.ts`, `components/{aggregate}/form.tsx` (หนึ่ง input ต่อคีย์) และ shell ของ `create.tsx`/`edit.tsx` และ Browser test `tests/Browser/{Aggregates}/CreateTest.php` + `EditTest.php` พร้อม `->todo()` — รายงาน route กับคำแปลที่ยังขาด
-2. แต่ง type ใน `types/` ให้แคบลงได้ (enum เป็น string union) แต่คีย์ต้องตรงกับ PHP
-3. แต่ง form component:
-   - คง `<Form {...action}>` แบบ uncontrolled (`defaultValue={defaults.x}`) `useState` เฉพาะฟิลด์แม่ที่คุมการโชว์, ค่าของ ToggleGroup/Checkbox ที่ต้องยิงผ่าน hidden input, ค่าที่ widget เลือกแล้วเขียนลง hidden input
-   - enum: `<Select name defaultValue>` จากค่าคงที่ `X_OPTIONS` พร้อม `@see` และ `t('{aggregates}.{field}.${value}')`
-   - หลายค่า: `<ToggleGroup type="multiple">` + `<input type="hidden" name="x[]">` ต่อค่า, error อ่าน `errors.x ?? errors['x.0']`
-   - เวลา: `<Input type="time">` ส่ง `HH:mm` ตรง ๆ
-   - เงิน/อัตรา: `<Input inputMode="decimal">` รับ decimal string ตรง ๆ ยอดที่คำนวณโชว์ก่อนกดส่งใช้ `addMoney`/`subtractMoney` จาก `@/lib/numbers`
-   - ฟิลด์ที่แก้ไม่ได้: prop `mode: 'create' | 'edit'`
-   - ห้าม `useForm` / `useHttp` / `router` / `fetch` (ESLint `form-only`)
-4. หน้า create/edit เป็น shell: รับ `defaults` จาก props ส่งต่อให้ฟอร์ม ห้ามมี `<Form>`/input หรือสร้างค่าตั้งต้นเอง (ESLint `page-shell`, เทสต์ `pages`) หน้า edit ปรับ type ของ model prop ให้เป็น `{X}Detail` ถ้ามี
-5. `pages/{aggregates}/index.tsx`: `can.create` ใน Props → `<DataTable headerActions={can.create ? <Button asChild><Link href={create()}><Plus />{t('{aggregates}.create')}</Link></Button> : undefined} />` — **ไม่ใช่ `toolbar`**
+1. `php artisan make:form-page {Aggregate} --no-interaction` reads the `@return array{…}` of `{X}FormValues::toArray()`, then writes the type `{X}FormValues` into `types/{aggregate}.ts`, `components/{aggregate}/form.tsx` (one input per key), the `create.tsx`/`edit.tsx` shells, and the Browser tests `tests/Browser/{Aggregates}/CreateTest.php` + `EditTest.php` with `->todo()`. It reports the route and the translations still missing.
+2. You may narrow the type in `types/` (an enum as a string union), but its keys must match PHP.
+3. Shape the form component:
+   - Keep `<Form {...action}>` uncontrolled (`defaultValue={defaults.x}`). Use `useState` only for a parent field that controls what shows, a ToggleGroup/Checkbox value that must post through a hidden input, and a value a widget picks and writes into a hidden input.
+   - Enum: `<Select name defaultValue>` from a constant `X_OPTIONS` with `@see`, and `t('{aggregates}.{field}.${value}')`
+   - Several values: `<ToggleGroup type="multiple">` + one `<input type="hidden" name="x[]">` per value. Read the error as `errors.x ?? errors['x.0']`.
+   - Time: `<Input type="time">` sends `HH:mm` as is.
+   - Money and rates: `<Input inputMode="decimal">` takes the decimal string as is. A total shown before submitting uses `addMoney`/`subtractMoney` from `@/lib/numbers`.
+   - Fields that cannot be changed: the prop `mode: 'create' | 'edit'`
+   - Never `useForm` / `useHttp` / `router` / `fetch` (ESLint `form-only`)
+4. The create and edit pages are shells: they take `defaults` from the props and pass it to the form. They hold no `<Form>` or input, and build no starting values (ESLint `page-shell`, test `pages`). The edit page narrows the type of its model prop to `{X}Detail` when there is one.
+5. `pages/{aggregates}/index.tsx`: `can.create` in Props → `<DataTable headerActions={can.create ? <Button asChild><Link href={create()}><Plus />{t('{aggregates}.create')}</Link></Button> : undefined} />`. **Not `toolbar`.**
 
 ### 3. Tests
 
-generator scaffold ไฟล์เทสต์ที่มี `->todo()` ไว้แล้ว — เขียนในไฟล์เดิม ห้ามสร้างซ้ำ (path ตาม `testing.md`)
+The generators have already scaffolded the test files with `->todo()`. Write in those files, never create a second one (paths follow `testing.md`).
 
-| ไฟล์ | ต้องมีเคส |
+| File | Cases it must have |
 | --- | --- |
-| `Create{X}HandlerTest` / `Update{X}HandlerTest` | persist ทุก field + audit entry; ฟิลด์ตามเงื่อนไขเป็น null; สองครั้งได้ id ต่างกัน (create); ทุก domain exception ที่ทะลุได้ (dataset); unique ซ้ำ → `expectFailedWrite(...)`; repo throw → ทะลุไม่ถูกกลืน |
-| `{Aggregate}Controller/CreateTest` | guest → login; role ที่เขียนได้ → `component('{aggregates}/create')` + `where('defaults', [...])` ทุกคีย์; role ที่ไม่มีสิทธิ์ → `assertForbidden` |
-| `{Aggregate}Controller/EditTest` | เหมือน Create + `defaults.*` เป็นค่าที่แปลงแล้วของแถวนั้น; id ที่ไม่มี → 404 |
-| `{Aggregate}Controller/StoreTest` / `UpdateTest` | helper `valid{X}Payload($overrides)`; สำเร็จ → `assertRedirect(show)` + `assertInertiaFlash('toast.*')` + ทุกคอลัมน์; dataset validation `[overrides, field]` → `assertInvalid([$field])` + count คงเดิม; เคสขอบที่ **ผ่าน**; role ที่ไม่มีสิทธิ์สองทาง (403 / `X-Inertia` → toast error); ฟิลด์ที่ลักลอบส่งมาถูกทิ้ง (update) |
-| `{Aggregate}Controller/IndexTest` | `can.create` ต่อ role |
-| `tests/Browser/{Aggregates}/CreateTest` / `EditTest` (generator เขียนไว้แล้ว) | render ไม่มี JS error (edit: เห็นค่าที่เก็บไว้); กรอกแล้วบันทึก → ไปหน้าปลายทาง + เห็น toast; ส่งค่าผิด → error ใต้ช่องที่ถูกต้อง; ฟิลด์ตามเงื่อนไขซ่อน/โชว์ |
+| `Create{X}HandlerTest` / `Update{X}HandlerTest` | persists every field + the audit entry; conditional fields are null; two runs give different ids (create); every domain exception that can pass through (dataset); a duplicate unique → `expectFailedWrite(...)`; a repo throw passes through and is not swallowed |
+| `{Aggregate}Controller/CreateTest` | guest → login; a role that may write → `component('{aggregates}/create')` + `where('defaults', [...])` for every key; a role without the right → `assertForbidden` |
+| `{Aggregate}Controller/EditTest` | as Create, plus `defaults.*` holds the converted values of that row; an unknown id → 404 |
+| `{Aggregate}Controller/StoreTest` / `UpdateTest` | helper `valid{X}Payload($overrides)`; success → `assertRedirect(show)` + `assertInertiaFlash('toast.*')` + every column; a validation dataset `[overrides, field]` → `assertInvalid([$field])` + the count unchanged; edge cases that **pass**; a role without the right, both ways (403 / `X-Inertia` → error toast); a smuggled field is dropped (update) |
+| `{Aggregate}Controller/IndexTest` | `can.create` per role |
+| `tests/Browser/{Aggregates}/CreateTest` / `EditTest` (already written by the generator) | renders with no JS error (edit: shows the stored values); fill in and save → reaches the destination + shows the toast; an invalid value → the error under the right field; conditional fields hide and show |
 
-helper ต่อไฟล์ตั้งชื่อไม่ซ้ำข้ามไฟล์ (`{aggregates}CreateActor`, `{aggregates}StoreActor`) — Pest แชร์ global namespace
+Name each file's helpers so no two files share one (`{aggregates}CreateActor`, `{aggregates}StoreActor`). Pest shares one global namespace.
 
-### 4. ตรวจ
+### 4. Verify
 
 ```bash
 vendor/bin/pint --dirty --format agent
@@ -146,49 +146,49 @@ vendor/bin/phpstan analyse
 php artisan test --compact --testsuite=Architecture
 php artisan test --compact --filter={Aggregate}
 php artisan wayfinder:generate --with-form && npx tsc --noEmit
-npx eslint <ไฟล์ที่แตะ>
-npx prettier --check <ไฟล์ที่แตะ> lang/*.json
+npx eslint <files you touched>
+npx prettier --check <files you touched> lang/*.json
 npm run build && php artisan test --compact --testsuite=Browser
 ```
 
-แล้วตรวจกับ dev server จริง (`composer run dev`): ปุ่มสร้างโชว์เฉพาะ role ที่สร้างได้ · หน้า create/edit เรนเดอร์พร้อมค่าตั้งต้น · ฟิลด์ตามเงื่อนไขซ่อน/โชว์ · บันทึก → ไปหน้า show + toast · ส่งค่าผิดได้ error ที่ช่องที่ถูกต้อง · **ลบแถวทดสอบทิ้ง**หลังเสร็จ
+Then check against the real dev server (`composer run dev`): the create button shows only for roles that may create · the create and edit pages render with their starting values · conditional fields hide and show · save → reaches the show page + toast · an invalid value gets its error at the right field · **delete the test rows** when done
 
 ---
 
-## สิ่งที่ห้าม
+## Don't
 
-- validate ใน controller หรือบน spatie Data — FormRequest เท่านั้น
-- สร้าง Command ใน controller หรือใช้ `Command::from([...])` — `$request->toCommand()` ที่ใช้ `new` + named args
-- `Update{X}Request extends Store{X}Request` — `toCommand()` คืน Command คนละคลาส ให้ใช้ trait `Validates{X}` ร่วมกัน
-- `Gate::authorize` ซ้ำใน `store()`/`update()` — สิทธิ์อยู่ใน `authorize()` ของ request
-- สร้างค่าตั้งต้นของฟอร์มฝั่ง TS (`EMPTY_VALUES`, `toFormValues()`) — มาจาก `{X}FormValues` เป็น prop `defaults`
-- เขียนกฎข้ามฟิลด์ใหม่ทั้งที่ domain มี VO อยู่แล้ว / เขียนเลขขอบเขตซ้ำทั้งที่ enum มีให้
-- `required_unless` สำหรับฟิลด์ที่ไม่ใช้ในเงื่อนไข — ใช้ `exclude`
-- เก็บ/ย้ายไฟล์ หรือเรียก `Storage::` ใน `app/Http` — handler ทำผ่าน storage port
-- `Inertia::flash(...)->route(...)` หรือ `->with(...)` — flash เป็น statement แล้ว `to_route()`
-- `useForm`/controlled ทุกฟิลด์ — `<Form>` uncontrolled แล้ว `useState` เฉพาะที่จำเป็น
-- setState ใน `useEffect` (eslint `react-hooks/set-state-in-effect`)
-- ปุ่มสร้างใน `toolbar` ของ DataTable — ใช้ `headerActions`
+- Validate in the controller or on spatie Data. Only the FormRequest validates.
+- Build a Command in the controller, or use `Command::from([...])`. Use `$request->toCommand()`, built with `new` and named args.
+- Make `Update{X}Request extends Store{X}Request`. Their `toCommand()` return different Command classes, so share the trait `Validates{X}` instead.
+- Call `Gate::authorize` again in `store()`/`update()`. Authorization lives in the request's `authorize()`.
+- Build the form's starting values in TS (`EMPTY_VALUES`, `toFormValues()`). They come from `{X}FormValues` as the `defaults` prop.
+- Write a new rule across fields when the domain already has a VO for it, or repeat bound numbers the enum already gives.
+- Use `required_unless` for a field that does not apply under a condition. Use `exclude`.
+- Store or move a file, or call `Storage::`, in `app/Http`. The handler does it through the storage port.
+- Use `Inertia::flash(...)->route(...)` or `->with(...)`. Flash as a statement, then `to_route()`.
+- Use `useForm` or make every field controlled. Keep `<Form>` uncontrolled and use `useState` only where needed.
+- Call setState inside `useEffect` (eslint `react-hooks/set-state-in-effect`).
+- Put the create button in the DataTable's `toolbar`. Use `headerActions`.
 
-## เช็คลิสต์ปิดงาน
+## Closing checklist
 
-**สเปก**
-- [ ] ตารางสรุปสเปกได้รับการยืนยันจากผู้ใช้ก่อนแตะไฟล์
-- [ ] ทุกจุดที่ตัดสินใจเองถูกสรุปให้ผู้ใช้เห็น
+**Spec**
+- [ ] The user confirmed the spec summary table before any file was touched
+- [ ] Every decision made without asking was shown to the user in the summary
 
 **Backend**
-- [ ] scaffold ด้วย `make:use-case` + `make:form-request`; handler create คืน id
-- [ ] FormRequest: `authorize()`, rules เป็น literal, unique ตาม key, `exclude`, `after()` reuse VO, `attributes()`, `toCommand()` ด้วย `new`
-- [ ] `{X}FormValues` คีย์ตรง rules; `empty()`/`of()` เขียนครบ
-- [ ] Controller scaffold ด้วย `make:controller --only=create,store,edit,update` ไม่เขียนเอง แล้วเติมตามคำเตือนของ generator; `can.create` ใน index
-- [ ] คำแปลครบทุก `lang/*.json`; wayfinder regenerate
+- [ ] Scaffolded with `make:use-case` + `make:form-request`; the create handler returns the id
+- [ ] FormRequest: `authorize()`, rules as a literal, unique by key, `exclude`, `after()` reusing the VO, `attributes()`, `toCommand()` with `new`
+- [ ] `{X}FormValues` keys match the rules; `empty()`/`of()` written in full
+- [ ] Controller scaffolded with `make:controller --only=create,store,edit,update`, not written by hand, then filled in from the generator's warnings; `can.create` in index
+- [ ] Translations complete in every `lang/*.json`; wayfinder regenerated
 
 **Frontend**
-- [ ] scaffold ด้วย `make:form-page`; type ใน `types/` มี `@see`
-- [ ] form component เดียวใช้ทั้งสองหน้า uncontrolled + state เฉพาะที่จำเป็น
-- [ ] create/edit เป็น shell รับ `defaults`; ปุ่มสร้างใน `headerActions`
+- [ ] Scaffolded with `make:form-page`; the type in `types/` has `@see`
+- [ ] One form component serves both pages, uncontrolled, with state only where needed
+- [ ] create/edit are shells that take `defaults`; the create button is in `headerActions`
 
-**Tests + ตรวจ**
-- [ ] Handler / Create / Edit / Store / Update / Index / Browser เขียวทั้งหมด (รวมเคสขอบที่ **ผ่าน**, ไม่เหลือ `->todo()` ใน Browser test)
-- [ ] Architecture (`FormPagesTest`) / pint / phpstan / tsc / eslint / prettier / Browser ผ่าน
-- [ ] ตรวจกับ dev server ตามข้อ 4 แล้วรายงานผลตามจริง และลบข้อมูลทดสอบทิ้ง
+**Tests + verify**
+- [ ] Handler / Create / Edit / Store / Update / Index / Browser are all green (including the edge cases that **pass**, and no `->todo()` left in the Browser tests)
+- [ ] Architecture (`FormPagesTest`) / pint / phpstan / tsc / eslint / prettier / Browser pass
+- [ ] Checked against the dev server per step 4, the results reported as they are, and the test data deleted
