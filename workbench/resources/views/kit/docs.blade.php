@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ $page['locale'] ?? 'en' }}">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -33,6 +33,24 @@
                     placeholder="Filter rules"
                     class="mb-4 w-full rounded-md border bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
                 >
+                @if ($guides !== [])
+                    <div class="mb-1 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">Guides</div>
+                    <ul class="mb-4 space-y-0.5 text-sm">
+                        @foreach ($guides as $guide)
+                            <li>
+                                <a
+                                    href="{{ route('kit.docs.guide', ['guide' => $guide['name']]) }}"
+                                    @class([
+                                        'block rounded-md px-3 py-1.5',
+                                        'bg-muted font-medium text-foreground' => isset($page['locales']) && $page['name'] === $guide['name'],
+                                        'text-muted-foreground hover:bg-muted/60 hover:text-foreground' => ! (isset($page['locales']) && $page['name'] === $guide['name']),
+                                    ])
+                                >{{ $guide['title'] }}</a>
+                            </li>
+                        @endforeach
+                    </ul>
+                    <div class="mb-1 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">Rules</div>
+                @endif
                 <ul class="space-y-0.5 text-sm" id="kit-docs-rules">
                     @foreach ($guidelines as $guideline)
                         <li data-filter="{{ strtolower($guideline['title'].' '.$guideline['name'].' '.$guideline['summary']) }}">
@@ -40,8 +58,8 @@
                                 href="{{ route('kit.docs', ['page' => $guideline['name']]) }}"
                                 @class([
                                     'block rounded-md px-3 py-1.5',
-                                    'bg-muted font-medium text-foreground' => ($page['name'] ?? null) === $guideline['name'],
-                                    'text-muted-foreground hover:bg-muted/60 hover:text-foreground' => ($page['name'] ?? null) !== $guideline['name'],
+                                    'bg-muted font-medium text-foreground' => ! isset($page['locales']) && ($page['name'] ?? null) === $guideline['name'],
+                                    'text-muted-foreground hover:bg-muted/60 hover:text-foreground' => isset($page['locales']) || ($page['name'] ?? null) !== $guideline['name'],
                                 ])
                             >{{ $guideline['title'] }}</a>
                         </li>
@@ -57,6 +75,24 @@
                         <code translate="no" class="rounded bg-muted px-1 py-0.5 text-[0.85em]">playerarm123/laravel-workflow-kit</code> as it stands.
                         Every rule says what to do, what not to, why, and which check holds it.
                     </p>
+
+                    @if ($guides !== [])
+                        <h2 class="mb-4 text-xl font-semibold">Guides</h2>
+                        <p class="mb-4 max-w-3xl text-sm text-muted-foreground">
+                            How to use the kit's screens, step by step, in English and in Thai.
+                        </p>
+                        <div class="mb-12 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                            @foreach ($guides as $guide)
+                                <a
+                                    href="{{ route('kit.docs.guide', ['guide' => $guide['name']]) }}"
+                                    class="rounded-lg border p-4 transition hover:border-foreground/40 hover:bg-muted/40"
+                                >
+                                    <div class="font-medium">{{ $guide['title'] }}</div>
+                                    <div class="mt-1 line-clamp-3 text-sm text-muted-foreground">{{ $guide['summary'] }}</div>
+                                </a>
+                            @endforeach
+                        </div>
+                    @endif
 
                     <h2 class="mb-4 text-xl font-semibold">Rules</h2>
                     <div class="mb-12 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -94,7 +130,22 @@
                         </table>
                     </div>
                 @else
-                    <article class="max-w-3xl leading-7 [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_h1]:mb-6 [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:mt-12 [&_h2]:mb-3 [&_h2]:scroll-mt-20 [&_h2]:border-b [&_h2]:pb-2 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:font-semibold [&_li]:my-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-3 [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-4 [&_pre]:text-sm [&_pre]:leading-6 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-semibold [&_table]:my-4 [&_table]:block [&_table]:overflow-x-auto [&_table]:text-sm [&_td]:border [&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_th]:border [&_th]:bg-muted [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-6">
+                    @isset($page['locales'])
+                        <nav class="mb-6 flex gap-1 text-sm" aria-label="Language">
+                            @foreach ($page['locales'] as $locale)
+                                <a
+                                    href="{{ route('kit.docs.guide', $locale === 'en' ? ['guide' => $page['name']] : ['guide' => $page['name'], 'lang' => $locale]) }}"
+                                    @if ($locale === $page['locale']) aria-current="page" @endif
+                                    @class([
+                                        'rounded-md border px-3 py-1',
+                                        'bg-muted font-medium' => $locale === $page['locale'],
+                                        'text-muted-foreground hover:text-foreground' => $locale !== $page['locale'],
+                                    ])
+                                >{{ ['en' => 'English', 'th' => 'ไทย'][$locale] ?? $locale }}</a>
+                            @endforeach
+                        </nav>
+                    @endisset
+                    <article class="max-w-3xl leading-7 [&_img]:my-4 [&_img]:rounded-md [&_img]:border [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_h1]:mb-6 [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:mt-12 [&_h2]:mb-3 [&_h2]:scroll-mt-20 [&_h2]:border-b [&_h2]:pb-2 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:font-semibold [&_li]:my-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-3 [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-4 [&_pre]:text-sm [&_pre]:leading-6 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-semibold [&_table]:my-4 [&_table]:block [&_table]:overflow-x-auto [&_table]:text-sm [&_td]:border [&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_th]:border [&_th]:bg-muted [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-6">
                         {!! $page['html'] !!}
                     </article>
                 @endif

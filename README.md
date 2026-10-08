@@ -88,6 +88,8 @@ php artisan kit:apply         # run every ready step: generators, binding and ro
 
 `kit:apply` stops where only a person can go on: a Command's fields, a Row's keys, a method's body. Fill those in and run it again. It picks up where it stopped.
 
+The design screen has a step-by-step guide with screenshots: [docs/structure-screen.md](docs/structure-screen.md) (also at `/kit/docs/guides/structure-screen` in the app).
+
 To change something already built, mark the new piece with `replaces` on the screen or in the manifest. `kit:apply` builds it and swaps it in, then `php artisan kit:retire` removes the old one once the suites pass ([structure.md](resources/boost/guidelines/structure.md)).
 
 ### Or scaffold one piece
@@ -183,4 +185,4 @@ MIT. See [LICENSE](LICENSE).
 ## Read more
 
 - Every guideline: [`resources/boost/guidelines`](resources/boost/guidelines). On a local environment, `/kit/docs` renders them with the console's commands.
-- The design screen: `/kit/structure`, local only ([structure.md](resources/boost/guidelines/structure.md)).
+- The design screen: `/kit/structure`, local only. How to use it: [docs/structure-screen.md](docs/structure-screen.md). The rules it follows: [structure.md](resources/boost/guidelines/structure.md).

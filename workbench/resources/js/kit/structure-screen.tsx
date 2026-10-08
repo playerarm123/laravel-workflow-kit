@@ -236,6 +236,12 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                 </Breadcrumb>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                     <a
+                        href={endpoints.guide}
+                        className="text-sm text-muted-foreground hover:text-foreground"
+                    >
+                        Guide
+                    </a>
+                    <a
                         href={endpoints.docs}
                         className="mr-2 text-sm text-muted-foreground hover:text-foreground"
                     >

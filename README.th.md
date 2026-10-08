@@ -88,6 +88,8 @@ php artisan kit:apply         # รันทุกขั้นที่พร้
 
 `kit:apply` จะหยุดตรงที่ต้องให้คนเขียนต่อ เช่น fields ของ Command, keys ของ Row หรือเนื้อของ method เขียนส่วนนั้นแล้วรันใหม่ มันจะทำต่อจากจุดที่หยุดไว้
 
+คู่มือหน้าจอออกแบบแบบทำตามทีละขั้นพร้อมภาพหน้าจอ: [docs/structure-screen.th.md](docs/structure-screen.th.md) (เปิดในแอปได้ที่ `/kit/docs/guides/structure-screen?lang=th`)
+
 ถ้าจะเปลี่ยนชิ้นที่สร้างไปแล้ว ให้ทำเครื่องหมายชิ้นใหม่ด้วย `replaces` บนหน้าจอหรือใน manifest แล้ว `kit:apply` จะสร้างชิ้นใหม่และสลับเข้าไปแทน จากนั้น `php artisan kit:retire` จะลบชิ้นเก่าออกเมื่อ suite ผ่านหมด ([structure.md](resources/boost/guidelines/structure.md))
 
 ### หรือ scaffold ทีละชิ้น
@@ -183,4 +185,4 @@ MIT ดู [LICENSE](LICENSE)
 ## อ่านเพิ่ม
 
 - guidelines ทั้งหมดอยู่ใน [`resources/boost/guidelines`](resources/boost/guidelines) บนเครื่อง local เปิดดูที่ `/kit/docs` ได้ ซึ่งแสดงคำสั่งทั้งหมดของ console ไว้ด้วย
-- หน้าจอออกแบบ: `/kit/structure` ใช้ได้บนเครื่อง local เท่านั้น ([structure.md](resources/boost/guidelines/structure.md))
+- หน้าจอออกแบบ: `/kit/structure` ใช้ได้บนเครื่อง local เท่านั้น วิธีใช้อยู่ใน [docs/structure-screen.th.md](docs/structure-screen.th.md) ส่วนกฎที่หน้าจอยึดอยู่ใน [structure.md](resources/boost/guidelines/structure.md)
