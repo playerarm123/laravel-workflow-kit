@@ -47,7 +47,6 @@ function structureManifestSpec(): array
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Concerns/ResolvesManifestTypes.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/KitDocs.php',
             'resources/views/kit/docs.blade.php',
-            'vendor/playerarm123/laravel-workflow-kit/tests/Feature/Console/Commands/KitImportCommandTest.php',
         ],
     ];
 }
