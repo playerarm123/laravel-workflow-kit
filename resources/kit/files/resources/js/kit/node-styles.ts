@@ -17,6 +17,7 @@ import {
     Route,
     Shield,
     Table,
+    TriangleAlert,
     Workflow,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -168,6 +169,14 @@ const LIME = {
     bar: 'border-l-lime-500 dark:border-l-lime-400',
     band: 'bg-lime-100 dark:bg-lime-900/60',
 };
+const RED = {
+    border: 'border-red-300 dark:border-red-500/60',
+    fill: 'bg-red-50 dark:bg-red-950/50',
+    edge: 'bg-red-300 dark:bg-red-500/60',
+    accent: 'text-red-600 dark:text-red-300',
+    bar: 'border-l-red-500 dark:border-l-red-400',
+    band: 'bg-red-100 dark:bg-red-900/60',
+};
 const PLAIN = {
     border: 'border-foreground/50',
     fill: 'bg-card',
@@ -200,6 +209,7 @@ const KIND_STYLES: Record<StructureNodeKind, NodeStyle> = {
     enum: style('enum', 'Enum', 'tag', ListOrdered, FUCHSIA),
     valueObject: style('valueObject', 'Value object', 'rounded', Gem, LIME),
     entity: style('entity', 'Entity', 'box', Box, AMBER),
+    exception: style('exception', 'Exception', 'box', TriangleAlert, RED),
     external: style('external', 'Elsewhere', 'dashed', ExternalLink, MUTED),
 };
 

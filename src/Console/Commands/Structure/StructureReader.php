@@ -38,6 +38,15 @@ final class StructureReader
     public const array KIT_SHARED = ['Money', 'Percent'];
 
     /**
+     * The kit's own exceptions in the shared kernel (exceptions.md), which no manifest lists.
+     */
+    public const array KIT_SHARED_EXCEPTIONS = ['DomainValueException', 'EntityNotFoundException', 'InvalidMoneyException', 'InvalidPercentException', 'RepositoryException'];
+
+    private const string DOMAIN_VALUE_EXCEPTION = 'App\Domain\Shared\Exceptions\DomainValueException';
+
+    private const string APPLICATION_EXCEPTION = 'App\Application\ApplicationException';
+
+    /**
      * The types a value object's field may name that are no class.
      */
     public const array BUILTIN_TYPES = ['string', 'int', 'float', 'bool', 'array', 'iterable', 'object', 'mixed', 'null', 'true', 'false', 'callable', 'self', 'static'];
@@ -104,7 +113,7 @@ final class StructureReader
      * The shared kernel holds the kit's base classes and ports, so only its enums and value objects
      * are read.
      *
-     * @return array{context: string, aggregates: array<string, array{children: list<string>, repository: bool}>, services: array<string, array{shape: string, creates: string|null, repositories: list<string>}>, ports: array<string, array{layer: string, adapter: string|null}>, useCases: array<string, array{shape: string, returns: string, creates: bool, query: bool, repositories: list<string>}>, enums: array<string, array{aggregate: string|null, backing: string|null, cases: array<string, string|int|null>, transitions: array<string, list<string>>|null}>, valueObjects: array<string, array{aggregate: string|null, fields: array<string, string>}>, entities: array<string, array{aggregate: string, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>}
+     * @return array{context: string, aggregates: array<string, array{children: list<string>, repository: bool}>, services: array<string, array{shape: string, creates: string|null, repositories: list<string>, exception: bool}>, ports: array<string, array{layer: string, adapter: string|null}>, useCases: array<string, array{shape: string, returns: string, creates: bool, query: bool, repositories: list<string>}>, enums: array<string, array{aggregate: string|null, backing: string|null, cases: array<string, string|int|null>, transitions: array<string, list<string>>|null}>, valueObjects: array<string, array{aggregate: string|null, fields: array<string, string>}>, exceptions: array<string, array{kind: string, aggregate: string|null, useCase: string|null}>, entities: array<string, array{aggregate: string, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>}
      */
     public function read(string $context): array
     {
@@ -118,6 +127,7 @@ final class StructureReader
             'useCases' => $shared ? [] : $this->useCases($context),
             'enums' => $this->enums($context),
             'valueObjects' => $this->valueObjects($context),
+            'exceptions' => $this->exceptions($context),
             'entities' => $shared ? [] : $this->entities($context),
         ];
     }
@@ -143,6 +153,18 @@ final class StructureReader
                 if (count($aggregates) > 1) {
                     $clashes[$section][$name] = $aggregates;
                 }
+            }
+        }
+
+        $holders = [];
+
+        foreach ($this->exceptionClassesIn($context) as $exception) {
+            $holders[$exception['name']][] = $exception['aggregate'] ?? $exception['useCase'] ?? $context;
+        }
+
+        foreach ($holders as $name => $aggregates) {
+            if (count($aggregates) > 1) {
+                $clashes['exceptions'][$name] = $aggregates;
             }
         }
 
@@ -307,6 +329,7 @@ final class StructureReader
             'aggregates' => "App\\Domain\\{$context}\\{$name}\\{$name}Entity",
             'entities' => $this->entityClassOf($context, $name),
             'enums', 'valueObjects' => $this->vocabularyClassOf($context, $section === 'enums' ? 'Enums' : 'ValueObjects', $name),
+            'exceptions' => $this->exceptionClassOf($context, $name),
             'services' => "App\\Domain\\{$context}\\Services\\{$name}\\{$name}Service",
             'ports' => $this->portClass($context, $name) ?? "App\\Domain\\{$context}\\Ports\\{$name}",
             default => $this->handlerClass($context, $name) ?? "App\\Application\\{$context}\\UseCases\\{$name}\\{$name}Handler",
@@ -660,6 +683,90 @@ final class StructureReader
         return $classes;
     }
 
+    /**
+     * Each exception a context designs, by kind (exceptions.md): an aggregate's refusal, an invalid
+     * value of an aggregate or of the shared kernel, and a use case's refusal in the application.
+     * What the kit or another generator owns is left out: the context's base, a repository's not
+     * found and failure, a domain service's own exception (its service says it has one) and the
+     * kit's exceptions in the shared kernel.
+     *
+     * @return array<string, array{kind: string, aggregate: string|null, useCase: string|null}>
+     */
+    private function exceptions(string $context): array
+    {
+        $exceptions = [];
+
+        foreach ($this->exceptionClassesIn($context) as $exception) {
+            $exceptions[$exception['name']] ??= ['kind' => $exception['kind'], 'aggregate' => $exception['aggregate'], 'useCase' => $exception['useCase']];
+        }
+
+        ksort($exceptions);
+
+        return $exceptions;
+    }
+
+    /**
+     * @return list<array{name: string, class: string, kind: string, aggregate: string|null, useCase: string|null}>
+     */
+    private function exceptionClassesIn(string $context): array
+    {
+        $found = [];
+
+        if ($context === StructureFiles::SHARED) {
+            foreach ($this->classesIn('app/Domain/Shared/Exceptions', recursive: false) as $class) {
+                $name = $this->basename($class);
+
+                if (! in_array($name, self::KIT_SHARED_EXCEPTIONS, true) && class_exists($class) && is_subclass_of($class, self::DOMAIN_VALUE_EXCEPTION)) {
+                    $found[] = ['name' => $name, 'class' => $class, 'kind' => 'value', 'aggregate' => null, 'useCase' => null];
+                }
+            }
+
+            return $found;
+        }
+
+        $refusalBase = "App\\Domain\\{$context}\\Exceptions\\{$context}DomainException";
+
+        foreach ($this->vocabularyIn($context, 'Exceptions') as [$aggregate, $class]) {
+            if (! class_exists($class)) {
+                continue;
+            }
+
+            $kind = match (true) {
+                is_subclass_of($class, $refusalBase) => 'refusal',
+                is_subclass_of($class, self::DOMAIN_VALUE_EXCEPTION) => 'value',
+                default => null,
+            };
+
+            if ($kind !== null) {
+                $found[] = ['name' => $this->basename($class), 'class' => $class, 'kind' => $kind, 'aggregate' => $aggregate, 'useCase' => null];
+            }
+        }
+
+        foreach ($this->classesIn("app/Application/{$context}") as $class) {
+            if (! str_ends_with($class, 'Exception') || ! class_exists($class) || ! is_subclass_of($class, self::APPLICATION_EXCEPTION)) {
+                continue;
+            }
+
+            $namespace = substr($class, 0, (int) strrpos($class, '\\'));
+            $useCase = preg_match('/^App\\\\Application\\\\\w+\\\\UseCases\\\\(\w+)$/', $namespace, $match) === 1 ? $match[1] : null;
+
+            $found[] = ['name' => $this->basename($class), 'class' => $class, 'kind' => 'application', 'aggregate' => null, 'useCase' => $useCase];
+        }
+
+        return $found;
+    }
+
+    private function exceptionClassOf(string $context, string $name): string
+    {
+        foreach ($this->exceptionClassesIn($context) as $exception) {
+            if ($exception['name'] === $name) {
+                return $exception['class'];
+            }
+        }
+
+        return $context === StructureFiles::SHARED ? "App\\Domain\\Shared\\Exceptions\\{$name}" : "App\\Domain\\{$context}\\Exceptions\\{$name}";
+    }
+
     private function vocabularyClassOf(string $context, string $folder, string $name): string
     {
         foreach ($this->vocabularyIn($context, $folder) as [, $class]) {
@@ -708,7 +815,7 @@ final class StructureReader
     }
 
     /**
-     * @return array<string, array{shape: string, creates: string|null, repositories: list<string>}>
+     * @return array<string, array{shape: string, creates: string|null, repositories: list<string>, exception: bool}>
      */
     private function services(string $context): array
     {
@@ -728,6 +835,7 @@ final class StructureReader
                 'shape' => $shape,
                 'creates' => $shape === 'creates' ? $this->aggregateOf($this->typeNames($handle->getReturnType())[0], $context) : null,
                 'repositories' => $this->repositoriesOf($class, $context),
+                'exception' => class_exists("App\\Domain\\{$context}\\Services\\{$name}\\{$name}Exception"),
             ];
         }
 

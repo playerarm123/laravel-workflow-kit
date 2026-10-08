@@ -74,14 +74,33 @@ Saving an enum or a value object turns on **Vocabulary**, which draws them besid
 
 ![The Vocabulary view](images/structure-vocabulary.png)
 
-### 5. Add a method to the entity
+### 5. Design the exception
+
+The method you add next refuses with an exception. Design it first: the method then picks it from a list, and `kit:apply` builds it in its home. Click **Add exception**:
+
+- **Name:** `CrateSealedException`;
+- **Kind:** `Refusal of an aggregate`;
+- **Aggregate:** `Crate`.
+
+![Adding an exception](images/structure-add-exception.png)
+
+The other kinds follow [exceptions.md](../resources/boost/guidelines/exceptions.md):
+
+- **Invalid value:** a value the FormRequest should have stopped, extending `DomainValueException`, in an aggregate's `Exceptions/`. In the shared kernel it is the only kind.
+- **Refusal of a use case:** extending `ApplicationException`, beside the use case it names, or at the root of the context's application when **Use case** is None.
+
+A domain service's own exception is not designed here: tick **It has its own exception** on the service's form instead.
+
+Saving an exception turns on the **Exceptions** switch, which draws each exception tied to the aggregate or the use case it belongs to.
+
+### 6. Add a method to the entity
 
 Click **Add method**:
 
 - **Entity:** `Crate`;
 - **Name:** `seal` (a name that starts with `assert` makes an assertion instead of a behaviour);
 - **Parameters, in order:** `label` of type `CrateLabel`;
-- **Throws:** `CrateSealedException`.
+- **Throws:** `CrateSealedException`. The field offers the exceptions designed for `Crate` by name, and those of the shared kernel and other aggregates with their prefix (`Shared/X`, `Context/Aggregate/X`).
 
 ![Adding an entity method](images/structure-add-method.png)
 
@@ -89,7 +108,11 @@ Saving a method turns on **Behaviour**, which draws the entity with its methods.
 
 ![The Behaviour view](images/structure-behaviour.png)
 
-### 6. Add the use cases
+With **Exceptions** on as well, the exception's card is tied to `Crate`, which refuses with it, and to `seal`, which throws it. Its panel lists every method that throws it.
+
+![The Exceptions view](images/structure-exceptions.png)
+
+### 7. Add the use cases
 
 Click **Add use case** for `CreateCrate`:
 
@@ -108,7 +131,7 @@ A list use case takes a Command and returns a Result, so set **Shape of __invoke
 
 ![The designed context](images/structure-context-designed.png)
 
-### 7. Create the HTTP resource
+### 8. Create the HTTP resource
 
 Go back to the overview (the **Structure** breadcrumb) and click **New HTTP resource**. The name is the controller's name without `Controller`: `Crate`. It stands for the model `Crate`. Tick **It stands for no model** only for a page that has none, like a report.
 
@@ -135,7 +158,7 @@ The overview now shows both, with the number of use cases the resource calls:
 
 ![The overview with a context and a resource](images/structure-overview.png)
 
-### 8. Plan and build
+### 9. Plan and build
 
 The screen's statuses are a live `kit:plan`. Run it in a terminal to see the same steps in order:
 
@@ -165,7 +188,7 @@ $ php artisan kit:apply
 
 ![Built cards](images/structure-after-apply.png)
 
-### 9. Finish by hand, then build again
+### 10. Finish by hand, then build again
 
 Two cards still need you:
 
@@ -203,8 +226,8 @@ Finish with `php artisan test --testsuite=Architecture`. The `structure` check h
 | View | How to open it | What it shows |
 |---|---|---|
 | Overview | `/kit/structure`, or the **Structure** breadcrumb | One card per context and per HTTP resource, with their status counts. Edges show which context uses which, and how many use cases a resource calls. |
-| Context | Double-click a context, or `#context/{Name}` | Its aggregates, domain services, ports and use cases, with the repositories each one injects. **Vocabulary** adds enums and value objects. **Behaviour** adds the entities that have methods. |
-| Shared kernel | `#context/Shared` | Only the enums and value objects every context may use. |
+| Context | Double-click a context, or `#context/{Name}` | Its aggregates, domain services, ports and use cases, with the repositories each one injects. **Vocabulary** adds enums and value objects. **Behaviour** adds the entities that have methods. **Exceptions** adds the exceptions. |
+| Shared kernel | `#context/Shared` | Only the enums, value objects and invalid values every context may use. |
 | HTTP resource | Double-click a resource, or `#resource/{Name}` | Its model, policy, controller, actions and pages, and the use cases they call. |
 
 The address bar keeps the view, so a link opens the same view and the browser's back button works. The canvas pans and zooms (the controls are at the bottom left, the minimap at the bottom right), but cards cannot be dragged: the layout is computed.
@@ -226,6 +249,7 @@ Each kind has its own shape, colour and icon. The **Legend** at the top left nam
 | Enum | label tag | fuchsia |
 | Status | label tag, with its own icon | fuchsia |
 | Value object | soft corners | lime |
+| Exception | box, with a warning sign | red |
 | Model | cylinder | slate |
 | Policy | shield | rose |
 | Controller | box with a header | indigo |
@@ -261,8 +285,8 @@ At the bottom, **By hand (N)** lists every difference between the code and the m
 The header offers the forms of the current view:
 
 - **Overview:** New context, New HTTP resource.
-- **Context:** Add aggregate, Add domain service, Add port, Add use case, Add enum, Add value object, Add method, plus the Vocabulary and Behaviour switches.
-- **Shared kernel:** Add enum, Add value object.
+- **Context:** Add aggregate, Add domain service, Add port, Add use case, Add enum, Add value object, Add exception, Add method, plus the Vocabulary, Behaviour and Exceptions switches.
+- **Shared kernel:** Add enum, Add value object, Add exception.
 - **HTTP resource:** Add method, Add action, Add page, Model and policy.
 
 **Add** saves at once, in canonical form, and redraws the diagram. **Cancel** closes the form and writes nothing. When the server refuses, each reason appears under the field it concerns and nothing is written.
@@ -272,12 +296,13 @@ The header offers the forms of the current view:
 | Form | Fields | Refused when |
 |---|---|---|
 | Aggregate | Name; Child entities, separated by commas; Repository | A child repeats the root. A child that still has methods is removed. Repository is unticked while something injects it. |
-| Domain service | Name; Shape of handle(): `creates`, `data` or `plain`; Builds the aggregate (for `creates`); Repositories it injects | A repository, or the aggregate it builds, is in another context ([layers.md](../resources/boost/guidelines/layers.md)). |
+| Domain service | Name; Shape of handle(): `creates`, `data` or `plain`; Builds the aggregate (for `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | A repository, or the aggregate it builds, is in another context ([layers.md](../resources/boost/guidelines/layers.md)). |
 | Port | Name; Layer: `domain` or `application`; Adapter, as `Infra/{Folder}/{Prefix}{Port}` (optional) | The adapter is not in that form. |
 | Use case | Name; Shape of __invoke(): `command-result`, `command` or `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (from any context) | A Command shape returns something other than `void`, `string`, `int` or `result` ([handlers.md](../resources/boost/guidelines/handlers.md)). A list is not `List{Name}` with `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)). A repository does not exist. |
 | Enum | Name; Aggregate; Backing: `string`, `int` or `pure`; A status: each case lists the cases it may become; Cases, in order | Cases are not TitleCase, or two share a value. A status is not named `*Status`, or no case may become another ([states.md](../resources/boost/guidelines/states.md)). |
 | Value object | Name; Aggregate; Fields, in constructor order (name and type) | A field is not camelCase. A type is neither a builtin, nor a class a manifest designs, nor a class the code has. |
-| Method | Entity; Name; Parameters, in order (name and type; `...Type` for a variadic last one); Throws | A name or parameter is not camelCase. A type is unknown. An exception does not end with `Exception`. An exception of the shared kernel or another aggregate does not exist yet (only the entity's own exceptions are built for you). |
+| Exception | Name; Kind: Refusal of an aggregate, Invalid value or Refusal of a use case (the shared kernel takes invalid values only); Aggregate (for a refusal or an invalid value); Use case, or None (for a use case's refusal) | The name does not end with `Exception`. The aggregate or the use case is not in this context ([exceptions.md](../resources/boost/guidelines/exceptions.md)). |
+| Method | Entity; Name; Parameters, in order (name and type; `...Type` for a variadic last one); Throws | A name or parameter is not camelCase. A type is unknown. An exception does not end with `Exception`. An exception of the shared kernel or another aggregate is neither designed in its manifest nor in the code. |
 
 Every name is StudlyCase (methods and fields camelCase), and must not be taken in the manifest or in the code. A name the code already has means the manifest is behind: run `php artisan kit:import --context=X --force` to read it back.
 
@@ -301,7 +326,7 @@ Only what the code does not have yet can change:
 
 - A built card shows *The code already has it, so it changes by replacing it.* in place of Edit and Remove.
 - An entity and a controller lock one method at a time: a built method reads **built**, and the others stay editable.
-- A piece that others use cannot be renamed or removed until nothing uses it. Examples: an aggregate a use case injects, an enum a value object's field names, `index` while a list page needs it.
+- A piece that others use cannot be renamed or removed until nothing uses it. Examples: an aggregate a use case injects or that holds an exception, an enum a value object's field names, an exception a method throws, a use case with a refusal of its own, `index` while a list page needs it.
 
 If the manifest changed on disk since the page loaded (another tab, `kit:import`, a `git checkout`), the save is refused with *The manifest changed since this page loaded. Reload it, then make the change again.*
 

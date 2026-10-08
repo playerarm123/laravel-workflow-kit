@@ -74,14 +74,33 @@ enum ชื่อ `*Status` ที่ระบุการเปลี่ยน�
 
 ![มุมมอง Vocabulary](images/structure-vocabulary.png)
 
-### 5. เพิ่ม method ให้ entity
+### 5. ออกแบบ exception
+
+method ที่จะเพิ่มต่อไปปฏิเสธด้วย exception ให้ออกแบบ exception ก่อน แล้ว method จะเลือกจากรายการได้ และ `kit:apply` จะสร้างให้ในที่ของมัน กด **Add exception**:
+
+- **Name:** `CrateSealedException`
+- **Kind:** `Refusal of an aggregate`
+- **Aggregate:** `Crate`
+
+![การเพิ่ม exception](images/structure-add-exception.png)
+
+ชนิดอื่นเป็นไปตาม [exceptions.md](../resources/boost/guidelines/exceptions.md):
+
+- **Invalid value:** ค่าที่ FormRequest ควรกันไว้ตั้งแต่แรก สืบทอด `DomainValueException` อยู่ใน `Exceptions/` ของ aggregate ใน shared kernel มีได้แค่ชนิดนี้
+- **Refusal of a use case:** สืบทอด `ApplicationException` อยู่ข้าง use case ที่เลือก หรืออยู่ที่ราก application ของ context ถ้า **Use case** เป็น None
+
+exception ของ domain service ไม่ได้ออกแบบตรงนี้ ให้ติ๊ก **It has its own exception** ในฟอร์มของ service แทน
+
+บันทึก exception แล้ว สวิตช์ **Exceptions** จะเปิดเอง และวาด exception แต่ละตัวโยงกับ aggregate หรือ use case ที่มันสังกัด
+
+### 6. เพิ่ม method ให้ entity
 
 กด **Add method**:
 
 - **Entity:** `Crate`
 - **Name:** `seal` (ชื่อที่ขึ้นต้นด้วย `assert` จะเป็น assertion แทน behaviour)
 - **Parameters, in order:** `label` ชนิด `CrateLabel`
-- **Throws:** `CrateSealedException`
+- **Throws:** `CrateSealedException` ช่องนี้มีรายการ exception ที่ออกแบบไว้ให้ `Crate` แบบชื่อเปล่า และของ shared kernel กับ aggregate อื่นแบบมี prefix (`Shared/X`, `Context/Aggregate/X`)
 
 ![การเพิ่ม method ให้ entity](images/structure-add-method.png)
 
@@ -89,7 +108,11 @@ enum ชื่อ `*Status` ที่ระบุการเปลี่ยน�
 
 ![มุมมอง Behaviour](images/structure-behaviour.png)
 
-### 6. เพิ่ม use case
+ถ้าเปิด **Exceptions** ด้วย การ์ด exception จะโยงกับ `Crate` ที่ปฏิเสธด้วยมัน และกับ `seal` ที่ throw มัน panel ของมันแสดงทุก method ที่ throw มัน
+
+![มุมมอง Exceptions](images/structure-exceptions.png)
+
+### 7. เพิ่ม use case
 
 กด **Add use case** สำหรับ `CreateCrate`:
 
@@ -108,7 +131,7 @@ use case แบบรายการต้องรับ Command และค�
 
 ![context ที่ออกแบบเสร็จ](images/structure-context-designed.png)
 
-### 7. สร้าง HTTP resource
+### 8. สร้าง HTTP resource
 
 กลับไปหน้าภาพรวม (คลิก breadcrumb **Structure**) แล้วกด **New HTTP resource** ชื่อคือชื่อ controller โดยตัด `Controller` ออก คือ `Crate` ซึ่งหมายถึง model `Crate` ด้วย ติ๊ก **It stands for no model** เฉพาะหน้าที่ไม่มี model เช่นหน้ารายงาน
 
@@ -135,7 +158,7 @@ use case แบบรายการต้องรับ Command และค�
 
 ![หน้าภาพรวมที่มี context และ resource](images/structure-overview.png)
 
-### 8. วางแผนและสร้างโค้ด
+### 9. วางแผนและสร้างโค้ด
 
 สถานะบนหน้าจอคือผลของ `kit:plan` แบบสด ๆ รันในเทอร์มินัลจะเห็นขั้นตอนเดียวกันเรียงลำดับ:
 
@@ -165,7 +188,7 @@ $ php artisan kit:apply
 
 ![การ์ดที่สร้างแล้ว](images/structure-after-apply.png)
 
-### 9. เขียนส่วนที่เหลือเอง แล้วสร้างอีกรอบ
+### 10. เขียนส่วนที่เหลือเอง แล้วสร้างอีกรอบ
 
 ยังมีสองการ์ดที่ต้องจัดการเอง:
 
@@ -203,8 +226,8 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | มุมมอง | เปิดยังไง | แสดงอะไร |
 |---|---|---|
 | ภาพรวม | `/kit/structure` หรือ breadcrumb **Structure** | การ์ดหนึ่งใบต่อ context และต่อ HTTP resource พร้อมจำนวนในแต่ละสถานะ เส้นเชื่อมบอกว่า context ไหนใช้ context ไหน และ resource เรียก use case กี่ตัว |
-| Context | ดับเบิลคลิก context หรือ `#context/{Name}` | aggregate, domain service, port และ use case พร้อม repository ที่แต่ละตัว inject **Vocabulary** เพิ่ม enum และ value object ส่วน **Behaviour** เพิ่ม entity ที่มี method |
-| Shared kernel | `#context/Shared` | เฉพาะ enum และ value object ที่ทุก context ใช้ได้ |
+| Context | ดับเบิลคลิก context หรือ `#context/{Name}` | aggregate, domain service, port และ use case พร้อม repository ที่แต่ละตัว inject **Vocabulary** เพิ่ม enum และ value object, **Behaviour** เพิ่ม entity ที่มี method และ **Exceptions** เพิ่ม exception |
+| Shared kernel | `#context/Shared` | เฉพาะ enum, value object และ invalid value ที่ทุก context ใช้ได้ |
 | HTTP resource | ดับเบิลคลิก resource หรือ `#resource/{Name}` | model, policy, controller, action และ page พร้อม use case ที่เรียก |
 
 แถบที่อยู่ของเบราว์เซอร์จำมุมมองไว้ ลิงก์จึงเปิดมุมมองเดิมได้ และปุ่มย้อนกลับใช้ได้ปกติ แคนวาสเลื่อนและซูมได้ (ปุ่มควบคุมอยู่มุมซ้ายล่าง แผนที่ย่ออยู่มุมขวาล่าง) แต่ลากการ์ดไม่ได้ เพราะตำแหน่งคำนวณให้อัตโนมัติ
@@ -226,6 +249,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | Enum | ป้ายแท็ก | บานเย็น |
 | Status | ป้ายแท็ก มีไอคอนของตัวเอง | บานเย็น |
 | Value object | มุมมน | เขียวมะนาว |
+| Exception | กล่อง มีป้ายเตือน | แดง |
 | Model | ทรงกระบอก | เทาอมฟ้า |
 | Policy | โล่ | ชมพูกุหลาบ |
 | Controller | กล่องมีหัว | คราม |
@@ -261,8 +285,8 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 แถบด้านบนมีปุ่มเปิดฟอร์มตามมุมมองที่อยู่:
 
 - **ภาพรวม:** New context, New HTTP resource
-- **Context:** Add aggregate, Add domain service, Add port, Add use case, Add enum, Add value object, Add method และสวิตช์ Vocabulary กับ Behaviour
-- **Shared kernel:** Add enum, Add value object
+- **Context:** Add aggregate, Add domain service, Add port, Add use case, Add enum, Add value object, Add exception, Add method และสวิตช์ Vocabulary, Behaviour กับ Exceptions
+- **Shared kernel:** Add enum, Add value object, Add exception
 - **HTTP resource:** Add method, Add action, Add page, Model and policy
 
 **Add** บันทึกทันทีในรูปแบบมาตรฐาน แล้ววาดไดอะแกรมใหม่ **Cancel** ปิดฟอร์มโดยไม่เขียนอะไร ถ้าเซิร์ฟเวอร์ปฏิเสธ จะแสดงเหตุผลใต้ช่องที่เกี่ยวข้อง และไม่มีอะไรถูกเขียน
@@ -272,12 +296,13 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | ฟอร์ม | ช่อง | ถูกปฏิเสธเมื่อ |
 |---|---|---|
 | Aggregate | Name; Child entities, separated by commas; Repository | child ซ้ำกับ root, ลบ child ที่ยังมี method อยู่, เอาติ๊ก Repository ออกขณะที่ยังมีชิ้นอื่น inject อยู่ |
-| Domain service | Name; Shape of handle(): `creates`, `data` หรือ `plain`; Builds the aggregate (สำหรับ `creates`); Repositories it injects | repository หรือ aggregate ที่มันสร้างอยู่คนละ context ([layers.md](../resources/boost/guidelines/layers.md)) |
+| Domain service | Name; Shape of handle(): `creates`, `data` หรือ `plain`; Builds the aggregate (สำหรับ `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | repository หรือ aggregate ที่มันสร้างอยู่คนละ context ([layers.md](../resources/boost/guidelines/layers.md)) |
 | Port | Name; Layer: `domain` หรือ `application`; Adapter ในรูป `Infra/{Folder}/{Prefix}{Port}` (ไม่ใส่ก็ได้) | adapter ไม่อยู่ในรูปนั้น |
 | Use case | Name; Shape of __invoke(): `command-result`, `command` หรือ `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (เลือกจาก context ไหนก็ได้) | shape ที่รับ Command คืนค่าอื่นที่ไม่ใช่ `void`, `string`, `int` หรือ `result` ([handlers.md](../resources/boost/guidelines/handlers.md)), use case แบบรายการไม่ได้ชื่อ `List{Name}` คู่กับ `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)), repository ไม่มีอยู่จริง |
 | Enum | Name; Aggregate; Backing: `string`, `int` หรือ `pure`; A status: each case lists the cases it may become; Cases, in order | case ไม่เป็น TitleCase หรือมีค่าซ้ำกัน, status ไม่ได้ชื่อ `*Status` หรือไม่มี case ไหนเปลี่ยนไปเป็น case อื่นได้เลย ([states.md](../resources/boost/guidelines/states.md)) |
 | Value object | Name; Aggregate; Fields, in constructor order (ชื่อและชนิด) | field ไม่เป็น camelCase, ชนิดไม่ใช่ทั้งชนิดพื้นฐาน คลาสที่ manifest ออกแบบไว้ หรือคลาสที่มีในโค้ด |
-| Method | Entity; Name; Parameters, in order (ชื่อและชนิด ใช้ `...Type` สำหรับตัวสุดท้ายที่เป็น variadic); Throws | ชื่อหรือพารามิเตอร์ไม่เป็น camelCase, ชนิดไม่รู้จัก, exception ไม่ได้ลงท้ายด้วย `Exception`, exception ของ shared kernel หรือ aggregate อื่นยังไม่มีในโค้ด (สร้างให้เฉพาะ exception ของ entity เอง) |
+| Exception | Name; Kind: Refusal of an aggregate, Invalid value หรือ Refusal of a use case (shared kernel รับเฉพาะ invalid value); Aggregate (สำหรับ refusal และ invalid value); Use case หรือ None (สำหรับ refusal ของ use case) | ชื่อไม่ลงท้ายด้วย `Exception`, aggregate หรือ use case ไม่ได้อยู่ใน context นี้ ([exceptions.md](../resources/boost/guidelines/exceptions.md)) |
+| Method | Entity; Name; Parameters, in order (ชื่อและชนิด ใช้ `...Type` สำหรับตัวสุดท้ายที่เป็น variadic); Throws | ชื่อหรือพารามิเตอร์ไม่เป็น camelCase, ชนิดไม่รู้จัก, exception ไม่ได้ลงท้ายด้วย `Exception`, exception ของ shared kernel หรือ aggregate อื่นไม่ได้ออกแบบไว้ใน manifest ของมันและไม่มีในโค้ด |
 
 ทุกชื่อเป็น StudlyCase (ยกเว้น method และ field เป็น camelCase) และต้องไม่ซ้ำทั้งใน manifest และในโค้ด ถ้าชื่อนั้นมีในโค้ดแล้ว แปลว่า manifest ตามไม่ทันโค้ด ให้รัน `php artisan kit:import --context=X --force` เพื่ออ่านกลับจากโค้ด
 
@@ -301,7 +326,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 
 - การ์ดที่สร้างแล้วจะขึ้นข้อความ *The code already has it, so it changes by replacing it.* แทนปุ่ม Edit และ Remove
 - entity กับ controller ล็อกทีละ method: method ที่สร้างแล้วจะขึ้นว่า **built** ส่วนที่เหลือยังแก้ได้
-- ชิ้นที่ยังมีชิ้นอื่นใช้อยู่ เปลี่ยนชื่อหรือลบไม่ได้ จนกว่าจะไม่มีใครใช้ เช่น aggregate ที่ use case inject อยู่, enum ที่ field ของ value object อ้างถึง, `index` ขณะที่ยังมีหน้ารายการต้องใช้
+- ชิ้นที่ยังมีชิ้นอื่นใช้อยู่ เปลี่ยนชื่อหรือลบไม่ได้ จนกว่าจะไม่มีใครใช้ เช่น aggregate ที่ use case inject อยู่หรือมี exception สังกัดอยู่, enum ที่ field ของ value object อ้างถึง, exception ที่ method throw อยู่, use case ที่มี refusal ของตัวเอง, `index` ขณะที่ยังมีหน้ารายการต้องใช้
 
 ถ้า manifest บนดิสก์เปลี่ยนไปหลังจากเปิดหน้า (เช่น แก้จากอีกแท็บ, รัน `kit:import` หรือ `git checkout`) การบันทึกจะถูกปฏิเสธด้วยข้อความ *The manifest changed since this page loaded. Reload it, then make the change again.*
 

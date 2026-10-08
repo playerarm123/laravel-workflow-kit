@@ -35,11 +35,12 @@ final class StructureFiles
      */
     public const array SECTIONS = [
         'aggregates' => ['children' => 'list', 'repository' => 'bool'],
-        'services' => ['shape' => ['creates', 'data', 'plain'], 'creates' => 'string|null', 'repositories' => 'list', 'replaces' => 'string|null'],
+        'services' => ['shape' => ['creates', 'data', 'plain'], 'creates' => 'string|null', 'repositories' => 'list', 'exception' => 'bool', 'replaces' => 'string|null'],
         'ports' => ['layer' => ['domain', 'application'], 'adapter' => 'string|null', 'replaces' => 'string|null'],
         'useCases' => ['shape' => ['command-result', 'command', 'plain'], 'returns' => 'string', 'creates' => 'bool', 'query' => 'bool', 'repositories' => 'list', 'replaces' => 'string|null'],
         'enums' => ['aggregate' => 'string|null', 'backing' => ['string', 'int', null], 'cases' => 'map', 'transitions' => 'transitions'],
         'valueObjects' => ['aggregate' => 'string|null', 'fields' => 'map:string'],
+        'exceptions' => ['kind' => ['refusal', 'value', 'application'], 'aggregate' => 'string|null', 'useCase' => 'string|null'],
         'entities' => ['aggregate' => 'string', 'behaviours' => 'methods', 'assertions' => 'methods'],
     ];
 
@@ -48,6 +49,14 @@ final class StructureFiles
      * use. They sit at its root, so their `aggregate` is null; anywhere else it names one.
      */
     public const string SHARED = 'Shared';
+
+    /**
+     * What a manifest written before a section or a key existed holds when nothing else says: no
+     * exceptions designed (exceptions.md), and no domain service with an exception of its own. The
+     * canonical form writes them, so the next save or `kit:import` adds them to the file. `read()`
+     * takes them from the code instead, so a project that already has exceptions stays green.
+     */
+    public const array DEFAULTS = ['exceptions' => [], 'services.exception' => false];
 
     /**
      * Keys only a manifest holds: what the design intends while the code catches up. The reader
@@ -92,10 +101,75 @@ final class StructureFiles
 
     /**
      * The decoded manifest, or null when the file is not JSON.
+     *
+     * A file written before exceptions were designed reads what it predates from the code: the
+     * exceptions the context holds, and whether each service has one. Before, the design said
+     * nothing about them, so what is built is what was meant, and the comparison stays as it was.
      */
     public function read(string $context): mixed
     {
-        return json_decode($this->contents($this->path($context)), true);
+        $document = json_decode($this->contents($this->path($context)), true);
+
+        if (! is_array($document)) {
+            return $document;
+        }
+
+        return self::withDefaults($this->upgraded($context, $document));
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $document
+     * @return array<array-key, mixed>
+     */
+    private function upgraded(string $context, array $document): array
+    {
+        $predates = ! array_key_exists('exceptions', $document);
+        $services = is_array($document['services'] ?? null) ? $document['services'] : [];
+
+        foreach ($services as $service) {
+            $predates = $predates || (is_array($service) && ! array_key_exists('exception', $service));
+        }
+
+        if (! $predates) {
+            return $document;
+        }
+
+        $built = (new StructureReader($this->root))->read($context);
+
+        if (! array_key_exists('exceptions', $document)) {
+            $document['exceptions'] = $built['exceptions'];
+        }
+
+        foreach ($services as $name => $service) {
+            if (is_array($service) && ! array_key_exists('exception', $service)) {
+                $document['services'][$name]['exception'] = $built['services'][$name]['exception'] ?? false;
+            }
+        }
+
+        return $document;
+    }
+
+    /**
+     * A manifest with what DEFAULTS fills in where the file predates it.
+     *
+     * @param  array<array-key, mixed>  $document
+     * @return array<array-key, mixed>
+     */
+    public static function withDefaults(array $document): array
+    {
+        if (! array_key_exists('exceptions', $document)) {
+            $document['exceptions'] = self::DEFAULTS['exceptions'];
+        }
+
+        if (is_array($document['services'] ?? null)) {
+            foreach ($document['services'] as $name => $service) {
+                if (is_array($service) && ! array_key_exists('exception', $service)) {
+                    $document['services'][$name]['exception'] = self::DEFAULTS['services.exception'];
+                }
+            }
+        }
+
+        return $document;
     }
 
     /**
@@ -131,6 +205,7 @@ final class StructureFiles
      */
     public function encode(array $manifest): string
     {
+        $manifest = self::withDefaults($manifest);
         $document = ['context' => $manifest['context']];
 
         foreach (array_keys(self::SECTIONS) as $section) {
@@ -224,6 +299,7 @@ final class StructureFiles
             return ['is not a JSON object'];
         }
 
+        $document = self::withDefaults($document);
         $problems = [];
 
         if (($document['context'] ?? null) !== $context) {
@@ -249,6 +325,10 @@ final class StructureFiles
 
                 if ($faults === [] && is_array($entry) && in_array($section, ['enums', 'valueObjects'], true)) {
                     $problems = [...$problems, ...$this->vocabularyProblems($context, $section, (string) $name, $entry)];
+                }
+
+                if ($faults === [] && is_array($entry) && $section === 'exceptions') {
+                    $problems = [...$problems, ...$this->exceptionProblems($context, (string) $name, $entry)];
                 }
 
                 if ($faults === [] && is_array($entry) && $section === 'entities') {
@@ -310,6 +390,59 @@ final class StructureFiles
             if (is_array($entry['transitions'] ?? null)) {
                 $problems = [...$problems, ...$this->transitionProblems($name, array_map(strval(...), array_keys($cases)), $entry['transitions'])];
             }
+        }
+
+        return $problems;
+    }
+
+    /**
+     * What an exception says that its keys alone do not (exceptions.md): its name, and that its kind
+     * and its home agree. A refusal or an invalid value lives in an aggregate, an application
+     * refusal in the context or one of its use cases, and the shared kernel holds invalid values
+     * only, at its root.
+     *
+     * @param  array<string, mixed>  $entry
+     * @return list<string>
+     */
+    private function exceptionProblems(string $context, string $name, array $entry): array
+    {
+        $problems = [];
+        $studly = fn (mixed $value): bool => is_string($value) && preg_match('/^[A-Z][A-Za-z0-9]*$/', $value) === 1;
+
+        if (! str_ends_with($name, 'Exception') || $name === 'Exception') {
+            $problems[] = sprintf('exceptions.%s: a name ends with Exception', $name);
+        }
+
+        if ($context === self::SHARED) {
+            if ($entry['kind'] !== 'value') {
+                $problems[] = sprintf('exceptions.%s: the shared kernel holds invalid values only, so "kind" must be value', $name);
+            }
+
+            if ($entry['aggregate'] !== null || $entry['useCase'] !== null) {
+                $problems[] = sprintf('exceptions.%s: "aggregate" and "useCase" must be null, because the shared kernel has neither', $name);
+            }
+
+            return $problems;
+        }
+
+        if ($entry['kind'] === 'application') {
+            if ($entry['aggregate'] !== null) {
+                $problems[] = sprintf('exceptions.%s: "aggregate" must be null, because a use case\'s refusal lives in the application', $name);
+            }
+
+            if ($entry['useCase'] !== null && ! $studly($entry['useCase'])) {
+                $problems[] = sprintf('exceptions.%s: "useCase" must be null or name a use case of %s', $name, $context);
+            }
+
+            return $problems;
+        }
+
+        if (! $studly($entry['aggregate'])) {
+            $problems[] = sprintf('exceptions.%s: "aggregate" must name the aggregate whose Exceptions folder holds it', $name);
+        }
+
+        if ($entry['useCase'] !== null) {
+            $problems[] = sprintf('exceptions.%s: "useCase" must be null, because only a use case\'s refusal belongs to one', $name);
         }
 
         return $problems;

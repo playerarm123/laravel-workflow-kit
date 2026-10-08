@@ -20,6 +20,7 @@ export type StructureNodeKind =
     | 'enum'
     | 'valueObject'
     | 'entity'
+    | 'exception'
     | 'external';
 
 export type StructureTarget = { view: 'context' | 'resource'; name: string };
@@ -57,7 +58,13 @@ export type StructureDifference = {
 };
 
 export type StructureSection =
-    'aggregates' | 'services' | 'ports' | 'useCases' | 'enums' | 'valueObjects';
+    | 'aggregates'
+    | 'services'
+    | 'ports'
+    | 'useCases'
+    | 'enums'
+    | 'valueObjects'
+    | 'exceptions';
 
 export type EnumBacking = 'string' | 'int' | null;
 
@@ -71,6 +78,18 @@ export type EnumEntry = {
 export type ValueObjectEntry = {
     aggregate: string | null;
     fields: Record<string, string>;
+};
+
+/**
+ * The three kinds of exception a manifest designs (exceptions.md): an aggregate's refusal, an
+ * invalid value, and a use case's refusal.
+ */
+export type ExceptionKind = 'refusal' | 'value' | 'application';
+
+export type ExceptionEntry = {
+    kind: ExceptionKind;
+    aggregate: string | null;
+    useCase: string | null;
 };
 
 /**
@@ -101,6 +120,7 @@ export type ContextManifest = {
                 shape: 'creates' | 'data' | 'plain';
                 creates: string | null;
                 repositories: string[];
+                exception: boolean;
                 replaces?: string | null;
             }
         >
@@ -130,6 +150,7 @@ export type ContextManifest = {
     >;
     enums: Partial<Record<string, EnumEntry>>;
     valueObjects: Partial<Record<string, ValueObjectEntry>>;
+    exceptions: Partial<Record<string, ExceptionEntry>>;
     entities: Partial<Record<string, EntityEntry>>;
 };
 

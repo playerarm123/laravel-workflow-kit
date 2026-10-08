@@ -167,6 +167,42 @@ it('builds an entity\'s methods after the entity, the enums they take and the ex
     }
 });
 
+it('builds each exception the manifest designs, in the home its kind gives it', function () {
+    $context = 'SamplingRaise';
+    $forget = function () use ($context): void {
+        File::deleteDirectory(app_path("Domain/{$context}"));
+        File::deleteDirectory(app_path("Application/{$context}"));
+        File::deleteDirectory(base_path("tests/Unit/Domain/{$context}"));
+        File::deleteDirectory(base_path("tests/Feature/Application/{$context}"));
+        File::delete(base_path(".kit/structure/{$context}.json"));
+    };
+    $forget();
+    (new StructureFiles(base_path()))->write([
+        'context' => $context,
+        'aggregates' => ['Basket' => ['children' => [], 'repository' => false]],
+        'useCases' => ['CloseBasket' => ['shape' => 'command', 'returns' => 'void', 'creates' => false, 'query' => false, 'repositories' => []]],
+        'exceptions' => [
+            'BasketTornException' => ['kind' => 'refusal', 'aggregate' => 'Basket', 'useCase' => null],
+            'BasketWetException' => ['kind' => 'value', 'aggregate' => 'Basket', 'useCase' => null],
+            'BasketQuotaException' => ['kind' => 'application', 'aggregate' => null, 'useCase' => null],
+            'BasketClosedException' => ['kind' => 'application', 'aggregate' => null, 'useCase' => 'CloseBasket'],
+        ],
+    ]);
+
+    try {
+        $this->artisan('kit:apply', ['--context' => [$context]])
+            ->expectsOutputToContain('Done: 6 of 6 steps.')
+            ->assertSuccessful();
+
+        expect(File::get(app_path("Domain/{$context}/Basket/Exceptions/BasketTornException.php")))->toContain("extends {$context}DomainException")
+            ->and(File::get(app_path("Domain/{$context}/Basket/Exceptions/BasketWetException.php")))->toContain('extends DomainValueException')
+            ->and(File::get(app_path("Application/{$context}/BasketQuotaException.php")))->toContain('extends ApplicationException')
+            ->and(File::exists(app_path("Application/{$context}/UseCases/CloseBasket/BasketClosedException.php")))->toBeTrue();
+    } finally {
+        $forget();
+    }
+});
+
 it('fails on a name no manifest gives', function () {
     $this->artisan('kit:apply', ['--resource' => ['SamplingNowhere']])
         ->expectsOutputToContain('No manifest names the context or HTTP resource SamplingNowhere.')

@@ -358,7 +358,7 @@ describe('a domain service replacement', function () {
             ->and(File::isDirectory(base_path("tests/Unit/Domain/{$context}/Services/SealBox")))->toBeFalse()
             ->and(File::exists(app_path("Domain/{$context}/Services/SealBoxTwice/SealBoxTwiceService.php")))->toBeTrue()
             ->and(json_decode(File::get(base_path(".kit/structure/{$context}.json")), true)['services'])
-            ->toBe(['SealBoxTwice' => ['shape' => 'plain', 'creates' => null, 'repositories' => []]]);
+            ->toBe(['SealBoxTwice' => ['shape' => 'plain', 'creates' => null, 'repositories' => [], 'exception' => false]]);
     });
 
     it('keeps the old service while a test still names it, and says where', function () {

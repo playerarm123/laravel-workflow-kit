@@ -40,6 +40,7 @@ function structureManifestSpec(): array
             'resources/views/kit/structure.blade.php',
             'resources/js/kit/structure.tsx',
             'resources/js/kit/context-form.tsx',
+            'resources/js/kit/exception-form.tsx',
             'resources/js/kit/layout.ts',
             'resources/js/kit/legend.tsx',
             'resources/js/kit/method-form.tsx',

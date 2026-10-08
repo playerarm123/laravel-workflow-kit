@@ -335,6 +335,42 @@ describe('StructureGraph', function () {
                 ->and($graph['entityMethodsBuilt'][$context])->toBe(['Hinge.swing']);
         });
 
+        it('draws each exception tied to what refuses with it, and to each method that throws it', function () {
+            $context = SAMPLING_GRAPH_CONTEXT;
+            $files = new StructureFiles(base_path());
+            $manifest = $files->read($context);
+            $files->write([...$manifest,
+                'exceptions' => [
+                    'BoxFullException' => ['kind' => 'refusal', 'aggregate' => 'Box', 'useCase' => null],
+                    'BoxWetException' => ['kind' => 'value', 'aggregate' => 'Box', 'useCase' => null],
+                    'BoxLateException' => ['kind' => 'application', 'aggregate' => null, 'useCase' => 'ShipBox'],
+                ],
+                'entities' => [
+                    'Box' => ['aggregate' => 'Box', 'behaviours' => ['pack' => ['params' => [], 'throws' => ['BoxFullException', 'Shared/InvalidMoneyException', 'BoxGoneException']]], 'assertions' => []],
+                ],
+            ]);
+
+            $view = samplingGraph()['contexts'][$context];
+
+            expect(samplingGraphNode($view, "exception:{$context}/BoxFullException"))->toMatchArray([
+                'kind' => 'exception',
+                'variant' => 'refusal',
+                'items' => ['refusal', 'in Box'],
+                'status' => StructurePlanner::READY,
+                'editable' => true,
+            ])
+                ->and(samplingGraphNode($view, "exception:{$context}/BoxWetException")['items'])->toBe(['invalid value', 'in Box'])
+                ->and(samplingGraphNode($view, "exception:{$context}/BoxLateException")['items'])->toBe(['use case refusal', 'of ShipBox'])
+                ->and(array_values(array_filter(samplingGraphEdgesFrom($view, "aggregate:{$context}/Box"), fn (array $edge): bool => in_array($edge[2], ['refuses', 'rejects'], true))))->toBe([
+                    ["aggregate:{$context}/Box", "exception:{$context}/BoxFullException", 'refuses'],
+                    ["aggregate:{$context}/Box", "exception:{$context}/BoxWetException", 'rejects'],
+                ])
+                ->and(samplingGraphEdgesFrom($view, "useCase:{$context}/ShipBox"))->toContain(["useCase:{$context}/ShipBox", "exception:{$context}/BoxLateException", 'refuses'])
+                ->and(samplingGraphEdgesFrom($view, "entity:{$context}/Box"))->toBe([
+                    ["entity:{$context}/Box", "exception:{$context}/BoxFullException", 'pack'],
+                ]);
+        });
+
         it('draws the shared kernel as its enums and value objects alone', function () {
             $shared = samplingGraph()['contexts']['Shared'];
             $kinds = array_unique(array_column($shared['nodes'], 'kind'));

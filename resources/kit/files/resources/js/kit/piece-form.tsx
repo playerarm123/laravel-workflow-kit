@@ -25,6 +25,7 @@ export const SECTION_LABELS: Record<StructureSection, string> = {
     useCases: 'use case',
     enums: 'enum',
     valueObjects: 'value object',
+    exceptions: 'exception',
 };
 
 /**
@@ -45,6 +46,7 @@ type PieceFormData = {
     adapter: string;
     returns: string;
     query: boolean;
+    exception: boolean;
 };
 
 function startingValues(
@@ -69,6 +71,7 @@ function startingValues(
             useCases: 'command',
             enums: '',
             valueObjects: '',
+            exceptions: '',
         }[section],
         creates: section === 'useCases' ? false : null,
         repositories: [],
@@ -76,6 +79,7 @@ function startingValues(
         adapter: '',
         returns: 'void',
         query: false,
+        exception: false,
     };
 
     if (previous === null || manifest === undefined) {
@@ -283,6 +287,18 @@ export function PieceForm({
                             onChange={(shape) => setData('shape', shape)}
                             options={['creates', 'data', 'plain']}
                         />
+                    </Field>
+                    <Field label="Exception" error={errors.exception}>
+                        <Label className="flex items-center gap-2 font-normal">
+                            <Checkbox
+                                checked={data.exception}
+                                onCheckedChange={(checked) =>
+                                    setData('exception', checked === true)
+                                }
+                            />
+                            It has its own exception,{' '}
+                            {`${data.name.trim() || '{Name}'}Exception`}
+                        </Label>
                     </Field>
                     {data.shape === 'creates' && (
                         <Field

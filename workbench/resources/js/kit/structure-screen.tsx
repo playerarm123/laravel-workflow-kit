@@ -20,6 +20,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { ContextForm } from '@/kit/context-form';
+import { ExceptionForm } from '@/kit/exception-form';
 import { layoutView, withoutKinds } from '@/kit/layout';
 import { Legend } from '@/kit/legend';
 import { MethodForm, methodOf } from '@/kit/method-form';
@@ -54,14 +55,20 @@ const CONTEXT_SECTIONS: Partial<Record<StructureNodeKind, StructureSection>> = {
     useCase: 'useCases',
     enum: 'enums',
     valueObject: 'valueObjects',
+    exception: 'exceptions',
 };
 
 /**
- * The shared kernel, which holds only enums and value objects, so its view always shows them.
+ * The shared kernel, which holds only enums, value objects and invalid values, so its view always
+ * shows them.
  */
 const SHARED = 'Shared';
 
-const VOCABULARY_SECTIONS: StructureSection[] = ['enums', 'valueObjects'];
+const SHARED_SECTIONS: StructureSection[] = [
+    'enums',
+    'valueObjects',
+    'exceptions',
+];
 
 const RESOURCE_SECTIONS: Partial<Record<StructureNodeKind, ResourceSection>> = {
     action: 'actions',
@@ -174,6 +181,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [showVocabulary, setShowVocabulary] = useState(false);
     const [showBehaviour, setShowBehaviour] = useState(false);
+    const [showExceptions, setShowExceptions] = useState(false);
     const hash = useSyncExternalStore(
         subscribeToHash,
         () => window.location.hash,
@@ -191,6 +199,9 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                       ? []
                       : (['enum', 'valueObject'] as StructureNodeKind[])),
                   ...(showBehaviour ? [] : (['entity'] as StructureNodeKind[])),
+                  ...(showExceptions
+                      ? []
+                      : (['exception'] as StructureNodeKind[])),
               ];
     const view = withoutKinds(fullView, hidden);
     const { nodes, edges } = layoutView(view);
@@ -285,9 +296,19 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                             Behaviour
                         </Button>
                     )}
+                    {context !== null && !shared && (
+                        <Button
+                            size="sm"
+                            variant={showExceptions ? 'secondary' : 'outline'}
+                            aria-pressed={showExceptions}
+                            onClick={() => setShowExceptions(!showExceptions)}
+                        >
+                            Exceptions
+                        </Button>
+                    )}
                     {context !== null &&
                         (shared
-                            ? VOCABULARY_SECTIONS
+                            ? SHARED_SECTIONS
                             : (Object.keys(
                                   SECTION_LABELS,
                               ) as StructureSection[])
@@ -428,8 +449,24 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                             />
                         )}
                     {panel?.kind === 'piece' &&
+                        panel.section === 'exceptions' && (
+                            <ExceptionForm
+                                key={panel.previous ?? ''}
+                                graph={graph}
+                                endpoints={endpoints}
+                                context={panel.context}
+                                previous={panel.previous}
+                                onSaved={(next) => {
+                                    setShowExceptions(true);
+                                    saved(next);
+                                }}
+                                onCancel={() => setEditing(null)}
+                            />
+                        )}
+                    {panel?.kind === 'piece' &&
                         panel.section !== 'enums' &&
-                        panel.section !== 'valueObjects' && (
+                        panel.section !== 'valueObjects' &&
+                        panel.section !== 'exceptions' && (
                             <PieceForm
                                 key={`${panel.section}:${panel.previous ?? ''}`}
                                 graph={graph}
@@ -554,6 +591,10 @@ function fullItems(
         ];
     }
 
+    if (node.kind === 'exception') {
+        return [...node.items, ...throwersOf(graph, context, name)];
+    }
+
     if (node.kind === 'valueObject') {
         const entry = manifest?.valueObjects[name];
 
@@ -565,6 +606,54 @@ function fullItems(
     }
 
     return node.items;
+}
+
+/**
+ * The entity methods, in any context, that throw an exception this context designs: by its bare
+ * name inside its own aggregate, or as `Shared/Name` or `Context/Aggregate/Name` from elsewhere.
+ */
+function throwersOf(
+    graph: StructureGraph,
+    context: string,
+    name: string,
+): string[] {
+    const holder =
+        graph.manifests[context]?.exceptions[name]?.aggregate ?? null;
+    const qualified =
+        context === SHARED
+            ? `${SHARED}/${name}`
+            : `${context}/${holder}/${name}`;
+    const throwers: string[] = [];
+
+    for (const [owner, manifest] of Object.entries(graph.manifests)) {
+        for (const [entity, entry] of Object.entries(
+            manifest?.entities ?? {},
+        )) {
+            if (entry === undefined) {
+                continue;
+            }
+
+            const names =
+                owner === context && entry.aggregate === holder
+                    ? [name, qualified]
+                    : [qualified];
+
+            for (const [method, definition] of Object.entries({
+                ...entry.behaviours,
+                ...entry.assertions,
+            })) {
+                if (
+                    definition?.throws.some((thrown) => names.includes(thrown))
+                ) {
+                    throwers.push(
+                        `thrown by ${owner === context ? '' : `${owner}/`}${entity}::${method}`,
+                    );
+                }
+            }
+        }
+    }
+
+    return throwers;
 }
 
 /**

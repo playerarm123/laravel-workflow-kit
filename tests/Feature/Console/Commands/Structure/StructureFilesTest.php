@@ -38,6 +38,9 @@ function samplingStructureManifest(): array
                 'Sealed' => ['Shipped'],
             ]],
         ],
+        'exceptions' => [
+            'CrateSealedException' => ['useCase' => null, 'kind' => 'refusal', 'aggregate' => 'Crate'],
+        ],
         'entities' => [
             'Lid' => ['aggregate' => 'Crate', 'behaviours' => ['open' => ['throws' => [], 'params' => []]], 'assertions' => []],
             'Crate' => [
@@ -128,6 +131,13 @@ describe('StructureFiles', function () {
                 "unit": "WeightUnit",
                 "amount": "int"
             }
+        }
+    },
+    "exceptions": {
+        "CrateSealedException": {
+            "kind": "refusal",
+            "aggregate": "Crate",
+            "useCase": null
         }
     },
     "entities": {
@@ -319,6 +329,55 @@ JSON);
                 ->and($this->files->problems('Shipping', ['context' => 'Shipping', ...$empty, ...$vocabulary(null)]))->toBe([
                     'enums.Unit: "aggregate" must name the aggregate whose folder holds it',
                     'valueObjects.Weight: "aggregate" must name the aggregate whose folder holds it',
+                ]);
+        });
+
+        it('reads a manifest written before exceptions, in a project that has none, as designing none and every service as having no exception', function () {
+            $document = samplingStructureManifest();
+            unset($document['exceptions']);
+            $document['services'] = ['PackCrate' => ['shape' => 'plain', 'creates' => null, 'repositories' => []]];
+            File::ensureDirectoryExists(samplingStructureFilesRoot().'/.kit/structure');
+            File::put(samplingStructureFilesRoot().'/.kit/structure/Shipping.json', (string) json_encode($document));
+
+            $read = $this->files->read('Shipping');
+
+            expect($this->files->problems('Shipping', $document))->toBe([])
+                ->and($read['exceptions'])->toBe([])
+                ->and($read['services']['PackCrate']['exception'])->toBeFalse()
+                ->and($this->files->encode($document))->toContain('"exceptions": {}', '"exception": false');
+        });
+
+        it('keeps an exception\'s kind and home together, and the shared kernel to invalid values', function () {
+            $exceptions = fn (array $entries): array => ['exceptions' => $entries];
+            $empty = ['aggregates' => [], 'services' => [], 'ports' => [], 'useCases' => [], 'enums' => [], 'valueObjects' => [], 'entities' => []];
+            $entry = fn (string $kind, ?string $aggregate, ?string $useCase = null): array => ['kind' => $kind, 'aggregate' => $aggregate, 'useCase' => $useCase];
+
+            expect($this->files->problems('Shipping', ['context' => 'Shipping', ...$empty, ...$exceptions([
+                'CrateLostException' => $entry('refusal', 'Crate'),
+                'CrateWeightException' => $entry('value', 'Crate'),
+                'CrateTakenException' => $entry('application', null, 'CreateCrate'),
+                'CrateQuotaException' => $entry('application', null),
+            ])]))->toBe([])
+                ->and($this->files->problems('Shipping', ['context' => 'Shipping', ...$empty, ...$exceptions([
+                    'CrateLost' => $entry('refusal', 'Crate'),
+                    'CrateGoneException' => $entry('refusal', null),
+                    'CrateOddException' => $entry('refusal', 'Crate', 'CreateCrate'),
+                    'CrateFullException' => $entry('application', 'Crate'),
+                    'CrateOffException' => $entry('missing', 'Crate'),
+                ])]))->toBe([
+                    'exceptions.CrateLost: a name ends with Exception',
+                    'exceptions.CrateGoneException: "aggregate" must name the aggregate whose Exceptions folder holds it',
+                    'exceptions.CrateOddException: "useCase" must be null, because only a use case\'s refusal belongs to one',
+                    'exceptions.CrateFullException: "aggregate" must be null, because a use case\'s refusal lives in the application',
+                    'exceptions.CrateOffException: "kind" must be one of refusal, value, application',
+                ])
+                ->and($this->files->problems('Shared', ['context' => 'Shared', ...$empty, ...$exceptions([
+                    'SpanException' => $entry('value', null),
+                    'SpanLostException' => $entry('refusal', null),
+                    'SpanOddException' => $entry('value', 'Crate'),
+                ])]))->toBe([
+                    'exceptions.SpanLostException: the shared kernel holds invalid values only, so "kind" must be value',
+                    'exceptions.SpanOddException: "aggregate" and "useCase" must be null, because the shared kernel has neither',
                 ]);
         });
 
