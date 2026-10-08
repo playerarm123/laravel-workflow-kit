@@ -97,6 +97,37 @@ describe('files', function () {
     });
 });
 
+describe('files on a starter kit made with Pest', function () {
+    it('completes the Pest.php the preset ships and keeps the rest of it', function (string $preset) {
+        copy(dirname(__DIR__, 4).'/Fixtures/PestPresets/'.$preset, $this->project.'/tests/Pest.php');
+
+        $result = $this->setup->files();
+        $pest = ($this->read)('tests/Pest.php');
+
+        expect($result['manual'])->toBe([])
+            ->and($pest)->toContain("pest()->extend(TestCase::class)\n    ->use(RefreshDatabase::class)\n    ->in('Feature', 'Browser');")
+            ->and($pest)->toContain('use Illuminate\Foundation\Testing\RefreshDatabase;', 'use App\Models\User;', 'function auditLogReader(): User', 'function auditLogOutsider(): User', "expect()->extend('toBeOne'", 'function something()')
+            ->and($pest)->not->toContain("->in('Feature');");
+    })->with(['pest-init.php', 'uses.php']);
+
+    it('changes nothing in it on a second run', function () {
+        copy(dirname(__DIR__, 4).'/Fixtures/PestPresets/pest-init.php', $this->project.'/tests/Pest.php');
+        $this->setup->files();
+
+        expect((new ProjectSetup(WorkflowKit::kitPath(), $this->project, 'pgsql'))->files()['changed'])->not->toContain('tests/Pest.php');
+    });
+
+    it('adds the helpers and leaves a binding it cannot find to the user', function () {
+        file_put_contents($this->project.'/tests/Pest.php', "<?php\n\nrequire __DIR__.'/bootstrap.php';\n");
+
+        $result = $this->setup->files();
+
+        expect($result['manual'])->toHaveCount(1)
+            ->and($result['manual'][0])->toStartWith("tests/Pest.php: bind TestCase with RefreshDatabase to 'Feature' and 'Browser'")
+            ->and(($this->read)('tests/Pest.php'))->toContain("require __DIR__.'/bootstrap.php';", 'function auditLogReader(): User');
+    });
+});
+
 describe('config', function () {
     it('sets the chosen engine in .env.example and phpunit.xml and adds the Architecture suite', function () {
         $this->setup->config();
