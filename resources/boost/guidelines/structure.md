@@ -252,7 +252,7 @@ The structure screen changes the manifests too. From the overview, create a cont
 A refused change comes back under the field that holds it, and nothing is written.
 
 **Do**
-- Change through the screen only what the code does not have yet. A piece the code already has is locked there, because changing it in the manifest alone would turn `matches` or `in-code` red at once. Changing what is built is a replacement. *Review only.*
+- Change through the screen only what the code does not have yet. A piece the code already has is locked there, because changing it in the manifest alone would turn `matches` or `in-code` red at once. Changing what is built is a change to the code, which `kit:import --sync` or the card's **Sync from code** then takes into the manifest, or a replacement. *Review only.*
 - Change an entity one method at a time. A built entity takes new methods, but a method the code already has is locked, and the entity's entry goes with its last method. The editor keeps an aggregate, and a child, while the manifest lists methods for it. *Review only.*
 - Keep an aggregate's name, and its repository, while a service or a use case in any context injects it, or while it holds an enum, a value object or an exception. Keep a use case's name while a refusal of its own belongs to it. The editor refuses all of these, and lists who still needs it. *Review only.*
 - Keep an enum's or a value object's name while a value object's field names it, and an exception's while a method throws it. *Review only.*
@@ -307,7 +307,9 @@ A domain service (layers.md) is replaced by one with a name of its own, built by
 
 ## Scaffold, never hand-write
 
-Run `php artisan kit:import` to write the manifest of every context and HTTP resource that has none, or name them with `--context={Context}` and `--resource={Resource}`. An existing manifest is kept, because it may hold design that is not built yet. `--force` reads it back from the code, and anything designed but not built is lost.
+Run `php artisan kit:import` to write the manifest of every context and HTTP resource that has none, or name them with `--context={Context}` and `--resource={Resource}`. An existing manifest is kept, because it may hold design that is not built yet. Once the code has changed (a method's parameters, an enum's cases, a use case's repositories), bring the manifest back in step with `--sync`: every piece the code has takes the code's shape, and what only the manifest lists stays and is listed, because it may be designed and not built, or the old name of something renamed in the code. `--sync --prune` takes that out too, `--sync --dry-run` prints the changes and writes nothing, and a piece in the middle of a replacement is left as the design says. `--force` reads the whole file back from the code, and anything designed but not built is lost.
+
+**Why:** a built piece is locked on the screen, so the code is where it changes. Merging the code into the manifest keeps both the change and the design still to build, where reading the whole file back would lose the second.
 
 ## Stepping outside this file
 

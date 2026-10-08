@@ -110,3 +110,85 @@ it('refuses a context that has no folder', function () {
 
     expect(File::exists(base_path('.kit/structure/SamplingImportNowhere.json')))->toBeFalse();
 });
+
+describe('--sync', function () {
+    beforeEach(function () {
+        File::ensureDirectoryExists(dirname(samplingImportManifest()));
+        File::put(samplingImportManifest(), (string) json_encode([
+            'context' => SAMPLING_IMPORT_CONTEXT,
+            'aggregates' => [
+                'Bin' => ['children' => [], 'repository' => true],
+                'Crate' => ['children' => [], 'repository' => false],
+            ],
+            'services' => [], 'ports' => [], 'useCases' => [], 'enums' => [], 'valueObjects' => [], 'exceptions' => [], 'entities' => [],
+        ]));
+    });
+
+    it('takes what the code has, keeps what is not built yet, and says which is which', function () {
+        $this->artisan('kit:import', ['--context' => [SAMPLING_IMPORT_CONTEXT], '--sync' => true])
+            ->expectsOutputToContain('.kit/structure/'.SAMPLING_IMPORT_CONTEXT.'.json] synced: 1 change')
+            ->expectsOutputToContain('aggregates.Bin: repository true → false')
+            ->expectsOutputToContain('Kept in [.kit/structure/'.SAMPLING_IMPORT_CONTEXT.'.json] but not in the code')
+            ->expectsOutputToContain('aggregates.Crate')
+            ->assertSuccessful();
+
+        expect(json_decode(File::get(samplingImportManifest()), true)['aggregates'])->toBe([
+            'Bin' => ['children' => [], 'repository' => false],
+            'Crate' => ['children' => [], 'repository' => false],
+        ]);
+    });
+
+    it('writes nothing on a dry run', function () {
+        $before = File::get(samplingImportManifest());
+
+        $this->artisan('kit:import', ['--context' => [SAMPLING_IMPORT_CONTEXT], '--sync' => true, '--dry-run' => true])
+            ->expectsOutputToContain('would be synced: 1 change')
+            ->assertSuccessful();
+
+        expect(File::get(samplingImportManifest()))->toBe($before);
+    });
+
+    it('takes out what the code does not have when it prunes', function () {
+        $this->artisan('kit:import', ['--context' => [SAMPLING_IMPORT_CONTEXT], '--sync' => true, '--prune' => true])
+            ->expectsOutputToContain('aggregates.Crate: removed')
+            ->assertSuccessful();
+
+        expect(json_decode(File::get(samplingImportManifest()), true)['aggregates'])->toBe(['Bin' => ['children' => [], 'repository' => false]]);
+    });
+
+    it('says when nothing changes, and still writes a manifest that did not exist', function () {
+        $this->artisan('kit:import', ['--context' => [SAMPLING_IMPORT_CONTEXT], '--sync' => true, '--prune' => true])->assertSuccessful();
+
+        $this->artisan('kit:import', ['--context' => [SAMPLING_IMPORT_CONTEXT], '--resource' => [SAMPLING_IMPORT_CONTEXT], '--sync' => true])
+            ->expectsOutputToContain('.kit/structure/'.SAMPLING_IMPORT_CONTEXT.'.json] unchanged')
+            ->expectsOutputToContain('.kit/structure/http/'.SAMPLING_IMPORT_CONTEXT.'.json] written')
+            ->assertSuccessful();
+    });
+
+    it('takes an HTTP resource\'s entries from the code', function () {
+        File::ensureDirectoryExists(dirname(samplingImportResourceManifest()));
+        File::put(samplingImportResourceManifest(), (string) json_encode([
+            'resource' => SAMPLING_IMPORT_CONTEXT, 'model' => null, 'controller' => ['index' => ['Billing/ListInvoices']], 'actions' => [], 'policy' => null, 'pages' => [],
+        ]));
+
+        $this->artisan('kit:import', ['--resource' => [SAMPLING_IMPORT_CONTEXT], '--sync' => true])
+            ->expectsOutputToContain('controller.index: ["Billing/ListInvoices"] → []')
+            ->assertSuccessful();
+
+        expect(json_decode(File::get(samplingImportResourceManifest()), true)['controller'])->toBe(['index' => []]);
+    });
+
+    it('refuses --sync with --force, and --prune or --dry-run without --sync', function (array $options, string $message) {
+        $before = File::get(samplingImportManifest());
+
+        $this->artisan('kit:import', ['--context' => [SAMPLING_IMPORT_CONTEXT], ...$options])
+            ->expectsOutputToContain($message)
+            ->assertFailed();
+
+        expect(File::get(samplingImportManifest()))->toBe($before);
+    })->with([
+        'sync and force' => [['--sync' => true, '--force' => true], 'Pick one: --force reads the whole file back from the code, --sync merges the code into it.'],
+        'prune alone' => [['--prune' => true], '--prune and --dry-run go with --sync.'],
+        'dry run alone' => [['--dry-run' => true], '--prune and --dry-run go with --sync.'],
+    ]);
+});

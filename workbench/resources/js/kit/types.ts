@@ -188,6 +188,8 @@ export type StructureGraph = {
     resourceVersions: Partial<Record<string, string>>;
     resourceBuilt: Partial<Record<string, string[]>>;
     entityMethodsBuilt: Partial<Record<string, string[]>>;
+    outOfStep: Partial<Record<string, string[]>>;
+    resourceOutOfStep: Partial<Record<string, string[]>>;
 };
 
 /**
@@ -204,10 +206,12 @@ export type StructureEndpoints = {
     cancelReplacement: string;
     saveMethod: string;
     removeMethod: string;
+    syncPiece: string;
     createResource: string;
     saveResource: string;
     saveResourcePiece: string;
     removeResourcePiece: string;
+    syncResourcePiece: string;
     docs: string;
     guide: string;
 };

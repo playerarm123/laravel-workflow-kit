@@ -105,7 +105,7 @@ final class StructureComparer
 
                     if (! array_key_exists($name, $valid[$context][$section])) {
                         $differences[] = $this->difference('in-json', $this->reader->classOf($context, $section, $name), sprintf(
-                            'is not in %s — add it under "%s" (`%s --context=%s --force` reads the whole file back from the code)',
+                            'is not in %s — add it under "%s" (`%s --context=%s --sync` adds it, keeping what is not built yet)',
                             $this->files->relativePath($context),
                             $section,
                             self::IMPORT,
@@ -225,7 +225,7 @@ final class StructureComparer
             foreach ($code as $method => $entry) {
                 if (! array_key_exists($method, $json)) {
                     $differences[] = $this->difference('in-json', $this->reader->classOf($context, 'entities', $name).'::'.$method, sprintf(
-                        'is not in %s — add it under "entities.%s.%s" (`%s --context=%s --force` reads the whole file back from the code)',
+                        'is not in %s — add it under "entities.%s.%s" (`%s --context=%s --sync` adds it, keeping what is not built yet)',
                         $file,
                         $name,
                         $group,
@@ -299,7 +299,7 @@ final class StructureComparer
             foreach (self::resourceEntries($this->reader->readResource($resource)) as $entry => $inCode) {
                 if (! array_key_exists($entry, $inJson)) {
                     $differences[] = $this->difference('in-json', $this->reader->resourceClass($resource), sprintf(
-                        'has %s, which %s does not list (`%s --resource=%s --force` reads the whole file back from the code)',
+                        'has %s, which %s does not list (`%s --resource=%s --sync` adds it, keeping what is not built yet)',
                         $entry,
                         $this->files->relativeResourcePath($resource),
                         self::IMPORT,

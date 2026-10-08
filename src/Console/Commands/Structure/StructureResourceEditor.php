@@ -200,6 +200,30 @@ final class StructureResourceEditor
     }
 
     /**
+     * Takes one built entry back from the code once the code has changed: a controller method,
+     * an action, a page, the model or the policy (`$section` names which).
+     *
+     * @return array<string, list<string>> what is wrong, by field; empty when it was written
+     */
+    public function syncPiece(string $resource, string $version, string $section, string $name): array
+    {
+        $manifest = $this->manifest($resource);
+        $refused = $this->refusal($resource, $manifest, $version, in_array($section, ['model', 'policy'], true) ? null : $section);
+
+        if ($refused !== null || $manifest === null) {
+            return $refused ?? [];
+        }
+
+        $synced = (new StructureSync($this->files, $this->reader))->syncResourcePiece($resource, $section, $name);
+
+        if (isset($synced['error'])) {
+            return ['name' => [$synced['error']]];
+        }
+
+        return $this->write($resource, $synced['manifest']);
+    }
+
+    /**
      * A controller method and the use cases it calls (form-pages.md, list-queries.md).
      *
      * @param  array<string, mixed>  $entry

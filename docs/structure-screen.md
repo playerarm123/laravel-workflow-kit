@@ -324,9 +324,28 @@ Select a card, then **Edit** or **Remove**. Remove asks first: *Remove X? It lea
 
 Only what the code does not have yet can change:
 
-- A built card shows *The code already has it, so it changes by replacing it.* in place of Edit and Remove.
+- A built card shows *The code already has it. Change the code and sync it, or replace it.* in place of Edit and Remove.
 - An entity and a controller lock one method at a time: a built method reads **built**, and the others stay editable.
 - A piece that others use cannot be renamed or removed until nothing uses it. Examples: an aggregate a use case injects or that holds an exception, an enum a value object's field names, an exception a method throws, a use case with a refusal of its own, `index` while a list page needs it.
+
+### Syncing what is built from the code
+
+A built piece changes in the code: rename a parameter, add one, add an enum case, inject another repository. The card then reads **differs**, and its panel offers **Sync from code**, which takes that one piece from the code into the manifest. A built method of an entity or a controller has its own **Sync from code** beside **built**.
+
+![Sync from code on a card that differs](images/structure-sync.png)
+
+To bring a whole context or resource in step at once, run:
+
+```bash
+php artisan kit:import --context=Shipping --sync --dry-run   # print what would change
+php artisan kit:import --context=Shipping --sync             # write it
+```
+
+- Every piece the code has takes the code's shape.
+- What only the manifest lists stays, and is listed under *Kept … but not in the code*: it is designed and not built yet, or it is the old name of something you renamed in the code. Add `--prune` to take those out too.
+- A piece in the middle of a replacement is left as the design says.
+
+To rename a built method: rename it in the code (with its callers and its test), then run `kit:import --context=X --sync --prune`, or sync without `--prune` and remove the old name on the screen.
 
 If the manifest changed on disk since the page loaded (another tab, `kit:import`, a `git checkout`), the save is refused with *The manifest changed since this page loaded. Reload it, then make the change again.*
 
@@ -359,7 +378,7 @@ The screen writes them in canonical form (sorted keys, four-space indent), so a 
 
 The four commands work on the same files:
 
-- `kit:import` writes the manifests from the code;
+- `kit:import` writes the manifests from the code, or with `--sync` merges the code into them;
 - `kit:plan` lists the steps the screen shows as statuses;
 - `kit:apply` builds them;
 - `kit:retire` ends a replacement.
@@ -373,7 +392,7 @@ The Architecture suite's `structure` check compares the code with the manifests 
 | `/kit/structure` is a 404 | `APP_ENV` is not `local`, or `KitServiceProvider` is missing from `bootstrap/providers.php`. |
 | A blank page, or a Vite manifest error | Vite is not running, or `resources/js/kit/structure.tsx` is not in `vite.config.ts`. Run `npm run dev`. |
 | A context or resource is missing from the overview | Its JSON is malformed. The screen leaves out a manifest it cannot read. Run `php artisan test --testsuite=Architecture`: the `structure:files` check names the problem. |
-| A card reads **differs** | The code is built another way. Read the message in the panel, then change the code (or, for something not yet built, the manifest). |
-| A name is refused as already in the code | The manifest is behind the code. Run `php artisan kit:import --context=X --force`. It reads the whole file back from the code, so designs not yet built are lost. |
+| A card reads **differs** | The code is built another way. If the code is right, click **Sync from code**. Otherwise change the code (or, for something not yet built, the manifest). |
+| A name is refused as already in the code | The manifest is behind the code. Run `php artisan kit:import --context=X --sync`, which adds what the code has and keeps the designs not yet built. |
 | *The manifest changed since this page loaded* | Reload the page and make the change again. |
-| No **Edit** button | The piece is built. Change it by replacing it, or change the code. |
+| No **Edit** button | The piece is built. Change the code and sync it, or replace it. |

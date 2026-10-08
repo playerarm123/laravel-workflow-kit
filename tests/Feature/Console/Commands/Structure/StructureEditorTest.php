@@ -582,4 +582,27 @@ describe('StructureEditor', function () {
                 ->and(samplingEditManifest()['useCases'])->toHaveKey('ShipCrate');
         });
     });
+
+    describe('sync', function () {
+        it('takes a built piece, or one built method, back from the code', function () {
+            (new StructureFiles(base_path()))->write([...samplingEditManifest(),
+                'useCases' => [...samplingEditManifest()['useCases'], 'ShipCrate' => ['shape' => 'plain', 'returns' => 'int', 'creates' => false, 'query' => false, 'repositories' => []]],
+                'entities' => ['Crate' => ['aggregate' => 'Crate', 'behaviours' => ['seal' => ['params' => ['force' => 'bool'], 'throws' => []]], 'assertions' => []]],
+            ]);
+            $editor = samplingEditor();
+
+            expect($editor->sync(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'useCases', 'ShipCrate'))->toBe([])
+                ->and(samplingEditManifest()['useCases']['ShipCrate']['returns'])->toBe('void')
+                ->and($editor->sync(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'entities', 'seal', 'Crate'))->toBe([])
+                ->and(samplingEditManifest()['entities']['Crate']['behaviours']['seal']['params'])->toBe([]);
+        });
+
+        it('refuses a stale page, an entity as a whole, and a piece the code does not have', function () {
+            $editor = samplingEditor();
+
+            expect($editor->sync(SAMPLING_EDIT_CONTEXT, 'stale', 'useCases', 'ShipCrate'))->toHaveKey('version')
+                ->and($editor->sync(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'entities', 'Crate'))->toBe(['section' => ["An entity's methods change one at a time."]])
+                ->and($editor->sync(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'aggregates', 'Pallet'))->toBe(['name' => ['The code has no Pallet, so there is nothing to sync from.']]);
+        });
+    });
 });
