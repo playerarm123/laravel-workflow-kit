@@ -38,6 +38,19 @@ foreach (is_array($document) && is_array($document['overrides'] ?? null) ? $docu
 sort($exempt);
 
 return [
+    'parameters' => [
+        'ignoreErrors' => [
+            /*
+             * The kit ships HasTransitions for the statuses a project declares (states.md). Until
+             * the first one exists, nothing uses it, which is no fault of the project's.
+             */
+            [
+                'identifier' => 'trait.unused',
+                'path' => '*/app/Domain/Shared/Concerns/HasTransitions.php',
+                'reportUnmatched' => false,
+            ],
+        ],
+    ],
     'services' => [
         [
             'class' => DatabaseWriteOutsideInfraRule::class,

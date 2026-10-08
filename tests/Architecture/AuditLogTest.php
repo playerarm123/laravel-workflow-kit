@@ -55,6 +55,7 @@ function auditLogSpec(): array
             'app/Infra/Persistence/Eloquent/Queries/EloquentListAuditEntriesQuery.php',
             'app/Http/Controllers/AuditEntryController.php',
             'database/factories/AuditEntryFactory.php',
+            'resources/js/components/detail-field.tsx',
             'resources/js/pages/audit-entries/index.tsx',
             'resources/js/components/audit-entry/detail-dialog.tsx',
             'resources/js/components/audit-entry/table-toolbar.tsx',

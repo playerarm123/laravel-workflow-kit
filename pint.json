@@ -1,4 +1,8 @@
 {
     "preset": "laravel",
-    "exclude": ["workbench", "resources/kit"]
+    "exclude": [
+        "resources/kit",
+        "tests/Fixtures",
+        "workbench"
+    ]
 }
