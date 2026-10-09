@@ -112,6 +112,23 @@ exception ของ domain service ไม่ได้ออกแบบตรง
 
 ![มุมมอง Exceptions](images/structure-exceptions.png)
 
+### 6b. กำหนด state ให้ entity
+
+เลือกการ์ด entity `Crate` (เปิด **Behaviour** ก่อน) แล้วกด **Add state**:
+
+- **Name:** `status`
+- **Type:** `CrateStatus` ช่องนี้มีตัวเลือกให้เป็นชนิดพื้นฐาน ตามด้วย enum, value object และ entity ของ `Crate` แล้วจึงเป็นของที่อื่นซึ่งมี prefix นำหน้า
+
+property ใหม่จะต่อท้ายตัวที่ entity มีอยู่แล้ว การ์ดแสดงไว้เหนือ method (`status: CrateStatus`) และมีเส้นโยงไปที่ enum ที่อ้างถึง `kit:apply` รัน `make:entity-state` ซึ่งเขียนสามอย่าง:
+
+- private property ที่ constructor promote
+- พารามิเตอร์ของ `reconstitute()` ซึ่งส่งต่อให้ `new self(…)`
+- getter ชื่อเดียวกัน `status(): CrateStatus`
+
+![กำหนด state ให้ entity](images/structure-entity-state.png)
+
+`create()` ปล่อยให้เขียนเอง เพราะค่าเริ่มต้นของ crate ใหม่ (`CrateStatus::Open`) เป็นกฎที่เราเป็นคนกำหนด คำสั่งจะเตือนไว้ และ PHPStan กับเทสต์ของ entity จะฟ้องจนกว่า `create()` จะส่ง property นั้น อย่าลืม map property ใน `toModel()` และ `toEntity()` ของ repository ด้วย
+
 ### 7. เพิ่ม use case
 
 กด **Add use case** สำหรับ `CreateCrate`:
@@ -226,7 +243,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | มุมมอง | เปิดยังไง | แสดงอะไร |
 |---|---|---|
 | ภาพรวม | `/kit/structure` หรือ breadcrumb **Structure** | การ์ดหนึ่งใบต่อ context และต่อ HTTP resource พร้อมจำนวนในแต่ละสถานะ เส้นเชื่อมบอกว่า context ไหนใช้ context ไหน และ resource เรียก use case กี่ตัว |
-| Context | ดับเบิลคลิก context หรือ `#context/{Name}` | aggregate, domain service, port และ use case พร้อม repository ที่แต่ละตัว inject **Vocabulary** เพิ่ม enum และ value object, **Behaviour** เพิ่ม root และ child entity ทุกตัว พร้อม method หรือคำว่า `no methods yet` และ **Exceptions** เพิ่ม exception เบราว์เซอร์จำสถานะสวิตช์ทั้งสามไว้แม้รีโหลดหน้า |
+| Context | ดับเบิลคลิก context หรือ `#context/{Name}` | aggregate, domain service, port และ use case พร้อม repository ที่แต่ละตัว inject **Vocabulary** เพิ่ม enum และ value object, **Behaviour** เพิ่ม root และ child entity ทุกตัว พร้อม state และ method หรือคำว่า `nothing designed yet` และ **Exceptions** เพิ่ม exception เบราว์เซอร์จำสถานะสวิตช์ทั้งสามไว้แม้รีโหลดหน้า |
 | Shared kernel | `#context/Shared` | เฉพาะ enum, value object และ invalid value ที่ทุก context ใช้ได้ |
 | HTTP resource | ดับเบิลคลิก resource หรือ `#resource/{Name}` | model, policy, controller, action และ page พร้อม use case ที่เรียก |
 
@@ -257,7 +274,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | Page | แผ่นกระดาษพับมุม ไอคอนตามชนิด (table, grid, form, page) | เทา |
 | Elsewhere | เส้นประ | เทาจาง |
 
-การ์ดแสดงได้สูงสุดหกบรรทัด เกินนั้นขึ้นว่า `… N more` status แสดงการเปลี่ยนสถานะ (`Open → Sealed`, `Sealed · final`) แทนค่า enum แสดง case, value object แสดง field และ entity แสดง method
+การ์ดแสดงได้สูงสุดหกบรรทัด เกินนั้นขึ้นว่า `… N more` status แสดงการเปลี่ยนสถานะ (`Open → Sealed`, `Sealed · final`) แทนค่า enum แสดง case, value object แสดง field และ entity แสดง state (`status: CrateStatus`) แล้วตามด้วย method
 
 คลิกการ์ดเพื่อเลือก คลิกพื้นที่ว่างเพื่อยกเลิก ดับเบิลคลิกการ์ดที่เปิดต่อได้ (context, resource หรือการ์ด Elsewhere) เพื่อไปยังมุมมองนั้น หรือกดปุ่ม **Open …** ใน panel ก็ได้
 
@@ -303,6 +320,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | Enum | Name; Aggregate; Backing: `string`, `int` หรือ `pure`; A status: each case lists the cases it may become; Cases, in order | case ไม่เป็น TitleCase หรือมีค่าซ้ำกัน, status ไม่ได้ชื่อ `*Status` หรือไม่มี case ไหนเปลี่ยนไปเป็น case อื่นได้เลย ([states.md](../resources/boost/guidelines/states.md)) |
 | Value object | Name; Aggregate; Fields, in constructor order (ชื่อและชนิด) | field ไม่เป็น camelCase, ชนิดไม่ใช่ทั้งชนิดพื้นฐาน คลาสที่ manifest ออกแบบไว้ หรือคลาสที่มีในโค้ด |
 | Exception | Name; Kind: Refusal of an aggregate, Invalid value หรือ Refusal of a use case (shared kernel รับเฉพาะ invalid value); Aggregate (สำหรับ refusal และ invalid value); Use case หรือ None (สำหรับ refusal ของ use case) | ชื่อไม่ลงท้ายด้วย `Exception`, aggregate หรือ use case ไม่ได้อยู่ใน context นี้ ([exceptions.md](../resources/boost/guidelines/exceptions.md)) |
+| State | Name; Type | ชื่อไม่เป็น camelCase, เป็น `id` หรือซ้ำกับที่มีอยู่ ชนิดไม่รู้จัก |
 | Method | Entity; Name; Parameters, in order (ชื่อและชนิด ใช้ `...Type` สำหรับตัวสุดท้ายที่เป็น variadic); Throws | ชื่อหรือพารามิเตอร์ไม่เป็น camelCase, ชนิดไม่รู้จัก, exception ไม่ได้ลงท้ายด้วย `Exception`, exception ของ shared kernel หรือ aggregate อื่นไม่ได้ออกแบบไว้ใน manifest ของมันและไม่มีในโค้ด |
 
 ทุกชื่อเป็น StudlyCase (ยกเว้น method และ field เป็น camelCase) และต้องไม่ซ้ำทั้งใน manifest และในโค้ด ถ้าชื่อนั้นมีในโค้ดแล้ว แปลว่า manifest ตามไม่ทันโค้ด ให้รัน `php artisan kit:import --context=X --force` เพื่ออ่านกลับจากโค้ด
@@ -326,14 +344,14 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 แก้ได้เฉพาะสิ่งที่โค้ดยังไม่มี:
 
 - การ์ดที่สร้างแล้วจะขึ้นข้อความ *The code already has it. Change the code and sync it, or replace it.* แทนปุ่ม Edit และ Remove
-- entity กับ controller ล็อกทีละ method: method ที่สร้างแล้วจะขึ้นว่า **built** ส่วนที่เหลือยังแก้ได้
-- child entity มีการ์ดของตัวเองเมื่อเปิด **Behaviour** เหมือน root ใน panel เพิ่ม method ได้แบบเดียวกัน (**Add method**) และมีปุ่ม **Remove** ตราบที่โค้ดยังไม่มี child นั้นและยังไม่มี method กดชื่อ child ใน panel ของ aggregate เพื่อเปิดการ์ดของมันได้
+- entity กับ controller ล็อกทีละ method: method ที่สร้างแล้วจะขึ้นว่า **built** ส่วนที่เหลือยังแก้ได้ state ของ entity ก็ล็อกทีละ property แบบเดียวกัน ตัวที่สร้างแล้วจะขึ้นว่า **built, read by status()**
+- child entity มีการ์ดของตัวเองเมื่อเปิด **Behaviour** เหมือน root ใน panel เพิ่ม state และ method ได้แบบเดียวกัน (**Add state**, **Add method**) และมีปุ่ม **Remove** ตราบที่โค้ดยังไม่มี child นั้นและยังไม่ได้ออกแบบอะไรไว้ กดชื่อ child ใน panel ของ aggregate เพื่อเปิดการ์ดของมันได้
 - aggregate ที่สร้างแล้วล็อกชื่อและ repository แต่ใน panel ยังเพิ่ม child entity ใหม่ได้ `kit:apply` จะสร้างให้ด้วย `make:entity --child` child ที่สร้างแล้วจะขึ้นว่า **built** ส่วนตารางของ child, model และ `syncChildren()` ใน repository ยังต้องเขียนเอง
 - ชิ้นที่ยังมีชิ้นอื่นใช้อยู่ เปลี่ยนชื่อหรือลบไม่ได้ จนกว่าจะไม่มีใครใช้ เช่น aggregate ที่ use case inject อยู่หรือมี exception สังกัดอยู่, enum ที่ field ของ value object อ้างถึง, exception ที่ method throw อยู่, use case ที่มี refusal ของตัวเอง, `index` ขณะที่ยังมีหน้ารายการต้องใช้
 
 ### Sync ของที่สร้างแล้วจากโค้ด
 
-ชิ้นที่สร้างแล้วต้องแก้ที่โค้ด เช่น เปลี่ยนชื่อพารามิเตอร์ เพิ่มพารามิเตอร์ เพิ่ม case ของ enum หรือ inject repository เพิ่ม การ์ดจะขึ้น **differs** และ panel จะมีปุ่ม **Sync from code** ซึ่งดึงชิ้นนั้นชิ้นเดียวจากโค้ดเข้า manifest ส่วน method ของ entity หรือ controller ที่สร้างแล้ว จะมีปุ่ม **Sync from code** ของตัวเองอยู่ข้างคำว่า **built**
+ชิ้นที่สร้างแล้วต้องแก้ที่โค้ด เช่น เปลี่ยนชื่อพารามิเตอร์ เพิ่มพารามิเตอร์ เพิ่ม case ของ enum หรือ inject repository เพิ่ม การ์ดจะขึ้น **differs** และ panel จะมีปุ่ม **Sync from code** ซึ่งดึงชิ้นนั้นชิ้นเดียวจากโค้ดเข้า manifest ส่วน method ของ entity หรือ controller และ property ของ state ที่สร้างแล้ว จะมีปุ่ม **Sync from code** ของตัวเองอยู่ข้างคำว่า **built**
 
 ![Sync from code บนการ์ดที่ differs](images/structure-sync.png)
 

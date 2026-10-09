@@ -76,7 +76,7 @@ class KitApplyCommand extends Command
                 if ($step['command'] !== null) {
                     $this->forgetMissingClasses();
                     $failed = $this->call($step['command'], $step['arguments']) !== self::SUCCESS || $failed;
-                    $reshaped = $reshaped || $step['command'] === 'make:entity-method';
+                    $reshaped = $reshaped || in_array($step['command'], ['make:entity-method', 'make:entity-state'], true);
 
                     continue;
                 }

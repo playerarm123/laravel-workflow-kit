@@ -13,6 +13,12 @@ namespace Playerarm123\LaravelWorkflowKit\Console\Commands\Structure;
  */
 final class StructureSync
 {
+    /**
+     * How a sync of one property of an entity's state names it, beside the methods it syncs by
+     * their bare name: `state.{property}`.
+     */
+    public const string STATE_PREFIX = 'state.';
+
     public function __construct(
         private readonly StructureFiles $files,
         private readonly StructureReader $reader,
@@ -158,7 +164,8 @@ final class StructureSync
 
     /**
      * The built pieces of a context whose manifest entry the code describes another way, as the
-     * paths a sync would change: `{section}.{name}`, or `entities.{Entity}.{method}` for a method.
+     * paths a sync would change: `{section}.{name}`, `entities.{Entity}.{method}` for a method, or
+     * `entities.{Entity}.state.{property}` for a property of an entity's state.
      *
      * @return list<string>
      */
@@ -222,7 +229,7 @@ final class StructureSync
                 continue;
             }
 
-            $entry = $manifest['entities'][$entity] ?? ['aggregate' => $built['aggregate'], 'behaviours' => [], 'assertions' => []];
+            $entry = $manifest['entities'][$entity] ?? ['aggregate' => $built['aggregate'], 'state' => [], 'behaviours' => [], 'assertions' => []];
             $other = $group === 'behaviours' ? 'assertions' : 'behaviours';
             unset($entry[$other][$method]);
             $entry['aggregate'] = $built['aggregate'];
@@ -233,6 +240,29 @@ final class StructureSync
         }
 
         return ['error' => "The code has no {$entity}::{$method}(), so there is nothing to sync from."];
+    }
+
+    /**
+     * The manifest with one property of an entity's state taken from the code, or why it cannot be.
+     * The property keeps its place in the manifest, or goes last when the manifest lacks it.
+     *
+     * @return array{manifest: array<string, mixed>}|array{error: string}
+     */
+    public function syncProperty(string $context, string $entity, string $property): array
+    {
+        $manifest = $this->contextManifest($context);
+        $built = $this->reader->read($context)['entities'][$entity] ?? null;
+
+        if (! is_array($built) || ! array_key_exists($property, $built['state'])) {
+            return ['error' => "The code has no {$entity}.{$property}, so there is nothing to sync from."];
+        }
+
+        $entry = $manifest['entities'][$entity] ?? ['aggregate' => $built['aggregate'], 'state' => [], 'behaviours' => [], 'assertions' => []];
+        $entry['aggregate'] = $built['aggregate'];
+        $entry['state'][$property] = $built['state'][$property];
+        $manifest['entities'][$entity] = $entry;
+
+        return ['manifest' => $manifest];
     }
 
     /**
@@ -292,6 +322,49 @@ final class StructureSync
     }
 
     /**
+     * An entity's state merged with the code's: the code's properties in the constructor's order,
+     * then those only the manifest lists, which are kept unless `$prune` takes them out.
+     *
+     * @param  array<array-key, mixed>  $designed
+     * @param  array<string, string>  $built
+     * @return array{state: array<string, mixed>, changes: list<string>, kept: list<string>}
+     */
+    private function syncState(string $entity, array $designed, array $built, bool $prune): array
+    {
+        $changes = [];
+        $kept = [];
+        $state = [];
+
+        foreach ($built as $property => $type) {
+            $change = $this->change("entities.{$entity}.state.{$property}", $designed[$property] ?? null, $type);
+
+            if ($change !== null) {
+                $changes[] = $change;
+            }
+
+            $state[$property] = $type;
+        }
+
+        $designedOrder = array_values(array_filter(array_map(strval(...), array_keys($designed)), fn (string $property): bool => array_key_exists($property, $built)));
+        $builtOrder = array_values(array_filter(array_keys($built), fn (string $property): bool => array_key_exists($property, $designed)));
+
+        if ($designedOrder !== $builtOrder) {
+            $changes[] = sprintf('entities.%s.state: order %s → %s', $entity, implode(', ', $designedOrder), implode(', ', $builtOrder));
+        }
+
+        foreach (array_diff_key($designed, $built) as $property => $type) {
+            if ($prune) {
+                $changes[] = "entities.{$entity}.state.{$property}: removed";
+            } else {
+                $kept[] = "entities.{$entity}.state.{$property}";
+                $state[(string) $property] = $type;
+            }
+        }
+
+        return ['state' => $state, 'changes' => $changes, 'kept' => $kept];
+    }
+
+    /**
      * @param  array<string, mixed>  $designed
      * @param  array<string, mixed>  $built
      * @return array{entities: array<string, mixed>, changes: list<string>, kept: list<string>}
@@ -302,14 +375,17 @@ final class StructureSync
         $kept = [];
 
         foreach ($built as $entity => $entry) {
-            /** @var array{aggregate: string, behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
+            /** @var array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
             $current = $designed[$entity] ?? null;
 
             if (is_array($current) && $current['aggregate'] !== $entry['aggregate']) {
                 $changes[] = sprintf('entities.%s: aggregate %s → %s', $entity, $this->json($current['aggregate']), $this->json($entry['aggregate']));
             }
 
-            $merged = ['aggregate' => $entry['aggregate'], 'behaviours' => [], 'assertions' => []];
+            $state = $this->syncState($entity, is_array($current['state'] ?? null) ? $current['state'] : [], $entry['state'], $prune);
+            $changes = [...$changes, ...$state['changes']];
+            $kept = [...$kept, ...$state['kept']];
+            $merged = ['aggregate' => $entry['aggregate'], 'state' => $state['state'], 'behaviours' => [], 'assertions' => []];
 
             foreach (['behaviours', 'assertions'] as $group) {
                 /** @var array<string, mixed> $methods */
@@ -340,15 +416,20 @@ final class StructureSync
             $designed[$entity] = $merged;
         }
 
-        /** @var array<string, array{behaviours: array<string, mixed>, assertions: array<string, mixed>}> $unbuilt */
+        /** @var array<string, array{state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>}> $unbuilt */
         $unbuilt = array_diff_key($designed, $built);
 
         foreach ($unbuilt as $entity => $entry) {
-            foreach ([...array_keys($entry['behaviours']), ...array_keys($entry['assertions'])] as $method) {
+            $paths = [
+                ...array_map(fn (int|string $property): string => "entities.{$entity}.state.{$property}", array_keys($entry['state'])),
+                ...array_map(fn (int|string $method): string => "entities.{$entity}.{$method}", [...array_keys($entry['behaviours']), ...array_keys($entry['assertions'])]),
+            ];
+
+            foreach ($paths as $path) {
                 if ($prune) {
-                    $changes[] = "entities.{$entity}.{$method}: removed";
+                    $changes[] = "{$path}: removed";
                 } else {
-                    $kept[] = "entities.{$entity}.{$method}";
+                    $kept[] = $path;
                 }
             }
 
@@ -357,9 +438,9 @@ final class StructureSync
             }
         }
 
-        // An entity with no method left has no entry (structure.md).
+        // An entity with no state and no method left has no entry (structure.md).
         return [
-            'entities' => array_filter($designed, fn (mixed $entry): bool => is_array($entry) && ($entry['behaviours'] !== [] || $entry['assertions'] !== [])),
+            'entities' => array_filter($designed, fn (mixed $entry): bool => is_array($entry) && (($entry['state'] ?? []) !== [] || $entry['behaviours'] !== [] || $entry['assertions'] !== [])),
             'changes' => $changes,
             'kept' => $kept,
         ];

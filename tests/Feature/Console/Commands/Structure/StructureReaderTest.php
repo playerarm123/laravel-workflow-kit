@@ -22,7 +22,7 @@ function writeSamplingReaderFixtures(): void
     $other = SAMPLING_READER_OTHER;
 
     $fixtures = [
-        "Domain/{$context}/Crate/CrateEntity.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate;\n\nuse App\\Domain\\{$context}\\Crate\\Enums\\CrateGrade;\nuse App\\Domain\\{$context}\\Crate\\Exceptions\\CrateSealedException;\nuse App\\Domain\\Shared\\AggregateRoot;\nuse App\\Domain\\Shared\\Exceptions\\InvalidMoneyException as MoneyRefused;\nuse App\\Domain\\Shared\\ValueObjects\\Money;\n\nfinal class CrateEntity extends AggregateRoot\n{\n    public function id(): string { return 'crate'; }\n\n    public static function entityName(): string { return 'Crate'; }\n\n    public static function make(): self { throw new CrateSealedException; }\n\n    public function seal(CrateGrade \$grade, ?string \$note, string ...\$tags): void\n    {\n        \$this->assertIsOpen();\n        static::weigh();\n\n        try {\n            \$this->seal(\$grade, \$note);\n        } catch (\\Throwable \$e) {\n            throw \$e;\n        }\n    }\n\n    public function price(Money \$price): void\n    {\n        throw MoneyRefused::malformed('x');\n    }\n\n    public function weight(): int { return 0; }\n\n    public function isEmpty(): bool { \$this->assertIsOpen(); return true; }\n\n    public function assertIsOpen(): void\n    {\n        if (\$this->isEmpty()) {\n            throw CrateSealedException::sealed();\n        }\n    }\n\n    private static function weigh(): void\n    {\n        throw new Exceptions\\CrateEmptyException;\n    }\n}\n",
+        "Domain/{$context}/Crate/CrateEntity.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate;\n\nuse App\\Domain\\{$context}\\Crate\\Enums\\CrateGrade;\nuse App\\Domain\\{$context}\\Crate\\Exceptions\\CrateSealedException;\nuse App\\Domain\\Shared\\AggregateRoot;\nuse App\\Domain\\Shared\\Exceptions\\InvalidMoneyException as MoneyRefused;\nuse App\\Domain\\Shared\\ValueObjects\\Money;\n\nfinal class CrateEntity extends AggregateRoot\n{\n    private function __construct(private string \$id, private CrateGrade \$grade, private int \$weight, private ?string \$label) {}\n\n    public function id(): string { return \$this->id; }\n\n    public function grade(): CrateGrade { return \$this->grade; }\n\n    public static function entityName(): string { return 'Crate'; }\n\n    public static function make(): self { throw new CrateSealedException; }\n\n    public function seal(CrateGrade \$grade, ?string \$note, string ...\$tags): void\n    {\n        \$this->assertIsOpen();\n        static::weigh();\n\n        try {\n            \$this->seal(\$grade, \$note);\n        } catch (\\Throwable \$e) {\n            throw \$e;\n        }\n    }\n\n    public function price(Money \$price): void\n    {\n        throw MoneyRefused::malformed('x');\n    }\n\n    public function weight(): int { return 0; }\n\n    public function isEmpty(): bool { \$this->assertIsOpen(); return true; }\n\n    public function assertIsOpen(): void\n    {\n        if (\$this->isEmpty()) {\n            throw CrateSealedException::sealed();\n        }\n    }\n\n    private static function weigh(): void\n    {\n        throw new Exceptions\\CrateEmptyException;\n    }\n}\n",
         "Domain/{$context}/Crate/Exceptions/CrateSealedException.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\Exceptions;\n\nfinal class CrateSealedException extends \\RuntimeException\n{\n    public static function sealed(): self { return new self; }\n}\n",
         "Domain/{$context}/Crate/Exceptions/CrateEmptyException.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\Exceptions;\n\nfinal class CrateEmptyException extends \\RuntimeException {}\n",
         "Domain/{$context}/Crate/Entities/LidEntity.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\Entities;\n\nuse App\\Domain\\Shared\\DomainEntity;\n\nfinal class LidEntity extends DomainEntity\n{\n    public function id(): string { return 'lid'; }\n\n    public static function entityName(): string { return 'Lid'; }\n\n    public function open(): void\n    {\n        throw new \\App\\Domain\\{$context}\\Crate\\Exceptions\\CrateSealedException;\n    }\n}\n",
@@ -187,10 +187,11 @@ describe('StructureReader', function () {
             ]);
         });
 
-        it('reads the behaviours and assertions of each entity, with its parameters in order and what it throws, however deep', function () {
+        it('reads the state, behaviours and assertions of each entity, with its parameters in order and what it throws, however deep', function () {
             expect($this->reader->read(SAMPLING_READER_CONTEXT)['entities'])->toBe([
                 'Crate' => [
                     'aggregate' => 'Crate',
+                    'state' => ['grade' => 'CrateGrade', 'weight' => 'int', 'label' => '?string'],
                     'behaviours' => [
                         'price' => ['params' => ['price' => 'Shared/Money'], 'throws' => ['Shared/InvalidMoneyException']],
                         'seal' => ['params' => ['grade' => 'CrateGrade', 'note' => '?string', 'tags' => '...string'], 'throws' => ['CrateEmptyException', 'CrateSealedException']],
@@ -201,10 +202,16 @@ describe('StructureReader', function () {
                 ],
                 'Lid' => [
                     'aggregate' => 'Crate',
+                    'state' => [],
                     'behaviours' => ['open' => ['params' => [], 'throws' => ['CrateSealedException']]],
                     'assertions' => [],
                 ],
             ]);
+        });
+
+        it('reads the state of an entity from its constructor, but for its id, and names each property no getter returns', function () {
+            expect($this->reader->read(SAMPLING_READER_CONTEXT)['entities']['Crate']['state'])->toBe(['grade' => 'CrateGrade', 'weight' => 'int', 'label' => '?string'])
+                ->and($this->reader->stateWithoutGetter(SAMPLING_READER_CONTEXT))->toBe(['Crate' => ['label']]);
         });
 
         it('reads each enum of an aggregate with its backing, its cases in order, and where a status may go next in case order', function () {

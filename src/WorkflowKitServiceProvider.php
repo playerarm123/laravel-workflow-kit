@@ -20,6 +20,7 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeDomainServiceCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeEloquentRepositoryCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeEntityCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeEntityMethodCommand;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeEntityStateCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeEnumCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeFormPageCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeFormRequestCommand;
@@ -65,6 +66,7 @@ final class WorkflowKitServiceProvider extends ServiceProvider
             MakeEloquentRepositoryCommand::class,
             MakeEntityCommand::class,
             MakeEntityMethodCommand::class,
+            MakeEntityStateCommand::class,
             MakeFormPageCommand::class,
             MakeFormRequestCommand::class,
             MakeListPageCommand::class,

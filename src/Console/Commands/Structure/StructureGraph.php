@@ -25,9 +25,9 @@ final class StructureGraph
     public const string DIFFERS = 'differs';
 
     /**
-     * The one line on the card of an entity that lists no method yet.
+     * The one line on the card of an entity that lists no state and no method yet.
      */
-    public const string NO_METHODS = 'no methods yet';
+    public const string NOTHING_DESIGNED = 'nothing designed yet';
 
     /**
      * Each status by how much it needs a person, least first.
@@ -58,11 +58,12 @@ final class StructureGraph
      * `resourceVersions` the same for HTTP resources (StructureResourceEditor). `resourceBuilt`
      * names each resource entry the code already has, so the screen offers to change only the rest,
      * and `entityMethodsBuilt` names each entity method the code already has, as `{Entity}.{method}`,
-     * and `childrenBuilt` each child entity, as `{Aggregate}.{Child}`.
+     * `entityStateBuilt` each property of an entity's state the code already has, as
+     * `{Entity}.{property}`, and `childrenBuilt` each child entity, as `{Aggregate}.{Child}`.
      * `outOfStep` and `resourceOutOfStep` name each built entry the code describes another way, by
      * the path StructureSync takes it back from the code with.
      *
-     * @return array{overview: View, contexts: array<string, View>, resources: array<string, View>, byHand: list<Difference>, manifests: array<string, array<string, mixed>>, versions: array<string, string>, resourceManifests: array<string, array<string, mixed>>, resourceVersions: array<string, string>, resourceBuilt: array<string, list<string>>, entityMethodsBuilt: array<string, list<string>>, childrenBuilt: array<string, list<string>>, outOfStep: array<string, list<string>>, resourceOutOfStep: array<string, list<string>>}
+     * @return array{overview: View, contexts: array<string, View>, resources: array<string, View>, byHand: list<Difference>, manifests: array<string, array<string, mixed>>, versions: array<string, string>, resourceManifests: array<string, array<string, mixed>>, resourceVersions: array<string, string>, resourceBuilt: array<string, list<string>>, entityMethodsBuilt: array<string, list<string>>, entityStateBuilt: array<string, list<string>>, childrenBuilt: array<string, list<string>>, outOfStep: array<string, list<string>>, resourceOutOfStep: array<string, list<string>>}
      */
     public function graph(): array
     {
@@ -73,6 +74,7 @@ final class StructureGraph
         $contextManifests = [];
         $versions = [];
         $methodsBuilt = [];
+        $stateBuilt = [];
         $childrenBuilt = [];
         $outOfStep = [];
         $sync = new StructureSync($this->files, $this->reader);
@@ -85,6 +87,7 @@ final class StructureGraph
                 $contextManifests[$context] = $manifest;
                 $versions[$context] = $this->files->version($context);
                 $methodsBuilt[$context] = $this->builtMethods($context);
+                $stateBuilt[$context] = $this->builtState($context);
                 $childrenBuilt[$context] = $this->builtChildren($context);
                 $outOfStep[$context] = $sync->contextOutOfStep($context);
             }
@@ -119,6 +122,7 @@ final class StructureGraph
             'resourceVersions' => $resourceVersions,
             'resourceBuilt' => $resourceBuilt,
             'entityMethodsBuilt' => $methodsBuilt,
+            'entityStateBuilt' => $stateBuilt,
             'childrenBuilt' => $childrenBuilt,
             'outOfStep' => $outOfStep,
             'resourceOutOfStep' => $resourceOutOfStep,
@@ -460,14 +464,14 @@ final class StructureGraph
         $enums = $manifest['enums'];
         /** @var array<string, mixed> $valueObjects */
         $valueObjects = $manifest['valueObjects'];
-        /** @var array<string, array{aggregate: string, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}> $entities */
+        /** @var array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}> $entities */
         $entities = $manifest['entities'];
 
         $drawn = [];
 
         foreach ($aggregates as $aggregate => $holder) {
             foreach ([$aggregate, ...$holder['children']] as $entity) {
-                $drawn[$entity] = $entities[$entity] ?? ['aggregate' => $aggregate, 'behaviours' => [], 'assertions' => []];
+                $drawn[$entity] = $entities[$entity] ?? ['aggregate' => $aggregate, 'state' => [], 'behaviours' => [], 'assertions' => []];
             }
         }
 
@@ -477,6 +481,25 @@ final class StructureGraph
             $entity = (string) $entity;
             $id = StructureComparer::contextNode($context, 'entities', $entity);
             $lines = [];
+
+            foreach ($entry['state'] as $property => $type) {
+                $lines[] = "{$property}: {$type}";
+
+                foreach (preg_split('/[|&]/', ltrim($type, '?')) ?: [] as $part) {
+                    $target = $this->typeTarget($context, $part, $enums, $valueObjects, $aggregates);
+
+                    if ($target === null || $target === $id) {
+                        continue;
+                    }
+
+                    if (str_starts_with($target, 'external:')) {
+                        $owner = explode('/', substr($target, strlen('external:')))[0];
+                        $external[$target] = $this->node($target, 'external', str_replace('/', ' / ', substr($target, strlen('external:'))), [], ['view' => 'context', 'name' => $owner]);
+                    }
+
+                    $edges[] = $this->edge($id, $target, 'state');
+                }
+            }
 
             foreach ([...$entry['behaviours'], ...$entry['assertions']] as $method => $definition) {
                 $lines[] = $method.'('.implode(', ', $definition['params']).')';
@@ -519,7 +542,7 @@ final class StructureGraph
                 $id,
                 'entity',
                 $entity,
-                $lines === [] ? [self::NO_METHODS] : $this->capped($lines),
+                $lines === [] ? [self::NOTHING_DESIGNED] : $this->capped($lines),
                 editable: $child && ! in_array("{$entry['aggregate']}.{$entity}", $builtChildren, true),
             );
 
@@ -707,6 +730,24 @@ final class StructureGraph
     }
 
     /**
+     * The properties of the context's entities the code already has, as `{Entity}.{property}`.
+     *
+     * @return list<string>
+     */
+    private function builtState(string $context): array
+    {
+        $built = [];
+
+        foreach ($this->reader->read($context)['entities'] as $entity => $entry) {
+            foreach (array_keys($entry['state']) as $property) {
+                $built[] = "{$entity}.{$property}";
+            }
+        }
+
+        return $built;
+    }
+
+    /**
      * The entity methods of a context the code already has, as `{Entity}.{method}`.
      *
      * @return list<string>
@@ -757,7 +798,7 @@ final class StructureGraph
 
         foreach ($view['nodes'] as $node) {
             // An entity with no method yet is its aggregate's card drawn again, already counted.
-            if ($node['status'] !== null && $node['items'] !== [self::NO_METHODS]) {
+            if ($node['status'] !== null && $node['items'] !== [self::NOTHING_DESIGNED]) {
                 $counts[$node['status']] = ($counts[$node['status']] ?? 0) + 1;
                 $worst = $worst === null || self::RANK[$node['status']] > self::RANK[$worst] ? $node['status'] : $worst;
             }

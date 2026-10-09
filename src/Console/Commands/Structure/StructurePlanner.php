@@ -161,7 +161,7 @@ final class StructurePlanner
             }
         }
 
-        /** @var array<string, array{aggregate: string, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}> $entities */
+        /** @var array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}> $entities */
         $entities = $manifest['entities'];
 
         $planned = [];
@@ -391,7 +391,7 @@ final class StructurePlanner
      * entity, the types of its parameters and every exception it throws. The file is read, not
      * the class, because the class may already be loaded without the method.
      *
-     * @param  array{aggregate: string, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}  $entry
+     * @param  array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}  $entry
      * @return list<PlannedStep>
      */
     private function entitySteps(string $context, string $entity, array $entry): array
@@ -402,6 +402,33 @@ final class StructurePlanner
         $file = $this->rootOf()."/app/Domain/{$domain}/".($entity === $aggregate ? '' : 'Entities/')."{$entity}Entity.php";
         $code = is_file($file) ? StructureFiles::text($file) : null;
         $steps = [];
+        $promoted = $code !== null && preg_match('/function __construct\((.*?)\)\s*\{/s', $code, $match) === 1 ? $match[1] : '';
+        $earlierWaits = null;
+
+        foreach ($entry['state'] as $property => $type) {
+            $missing = $this->missingTypes([(string) $property => $type], $context, $aggregate);
+            $built = preg_match('/\$'.preg_quote((string) $property, '/').'\b/', $promoted) === 1;
+            $waiting = match (true) {
+                $code === null => "{$entity}Entity is not built yet",
+                $missing !== [] => implode(', ', $missing).(count($missing) === 1 ? ' is' : ' are').' not built yet',
+                $earlierWaits !== null => "{$earlierWaits} comes first, to keep the order of the state",
+                default => null,
+            };
+
+            if (! $built && $waiting !== null) {
+                $earlierWaits ??= (string) $property;
+            }
+
+            $steps[] = $this->generator(
+                3,
+                "state {$context}/{$entity}.{$property}",
+                $built,
+                $waiting,
+                'make:entity-state',
+                ['entity' => $entity, '--domain' => $domain, '--field' => ["{$property}:{$type}"]],
+                $nodes,
+            );
+        }
 
         foreach ([...$entry['behaviours'], ...$entry['assertions']] as $method => $definition) {
             $missing = $this->missingTypes(array_map(fn (string $type): string => (string) preg_replace('/^\.\.\./', '', $type), $definition['params']), $context, $aggregate);

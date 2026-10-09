@@ -21,7 +21,7 @@ function writeSamplingSyncFixtures(): void
     $resource = SAMPLING_SYNC_RESOURCE;
 
     $fixtures = [
-        "app/Domain/{$context}/Bin/BinEntity.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Bin;\n\nuse App\\Domain\\Shared\\AggregateRoot;\n\nfinal class BinEntity extends AggregateRoot\n{\n    public function id(): string { return 'bin'; }\n\n    public static function entityName(): string { return 'Bin'; }\n\n    public function fill(int \$amount, string \$note): void {}\n\n    public function assertOpen(): void {}\n}\n",
+        "app/Domain/{$context}/Bin/BinEntity.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Bin;\n\nuse App\\Domain\\Shared\\AggregateRoot;\n\nfinal class BinEntity extends AggregateRoot\n{\n    private function __construct(private string \$id, private int \$size, private ?string \$label) {}\n\n    public function id(): string { return \$this->id; }\n\n    public static function entityName(): string { return 'Bin'; }\n\n    public function fill(int \$amount, string \$note): void {}\n\n    public function assertOpen(): void {}\n}\n",
         "app/Domain/{$context}/Bin/Enums/BinStatus.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Bin\\Enums;\n\nenum BinStatus: string\n{\n    case Open = 'open';\n    case Full = 'full';\n}\n",
         "app/Application/{$context}/UseCases/EmptyBinsHandler.php" => "<?php\n\nnamespace App\\Application\\{$context}\\UseCases;\n\nfinal class EmptyBinsHandler\n{\n    public function __invoke(): int { return 0; }\n}\n",
         "app/Models/{$resource}.php" => "<?php\n\nnamespace App\\Models;\n\nuse App\\Policies\\{$resource}Policy;\nuse Illuminate\\Database\\Eloquent\\Attributes\\UsePolicy;\nuse Illuminate\\Database\\Eloquent\\Model;\n\n#[UsePolicy({$resource}Policy::class)]\nclass {$resource} extends Model {}\n",
@@ -160,6 +160,29 @@ describe('StructureSync', function () {
             expect($synced['manifest']['useCases']['EmptyBins']['returns'])->toBe('void')
                 ->and($synced['manifest']['useCases']['ClearBins']['replaces'])->toBe('EmptyBins')
                 ->and($synced['changes'])->toBe([]);
+        });
+
+        it('takes an entity\'s state from the code in the constructor\'s order, keeping a property not built yet last', function () {
+            designSamplingSync(function (array $manifest): array {
+                $manifest['entities']['Bin']['state'] = ['label' => 'string', 'size' => 'string', 'colour' => 'int'];
+
+                return $manifest;
+            });
+
+            $synced = $this->sync->syncContext(SAMPLING_SYNC_CONTEXT);
+            $pruned = $this->sync->syncContext(SAMPLING_SYNC_CONTEXT, prune: true);
+
+            expect($synced['manifest']['entities']['Bin']['state'])->toBe(['size' => 'int', 'label' => '?string', 'colour' => 'int'])
+                ->and($synced['changes'])->toBe([
+                    'entities.Bin.state.size: "string" → "int"',
+                    'entities.Bin.state.label: "string" → "?string"',
+                    'entities.Bin.state: order label, size → size, label',
+                ])
+                ->and($synced['kept'])->toBe(['entities.Bin.state.colour'])
+                ->and($this->sync->contextOutOfStep(SAMPLING_SYNC_CONTEXT))->toBe(['entities.Bin.state.size', 'entities.Bin.state.label', 'entities.Bin.state'])
+                ->and($pruned['manifest']['entities']['Bin']['state'])->toBe(['size' => 'int', 'label' => '?string'])
+                ->and($pruned['changes'])->toContain('entities.Bin.state.colour: removed')
+                ->and($this->sync->syncProperty(SAMPLING_SYNC_CONTEXT, 'Bin', 'label')['manifest']['entities']['Bin']['state'])->toBe(['label' => '?string', 'size' => 'string', 'colour' => 'int']);
         });
 
         it('names the built pieces the code describes another way, but not the ones it would add', function () {

@@ -40,7 +40,7 @@ function writeSamplingEditFixtures(): void
 {
     $context = SAMPLING_EDIT_CONTEXT;
     $fixtures = [
-        "Domain/{$context}/Crate/CrateEntity.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate;\n\nuse App\\Domain\\Shared\\AggregateRoot;\n\nfinal class CrateEntity extends AggregateRoot\n{\n    public function id(): string { return 'crate'; }\n\n    public static function entityName(): string { return 'Crate'; }\n\n    public function seal(): void {}\n}\n",
+        "Domain/{$context}/Crate/CrateEntity.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate;\n\nuse App\\Domain\\Shared\\AggregateRoot;\n\nfinal class CrateEntity extends AggregateRoot\n{\n    private function __construct(private string \$id, private int \$weight) {}\n\n    public function id(): string { return \$this->id; }\n\n    public function weight(): int { return \$this->weight; }\n\n    public static function entityName(): string { return 'Crate'; }\n\n    public function seal(): void {}\n}\n",
         "Application/{$context}/UseCases/ShipCrateHandler.php" => "<?php\n\nnamespace App\\Application\\{$context}\\UseCases;\n\nfinal class ShipCrateHandler\n{\n    public function __invoke(string \$crateId): void {}\n}\n",
         "Application/{$context}/UseCases/ListCrates/ListCratesHandler.php" => "<?php\n\nnamespace App\\Application\\{$context}\\UseCases\\ListCrates;\n\nfinal class ListCratesHandler\n{\n    public function __invoke(): void {}\n}\n",
         "Application/{$context}/UseCases/ListCrates/ListCratesQuery.php" => "<?php\n\nnamespace App\\Application\\{$context}\\UseCases\\ListCrates;\n\ninterface ListCratesQuery {}\n",
@@ -332,6 +332,7 @@ describe('StructureEditor', function () {
                 ->and($editor->saveMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', null, 'assertIsOpen', [], ['CrateSealedException']))->toBe([])
                 ->and(samplingEditManifest()['entities'])->toBe(['Crate' => [
                     'aggregate' => 'Crate',
+                    'state' => [],
                     'behaviours' => ['stack' => ['params' => ['height' => 'int', 'labels' => '...string'], 'throws' => ['CrateFullException', 'Shared/InvalidMoneyException']]],
                     'assertions' => ['assertIsOpen' => ['params' => [], 'throws' => ['CrateSealedException']]],
                 ]]);
@@ -343,6 +344,7 @@ describe('StructureEditor', function () {
             expect(samplingEditor()->saveMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Wheel', 'turn', 'assertTurns', ['speed' => 'int'], []))->toBe([])
                 ->and(samplingEditManifest()['entities']['Wheel'])->toBe([
                     'aggregate' => 'Lorry',
+                    'state' => [],
                     'behaviours' => [],
                     'assertions' => ['assertTurns' => ['params' => ['speed' => 'int'], 'throws' => []]],
                 ]);
@@ -408,6 +410,72 @@ describe('StructureEditor', function () {
             expect($editor->removeMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'seal'))->toBe(['name' => ['The code already has Crate::seal, so the screen leaves it alone.']])
                 ->and($editor->removeMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'open'))->toBe(['name' => ['The manifest has no Crate::open.']])
                 ->and(samplingEditManifest()['entities'])->toHaveKey('Crate');
+        });
+    });
+
+    describe('saveState', function () {
+        it('adds state to a built entity, each new property last, and renames one in its place', function () {
+            $editor = samplingEditor();
+
+            expect($editor->saveState(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', null, 'status', 'string'))->toBe([])
+                ->and($editor->saveState(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', null, 'price', '?Shared/Money'))->toBe([])
+                ->and($editor->saveState(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'status', 'grade', 'int|string'))->toBe([])
+                ->and(samplingEditManifest()['entities']['Crate'])->toBe([
+                    'aggregate' => 'Crate',
+                    'state' => ['grade' => 'int|string', 'price' => '?Shared/Money'],
+                    'behaviours' => [],
+                    'assertions' => [],
+                ]);
+        });
+
+        it('leaves state the code already has alone', function () {
+            $editor = samplingEditor();
+
+            expect($editor->saveState(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', null, 'weight', 'int')['name'][0])->toContain('kit:import');
+
+            (new StructureFiles(base_path()))->write([...samplingEditManifest(), 'entities' => [
+                'Crate' => ['aggregate' => 'Crate', 'state' => ['weight' => 'int'], 'behaviours' => [], 'assertions' => []],
+            ]]);
+
+            expect($editor->saveState(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'weight', 'weight', 'string'))
+                ->toBe(['name' => ['The code already has Crate.weight, so the screen leaves it alone.']])
+                ->and($editor->removeState(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'weight'))
+                ->toBe(['name' => ['The code already has Crate.weight, so the screen leaves it alone.']]);
+        });
+
+        it('refuses state the rules or the manifests do not allow', function (string $entity, ?string $previous, string $name, string $type, string $field) {
+            samplingEditLorry();
+            samplingEditor()->saveState(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Lorry', null, 'axles', 'int');
+            $before = samplingEditManifest();
+
+            expect(samplingEditor()->saveState(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), $entity, $previous, $name, $type))->toHaveKey($field)
+                ->and(samplingEditManifest())->toBe($before);
+        })->with([
+            'an entity no aggregate holds' => ['Barrel', null, 'size', 'int', 'entity'],
+            'a property not in the manifest' => ['Lorry', 'cab', 'cab', 'int', 'name'],
+            'a name not camelCase' => ['Lorry', null, 'Cab', 'int', 'name'],
+            'the id' => ['Lorry', null, 'id', 'string', 'name'],
+            'a name the manifest has' => ['Lorry', null, 'axles', 'int', 'name'],
+            'no type' => ['Lorry', null, 'cab', ' ', 'type'],
+            'a type no manifest designs' => ['Lorry', null, 'cab', '?Tonnage', 'type'],
+        ]);
+    });
+
+    describe('removeState', function () {
+        it('removes designed state, and the entity once it lists nothing', function () {
+            samplingEditLorry();
+            $editor = samplingEditor();
+            $editor->saveState(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Lorry', null, 'axles', 'int');
+            (new StructureFiles(base_path()))->write([...samplingEditManifest(), 'entities' => [
+                ...samplingEditManifest()['entities'],
+                'Wheel' => ['aggregate' => 'Lorry', 'state' => ['spokes' => 'int'], 'behaviours' => [], 'assertions' => []],
+            ]]);
+
+            expect($editor->removeState(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Lorry', 'axles'))->toBe([])
+                ->and(samplingEditManifest()['entities']['Lorry']['state'])->toBe([])
+                ->and($editor->removeState(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Wheel', 'spokes'))->toBe([])
+                ->and(samplingEditManifest()['entities'])->toHaveKey('Lorry')->not->toHaveKey('Wheel')
+                ->and($editor->removeState(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Lorry', 'cab'))->toBe(['name' => ['The manifest has no Lorry.cab.']]);
         });
     });
 
@@ -596,6 +664,17 @@ describe('StructureEditor', function () {
                 ->and(samplingEditManifest()['useCases']['ShipCrate']['returns'])->toBe('void')
                 ->and($editor->sync(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'entities', 'seal', 'Crate'))->toBe([])
                 ->and(samplingEditManifest()['entities']['Crate']['behaviours']['seal']['params'])->toBe([]);
+        });
+
+        it('takes one property of an entity\'s state back from the code', function () {
+            (new StructureFiles(base_path()))->write([...samplingEditManifest(),
+                'entities' => ['Crate' => ['aggregate' => 'Crate', 'state' => ['size' => 'int', 'weight' => 'string'], 'behaviours' => [], 'assertions' => []]],
+            ]);
+            $editor = samplingEditor();
+
+            expect($editor->sync(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'entities', 'state.weight', 'Crate'))->toBe([])
+                ->and(samplingEditManifest()['entities']['Crate']['state'])->toBe(['size' => 'int', 'weight' => 'int'])
+                ->and($editor->sync(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'entities', 'state.size', 'Crate'))->toBe(['name' => ['The code has no Crate.size, so there is nothing to sync from.']]);
         });
 
         it('refuses a stale page, an entity as a whole, and a piece the code does not have', function () {
