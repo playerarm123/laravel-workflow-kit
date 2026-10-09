@@ -122,6 +122,24 @@ describe('StructureSync', function () {
                 ->and($synced['kept'])->toBe([]);
         });
 
+        it('keeps a child the manifest designs for a built aggregate, and takes it out when it prunes', function () {
+            designSamplingSync(function (array $manifest): array {
+                $manifest['aggregates']['Bin']['children'] = ['Lid'];
+
+                return $manifest;
+            });
+
+            $synced = $this->sync->syncContext(SAMPLING_SYNC_CONTEXT);
+            $pruned = $this->sync->syncContext(SAMPLING_SYNC_CONTEXT, prune: true);
+
+            expect($synced['manifest']['aggregates']['Bin']['children'])->toBe(['Lid'])
+                ->and($synced['changes'])->toBe([])
+                ->and($synced['kept'])->toBe(['aggregates.Bin.children.Lid'])
+                ->and($this->sync->syncPiece(SAMPLING_SYNC_CONTEXT, 'aggregates', 'Bin')['manifest']['aggregates']['Bin']['children'])->toBe(['Lid'])
+                ->and($pruned['manifest']['aggregates']['Bin']['children'])->toBe([])
+                ->and($pruned['changes'])->toBe(['aggregates.Bin.children.Lid: removed', 'aggregates.Bin: children ["Lid"] → []']);
+        });
+
         it('changes nothing when the manifest already says what the code holds', function () {
             designSamplingSync(fn (array $manifest): array => $manifest);
 

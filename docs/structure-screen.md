@@ -296,6 +296,7 @@ The header offers the forms of the current view:
 | Form | Fields | Refused when |
 |---|---|---|
 | Aggregate | Name; Child entities, separated by commas; Repository | A child repeats the root. A child that still has methods is removed. Repository is unticked while something injects it. |
+| Child entities (in the panel of any aggregate card) | A new child's name, then **Add child**; **Remove** beside a child not built yet | The name is not StudlyCase or is the root's. The aggregate already lists it, or the code already has it (sync it instead). A child that has methods, or that the code has, cannot be removed. |
 | Domain service | Name; Shape of handle(): `creates`, `data` or `plain`; Builds the aggregate (for `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | A repository, or the aggregate it builds, is in another context ([layers.md](../resources/boost/guidelines/layers.md)). |
 | Port | Name; Layer: `domain` or `application`; Adapter, as `Infra/{Folder}/{Prefix}{Port}` (optional) | The adapter is not in that form. |
 | Use case | Name; Shape of __invoke(): `command-result`, `command` or `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (from any context) | A Command shape returns something other than `void`, `string`, `int` or `result` ([handlers.md](../resources/boost/guidelines/handlers.md)). A list is not `List{Name}` with `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)). A repository does not exist. |
@@ -326,6 +327,7 @@ Only what the code does not have yet can change:
 
 - A built card shows *The code already has it. Change the code and sync it, or replace it.* in place of Edit and Remove.
 - An entity and a controller lock one method at a time: a built method reads **built**, and the others stay editable.
+- A built aggregate locks its name and repository, but its panel still takes new child entities. `kit:apply` builds each one with `make:entity --child`. A built child reads **built**. The child's table, model and the repository's `syncChildren()` are still yours to write.
 - A piece that others use cannot be renamed or removed until nothing uses it. Examples: an aggregate a use case injects or that holds an exception, an enum a value object's field names, an exception a method throws, a use case with a refusal of its own, `index` while a list page needs it.
 
 ### Syncing what is built from the code

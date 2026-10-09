@@ -1,6 +1,7 @@
 import { useHttp } from '@inertiajs/react';
 import { Background, Controls, MiniMap, ReactFlow } from '@xyflow/react';
 import { useState, useSyncExternalStore } from 'react';
+import type { FormEvent } from 'react';
 import InputError from '@/components/input-error';
 import {
     Breadcrumb,
@@ -19,6 +20,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { ContextForm } from '@/kit/context-form';
 import { ExceptionForm } from '@/kit/exception-form';
 import { layoutView, withoutKinds } from '@/kit/layout';
@@ -896,6 +898,15 @@ function Details({
                         Edit model and policy
                     </Button>
                 )}
+            {node.kind === 'aggregate' && context !== null && (
+                <AggregateChildren
+                    graph={graph}
+                    endpoints={endpoints}
+                    context={context}
+                    aggregate={name}
+                    onChanged={onChanged}
+                />
+            )}
             {node.kind === 'entity' && context !== null && (
                 <EntityMethods
                     graph={graph}
@@ -1010,6 +1021,115 @@ function Methods({
                 </li>
             ))}
         </ul>
+    );
+}
+
+/**
+ * An aggregate's child entities. A built aggregate keeps its name and repository but takes new
+ * children, the way a built entity takes new methods: kit:apply builds each one the code does not
+ * have yet, and a child the code already has reads built.
+ */
+function AggregateChildren({
+    graph,
+    endpoints,
+    context,
+    aggregate,
+    onChanged,
+}: {
+    graph: StructureGraph;
+    endpoints: StructureEndpoints;
+    context: string;
+    aggregate: string;
+    onChanged: (graph: StructureGraph) => void;
+}) {
+    const children =
+        graph.manifests[context]?.aggregates[aggregate]?.children ?? [];
+    const built = graph.childrenBuilt[context] ?? [];
+    const version = graph.versions[context] ?? '';
+    const form = useHttp<
+        { version: string; aggregate: string; child: string },
+        { graph: StructureGraph }
+    >({ version, aggregate, child: '' });
+
+    const add = (event: FormEvent) => {
+        event.preventDefault();
+        form.post(
+            endpoints.addChild.replace(
+                '__CONTEXT__',
+                encodeURIComponent(context),
+            ),
+            {
+                onSuccess: (response) => {
+                    form.setData('child', '');
+                    onChanged(response.graph);
+                },
+            },
+        );
+    };
+
+    return (
+        <div className="space-y-3">
+            <div className="text-xs font-medium">Child entities</div>
+            {children.length > 0 && (
+                <ul className="space-y-2">
+                    {children.map((child) => (
+                        <li
+                            key={child}
+                            className="flex items-center justify-between gap-2"
+                        >
+                            <span className="font-mono text-xs">{child}</span>
+                            {built.includes(`${aggregate}.${child}`) ? (
+                                <span className="text-xs text-muted-foreground">
+                                    built
+                                </span>
+                            ) : (
+                                <RemoveButton
+                                    url={endpoints.removeChild.replace(
+                                        '__CONTEXT__',
+                                        encodeURIComponent(context),
+                                    )}
+                                    version={version}
+                                    section="aggregates"
+                                    name={child}
+                                    owner={context}
+                                    entity={aggregate}
+                                    onRemoved={onChanged}
+                                />
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            )}
+            <form onSubmit={add} className="space-y-1">
+                <div className="flex gap-2">
+                    <Input
+                        value={form.data.child}
+                        placeholder="Lid"
+                        aria-label="New child entity"
+                        onChange={(event) =>
+                            form.setData('child', event.target.value)
+                        }
+                    />
+                    <Button
+                        type="submit"
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                            form.processing || form.data.child.trim() === ''
+                        }
+                    >
+                        Add child
+                    </Button>
+                </div>
+                <InputError
+                    message={
+                        form.errors.child ??
+                        form.errors.version ??
+                        form.errors.aggregate
+                    }
+                />
+            </form>
+        </div>
     );
 }
 
