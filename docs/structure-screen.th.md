@@ -14,7 +14,7 @@
 - `resources/js/kit/structure.tsx` อยู่ใน `input` ของ `laravel()` ใน `vite.config.ts`
 - Vite: รัน `npm run dev` ระหว่างทำงาน หรือ `npm run build`
 
-`php artisan kit:setup` ตั้งสองข้อแรกให้แล้ว จากนั้นเปิด `http://your-app.test/kit/structure` ได้เลย ด้านบนมีลิงก์ **Guide** ที่เปิดคู่มือนี้ และ **Docs** ที่พาไป `/kit/docs` ซึ่งรวมกฎและคู่มือของ kit
+`php artisan kit:setup` ตั้งสองข้อแรกให้แล้ว จากนั้นเปิด `http://your-app.test/kit/structure` ได้เลย เมนู **?** มุมขวาบนมี **Guide** ที่เปิดคู่มือนี้ และ **Docs** ที่พาไป `/kit/docs` ซึ่งรวมกฎและคู่มือของ kit
 
 โปรเจกต์ใหม่จะเห็นการ์ดใบเดียวในหน้าภาพรวม คือ `Shared` ซึ่งเป็น shared kernel ที่ทุก context ใช้ได้
 
@@ -26,7 +26,7 @@
 
 ### 1. สร้าง context
 
-กด **New context** พิมพ์ `Shipping` แล้วกด **Create** ชื่อ context ต้องเป็น StudlyCase และห้ามซ้ำกับโฟลเดอร์ของ kit เอง (`Shared`, `Audit`, `Auth`, `Concerns`) เสร็จแล้วหน้าจอจะเปิด context ใหม่ที่ยังว่างอยู่
+เลือก **New ▸ Context** พิมพ์ `Shipping` แล้วกด **Create** ชื่อ context ต้องเป็น StudlyCase และห้ามซ้ำกับโฟลเดอร์ของ kit เอง (`Shared`, `Audit`, `Auth`, `Concerns`) เสร็จแล้วหน้าจอจะเปิด context ใหม่ที่ยังว่างอยู่
 
 ![ฟอร์ม New context](images/structure-new-context.png)
 
@@ -34,7 +34,7 @@
 
 ### 2. เพิ่ม aggregate
 
-กด **Add aggregate** แล้วกรอก:
+เลือก **Add ▸ Aggregate** (เมนู Add แบ่งของใน context เป็นกลุ่ม Domain, Vocabulary และ Application) แล้วกรอก:
 
 - **Name:** `Crate`
 - **Child entities, separated by commas:** `Lid`
@@ -50,7 +50,7 @@
 
 ### 3. เพิ่มสถานะ
 
-กด **Add enum**:
+เลือก **Add ▸ Enum**:
 
 - **Name:** `CrateStatus`
 - **Aggregate:** `Crate`
@@ -66,7 +66,7 @@ enum ชื่อ `*Status` ที่ระบุการเปลี่ยน�
 
 ### 4. เพิ่ม value object
 
-กด **Add value object** ตั้ง **Name** เป็น `CrateLabel` และ **Aggregate** เป็น `Crate` จากนั้นเพิ่มสองช่องใน **Fields, in constructor order** คือ `code` ชนิด `string` และ `note` ชนิด `?string` ช่องชนิดจะแนะนำชนิดพื้นฐานและคลาสที่ context นี้ออกแบบไว้
+เลือก **Add ▸ Value object** ตั้ง **Name** เป็น `CrateLabel` และ **Aggregate** เป็น `Crate` จากนั้นเพิ่มสองช่องใน **Fields, in constructor order** คือ `code` ชนิด `string` และ `note` ชนิด `?string` ช่องชนิดจะแนะนำชนิดพื้นฐานและคลาสที่ context นี้ออกแบบไว้
 
 ![การเพิ่ม value object](images/structure-add-value-object.png)
 
@@ -95,7 +95,7 @@ exception ของ domain service ไม่ได้ออกแบบตรง
 
 ### 6. เพิ่ม method ให้ entity
 
-กด **Add method**:
+เลือก **Add ▸ Entity method** (หรือกด **+** ข้างหัวข้อ **Methods** ใน panel ของ entity):
 
 - **Entity:** `Crate`
 - **Name:** `seal` (ชื่อที่ขึ้นต้นด้วย `assert` จะเป็น assertion แทน behaviour)
@@ -114,7 +114,7 @@ exception ของ domain service ไม่ได้ออกแบบตรง
 
 ### 6b. กำหนด state ให้ entity
 
-เลือกการ์ด entity `Crate` (เปิด **Behaviour** ก่อน) แล้วกด **Add state**:
+เลือกการ์ด entity `Crate` (เปิด **Behaviour** ก่อน) แล้วกด **+** ข้างหัวข้อ **State**:
 
 - **Name:** `status`
 - **Type:** `CrateStatus` ช่องนี้มีตัวเลือกให้เป็นชนิดพื้นฐาน ตามด้วย enum, value object และ entity ของ `Crate` แล้วจึงเป็นของที่อื่นซึ่งมี prefix นำหน้า
@@ -131,7 +131,7 @@ property ใหม่จะต่อท้ายตัวที่ entity มี
 
 ### 7. เพิ่ม use case
 
-กด **Add use case** สำหรับ `CreateCrate`:
+เลือก **Add ▸ Use case** สำหรับ `CreateCrate`:
 
 - **Shape of __invoke():** `command`
 - **Returns:** `string` คือ id ที่สร้างขึ้น
@@ -150,16 +150,16 @@ use case แบบรายการต้องรับ Command และค�
 
 ### 8. สร้าง HTTP resource
 
-กลับไปหน้าภาพรวม (คลิก breadcrumb **Structure**) แล้วกด **New HTTP resource** ชื่อคือชื่อ controller โดยตัด `Controller` ออก คือ `Crate` ซึ่งหมายถึง model `Crate` ด้วย ติ๊ก **It stands for no model** เฉพาะหน้าที่ไม่มี model เช่นหน้ารายงาน
+กลับไปหน้าภาพรวม (คลิก breadcrumb **Structure**) แล้วเลือก **New ▸ HTTP resource** ชื่อคือชื่อ controller โดยตัด `Controller` ออก คือ `Crate` ซึ่งหมายถึง model `Crate` ด้วย ติ๊ก **It stands for no model** เฉพาะหน้าที่ไม่มี model เช่นหน้ารายงาน
 
 ![ฟอร์ม New HTTP resource](images/structure-new-resource.png)
 
 ใน resource:
 
-1. **Add method** `index` ตัวเลือก use case ที่ขึ้นมาจะขึ้นกับชื่อ method `index` จะมีให้เลือกเฉพาะแบบ `command-result` ให้ติ๊ก `ListCrates`
-2. **Add method** `store` ที่เรียก `CreateCrate`
+1. **Add ▸ Controller method** `index` ตัวเลือก use case ที่ขึ้นมาจะขึ้นกับชื่อ method `index` จะมีให้เลือกเฉพาะแบบ `command-result` ให้ติ๊ก `ListCrates`
+2. **Add ▸ Controller method** `store` ที่เรียก `CreateCrate`
 3. **Add page** `crates/index` ชนิด `table` หน้ารายการต้องอยู่ที่ `{list}/index` ตั้งชื่อตาม use case `List…` ของ index
-4. ใน **Model and policy** ให้เอาติ๊ก **No policy** ออก แล้วพิมพ์ ability `create, viewAny`
+4. ใน **Model and policy** (ไอคอนเฟืองข้างปุ่ม **Add**) ให้เอาติ๊ก **No policy** ออก แล้วพิมพ์ ability `create, viewAny`
 
 ![การเพิ่ม method ของ controller](images/structure-add-controller-method.png)
 
@@ -243,7 +243,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | มุมมอง | เปิดยังไง | แสดงอะไร |
 |---|---|---|
 | ภาพรวม | `/kit/structure` หรือ breadcrumb **Structure** | การ์ดหนึ่งใบต่อ context และต่อ HTTP resource พร้อมจำนวนในแต่ละสถานะ เส้นเชื่อมบอกว่า context ไหนใช้ context ไหน และ resource เรียก use case กี่ตัว |
-| Context | ดับเบิลคลิก context หรือ `#context/{Name}` | aggregate, domain service, port และ use case พร้อม repository ที่แต่ละตัว inject **Vocabulary** เพิ่ม enum และ value object, **Behaviour** เพิ่ม root และ child entity ทุกตัว พร้อม state และ method หรือคำว่า `nothing designed yet` และ **Exceptions** เพิ่ม exception เบราว์เซอร์จำสถานะสวิตช์ทั้งสามไว้แม้รีโหลดหน้า |
+| Context | ดับเบิลคลิก context หรือ `#context/{Name}` | aggregate, domain service, port และ use case พร้อม repository ที่แต่ละตัว inject **Vocabulary** เพิ่ม enum และ value object, **Behaviour** เพิ่ม root และ child entity ทุกตัว พร้อม state และ method หรือคำว่า `nothing designed yet` และ **Exceptions** เพิ่ม exception ทั้งสามเป็นสวิตช์ในเมนู **View** และเบราว์เซอร์จำสถานะไว้แม้รีโหลดหน้า |
 | Shared kernel | `#context/Shared` | เฉพาะ enum, value object และ invalid value ที่ทุก context ใช้ได้ |
 | HTTP resource | ดับเบิลคลิก resource หรือ `#resource/{Name}` | model, policy, controller, action และ page พร้อม use case ที่เรียก |
 
@@ -293,18 +293,25 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 
 ### side panel
 
-สำหรับการ์ดที่เลือก panel แสดงชนิดและชื่อ สถานะพร้อมเหตุผลหรือคำสั่ง รายละเอียดครบทุกบรรทัด (backing, case และการเปลี่ยนสถานะของ enum, พารามิเตอร์และ exception ของ method) และปุ่มที่ใช้ได้กับการ์ดนั้น: **Open …**, **Edit**, **Remove**, **Replace**, **Cancel replacement**
+สำหรับการ์ดที่เลือก panel แสดงชนิดและชื่อ สถานะพร้อมเหตุผลหรือคำสั่ง (มีปุ่มคัดลอก) แล้วตามด้วยรายละเอียดเป็นตารางขนาดเล็ก ได้แก่ case และการเปลี่ยนสถานะของ enum, field ของ value object, state และ method ของ entity, child ของ aggregate, method ของ controller และ method ที่ throw exception นั้น
+
+action ที่ใช้กับการ์ดได้จะเป็นไอคอนอยู่ใต้ชื่อ เอาเมาส์ชี้เพื่อดูชื่อได้ ได้แก่ **Open** (↗), **Edit** (ดินสอ), **Remove** (ถังขยะ), **Sync from code** (ลูกศรวน), **Replace** และ **Cancel replacement** แต่ละแถวในตารางมีไอคอนแบบเดียวกันสำหรับแถวนั้น และปุ่ม **+** ของตารางใช้เพิ่มแถว แถวที่สร้างแล้วจะเป็นเครื่องหมายถูกสีเขียว ชี้ดูได้ว่าสร้างอะไรไว้ (เช่น getter ของ property)
+
+การเปลี่ยนแปลงทุกครั้งเกิดตรงที่ทำงานอยู่ การ์ดไม่ย้ายที่ การ์ดที่เลือกยังถูกเลือกและ panel ยังเปิดอยู่ และมีข้อความสั้น ๆ ด้านล่างบอกว่าเกิดอะไรขึ้น การ์ดที่เพิ่มจากฟอร์มในเมนู **Add** จะถูกเลือกและเลื่อนมาให้เห็นทันที
 
 ด้านล่างสุดมี **By hand (N)** ซึ่งแสดงความต่างระหว่างโค้ดกับ manifest ที่ไม่มีการ์ดให้แสดง ที่เจอบ่อยคือคลาสในโค้ดที่ไม่มี manifest ไหนระบุไว้ แต่ละรายการบอกชื่อ check, สิ่งที่ต่าง และวิธีแก้ ซึ่งบ่อยครั้งคือ `php artisan kit:import --context=X --force`
 
 ## แก้แบบ
 
-แถบด้านบนมีปุ่มเปิดฟอร์มตามมุมมองที่อยู่:
+เมนูบนแถบด้านบนเปิดฟอร์มตามมุมมองที่อยู่:
 
-- **ภาพรวม:** New context, New HTTP resource
-- **Context:** Add aggregate, Add domain service, Add port, Add use case, Add enum, Add value object, Add exception, Add method และสวิตช์ Vocabulary, Behaviour กับ Exceptions
-- **Shared kernel:** Add enum, Add value object, Add exception
-- **HTTP resource:** Add method, Add action, Add page, Model and policy
+- **ภาพรวม:** **New ▸** Context, HTTP resource
+- **Context:** **Add ▸** Domain (Aggregate, Entity method, Exception), Vocabulary (Enum, Value object), Application (Use case, Domain service, Port) และ **View ▸** สวิตช์ Vocabulary, Behaviour กับ Exceptions
+- **Shared kernel:** **Add ▸** Enum, Value object, Invalid value
+- **HTTP resource:** **Add ▸** Controller method, Action, Page และไอคอนเฟืองเปิด Model and policy
+- **ทุกมุมมอง:** **?** เปิด Guide และ Docs
+
+![เมนู Add ของ context](images/structure-add-menu.png)
 
 **Add** บันทึกทันทีในรูปแบบมาตรฐาน แล้ววาดไดอะแกรมใหม่ **Cancel** ปิดฟอร์มโดยไม่เขียนอะไร ถ้าเซิร์ฟเวอร์ปฏิเสธ จะแสดงเหตุผลใต้ช่องที่เกี่ยวข้อง และไม่มีอะไรถูกเขียน
 
@@ -313,7 +320,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | ฟอร์ม | ช่อง | ถูกปฏิเสธเมื่อ |
 |---|---|---|
 | Aggregate | Name; Child entities, separated by commas; Repository | child ซ้ำกับ root, ลบ child ที่ยังมี method อยู่, เอาติ๊ก Repository ออกขณะที่ยังมีชิ้นอื่น inject อยู่ |
-| Child entities (ใน panel ของการ์ด aggregate ทุกใบ) | ชื่อ child ใหม่ แล้วกด **Add child**; ปุ่ม **Remove** ข้าง child ที่ยังไม่สร้าง | ชื่อไม่เป็น StudlyCase หรือซ้ำกับ root, aggregate มี child ชื่อนี้แล้ว หรือโค้ดมีแล้ว (ให้ sync แทน), ลบ child ที่มี method หรือที่โค้ดมีแล้ว |
+| Child entities (ใน panel ของการ์ด aggregate ทุกใบ) | ชื่อ child ใหม่ใต้ตาราง แล้วกด **+**; ไอคอนถังขยะในแถวของ child ที่ยังไม่สร้าง | ชื่อไม่เป็น StudlyCase หรือซ้ำกับ root, aggregate มี child ชื่อนี้แล้ว หรือโค้ดมีแล้ว (ให้ sync แทน), ลบ child ที่มี method หรือที่โค้ดมีแล้ว |
 | Domain service | Name; Shape of handle(): `creates`, `data` หรือ `plain`; Builds the aggregate (สำหรับ `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | repository หรือ aggregate ที่มันสร้างอยู่คนละ context ([layers.md](../resources/boost/guidelines/layers.md)) |
 | Port | Name; Layer: `domain` หรือ `application`; Adapter ในรูป `Infra/{Folder}/{Prefix}{Port}` (ไม่ใส่ก็ได้) | adapter ไม่อยู่ในรูปนั้น |
 | Use case | Name; Shape of __invoke(): `command-result`, `command` หรือ `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (เลือกจาก context ไหนก็ได้) | shape ที่รับ Command คืนค่าอื่นที่ไม่ใช่ `void`, `string`, `int` หรือ `result` ([handlers.md](../resources/boost/guidelines/handlers.md)), use case แบบรายการไม่ได้ชื่อ `List{Name}` คู่กับ `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)), repository ไม่มีอยู่จริง |
@@ -339,19 +346,19 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 
 ### แก้และลบ
 
-เลือกการ์ดแล้วกด **Edit** หรือ **Remove** การลบจะถามก่อนว่า *Remove X? It leaves the manifest of Y. Git keeps the file as it was.*
+เลือกการ์ดแล้วกดไอคอน **Edit** (ดินสอ) หรือ **Remove** (ถังขยะ) การลบจะถามก่อนว่า *Remove X? It leaves the manifest of Y. Git keeps the file as it was.*
 
 แก้ได้เฉพาะสิ่งที่โค้ดยังไม่มี:
 
-- การ์ดที่สร้างแล้วจะขึ้นข้อความ *The code already has it. Change the code and sync it, or replace it.* แทนปุ่ม Edit และ Remove
-- entity กับ controller ล็อกทีละ method: method ที่สร้างแล้วจะขึ้นว่า **built** ส่วนที่เหลือยังแก้ได้ state ของ entity ก็ล็อกทีละ property แบบเดียวกัน ตัวที่สร้างแล้วจะขึ้นว่า **built, read by status()**
-- child entity มีการ์ดของตัวเองเมื่อเปิด **Behaviour** เหมือน root ใน panel เพิ่ม state และ method ได้แบบเดียวกัน (**Add state**, **Add method**) และมีปุ่ม **Remove** ตราบที่โค้ดยังไม่มี child นั้นและยังไม่ได้ออกแบบอะไรไว้ กดชื่อ child ใน panel ของ aggregate เพื่อเปิดการ์ดของมันได้
-- aggregate ที่สร้างแล้วล็อกชื่อและ repository แต่ใน panel ยังเพิ่ม child entity ใหม่ได้ `kit:apply` จะสร้างให้ด้วย `make:entity --child` child ที่สร้างแล้วจะขึ้นว่า **built** ส่วนตารางของ child, model และ `syncChildren()` ใน repository ยังต้องเขียนเอง
+- การ์ดที่สร้างแล้วจะขึ้นข้อความ *The code already has it. Change the code and sync it, or replace it.* แทนไอคอน Edit และ Remove
+- entity กับ controller ล็อกทีละ method: method ที่สร้างแล้วจะมีเครื่องหมายถูกสีเขียว ส่วนที่เหลือยังมีไอคอน Edit และ Remove state ของ entity ก็ล็อกทีละ property แบบเดียวกัน เครื่องหมายถูกของ property ที่สร้างแล้วจะบอกว่า *Built: read by status()*
+- child entity มีการ์ดของตัวเองเมื่อเปิด **Behaviour** เหมือน root ใน panel เพิ่ม state และ method ได้แบบเดียวกัน (ปุ่ม **+** ข้างหัวข้อ **State** และ **Methods**) และมีไอคอน **Remove** ตราบที่โค้ดยังไม่มี child นั้นและยังไม่ได้ออกแบบอะไรไว้ กดชื่อ child ใน panel ของ aggregate เพื่อเปิดการ์ดของมันได้
+- aggregate ที่สร้างแล้วล็อกชื่อและ repository แต่ใน panel ยังเพิ่ม child entity ใหม่ได้ `kit:apply` จะสร้างให้ด้วย `make:entity --child` child ที่สร้างแล้วจะมีเครื่องหมายถูกสีเขียว ส่วนตารางของ child, model และ `syncChildren()` ใน repository ยังต้องเขียนเอง
 - ชิ้นที่ยังมีชิ้นอื่นใช้อยู่ เปลี่ยนชื่อหรือลบไม่ได้ จนกว่าจะไม่มีใครใช้ เช่น aggregate ที่ use case inject อยู่หรือมี exception สังกัดอยู่, enum ที่ field ของ value object อ้างถึง, exception ที่ method throw อยู่, use case ที่มี refusal ของตัวเอง, `index` ขณะที่ยังมีหน้ารายการต้องใช้
 
 ### Sync ของที่สร้างแล้วจากโค้ด
 
-ชิ้นที่สร้างแล้วต้องแก้ที่โค้ด เช่น เปลี่ยนชื่อพารามิเตอร์ เพิ่มพารามิเตอร์ เพิ่ม case ของ enum หรือ inject repository เพิ่ม การ์ดจะขึ้น **differs** และ panel จะมีปุ่ม **Sync from code** ซึ่งดึงชิ้นนั้นชิ้นเดียวจากโค้ดเข้า manifest ส่วน method ของ entity หรือ controller และ property ของ state ที่สร้างแล้ว จะมีปุ่ม **Sync from code** ของตัวเองอยู่ข้างคำว่า **built**
+ชิ้นที่สร้างแล้วต้องแก้ที่โค้ด เช่น เปลี่ยนชื่อพารามิเตอร์ เพิ่มพารามิเตอร์ เพิ่ม case ของ enum หรือ inject repository เพิ่ม การ์ดจะขึ้น **differs** และ panel จะมีไอคอน **Sync from code** (ลูกศรวน) ซึ่งดึงชิ้นนั้นชิ้นเดียวจากโค้ดเข้า manifest ส่วน method ของ entity หรือ controller และ property ของ state ที่สร้างแล้ว จะมีไอคอน **Sync from code** ของตัวเองอยู่ในแถวนั้น
 
 ![Sync from code บนการ์ดที่ differs](images/structure-sync.png)
 
@@ -374,7 +381,7 @@ php artisan kit:import --context=Shipping --sync             # เขียน�
 
 port ที่มี adapter แล้ว use case หรือ domain service ที่สร้างแล้ว เปลี่ยนได้ด้วยการแทนที่: สร้างตัวใหม่ข้างตัวเดิม ชี้โค้ดไปที่ตัวใหม่ แล้วค่อยเอาตัวเดิมออกเมื่อเทสต์ผ่าน aggregate, enum และ value object แทนที่ด้วยวิธีนี้ไม่ได้
 
-1. เลือกการ์ดที่สร้างแล้ว กด **Replace** แล้วใส่ adapter ใหม่ (`Infra/{Folder}/{Prefix}{Port}`) หรือชื่อใหม่ use case แบบรายการต้องแทนด้วย `List…` อีกตัวที่เรียกสิ่งที่แสดงต่างออกไป เช่น `ListOwnCrates`
+1. เลือกการ์ดที่สร้างแล้ว กดไอคอน **Replace** แล้วใส่ adapter ใหม่ (`Infra/{Folder}/{Prefix}{Port}`) หรือชื่อใหม่ use case แบบรายการต้องแทนด้วย `List…` อีกตัวที่เรียกสิ่งที่แสดงต่างออกไป เช่น `ListOwnCrates`
 
    ![ฟอร์ม Replace](images/structure-replace.png)
 
@@ -416,4 +423,4 @@ check `structure` ใน Architecture suite เทียบโค้ดกับ
 | การ์ดขึ้น **differs** | โค้ดสร้างไม่ตรงกับแบบ ถ้าโค้ดถูกแล้วให้กด **Sync from code** ไม่อย่างนั้นแก้โค้ด (หรือแก้ manifest ถ้าชิ้นนั้นยังไม่ถูกสร้าง) |
 | ชื่อถูกปฏิเสธเพราะมีในโค้ดแล้ว | manifest ตามไม่ทันโค้ด ให้รัน `php artisan kit:import --context=X --sync` ซึ่งเพิ่มสิ่งที่โค้ดมี และเก็บแบบที่ยังไม่ได้สร้างไว้ |
 | *The manifest changed since this page loaded* | รีโหลดหน้าแล้วแก้ใหม่อีกครั้ง |
-| ไม่มีปุ่ม **Edit** | ชิ้นนั้นสร้างแล้ว ให้แก้โค้ดแล้ว sync หรือเปลี่ยนด้วยการแทนที่ |
+| ไม่มีไอคอน **Edit** | ชิ้นนั้นสร้างแล้ว ให้แก้โค้ดแล้ว sync หรือเปลี่ยนด้วยการแทนที่ |
