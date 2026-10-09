@@ -1,9 +1,12 @@
 import { useHttp } from '@inertiajs/react';
+import { Undo2 } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { toast } from 'sonner';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { IconAction } from '@/kit/panel-table';
 import type {
     ReplaceableSection,
     StructureEndpoints,
@@ -110,7 +113,7 @@ export function ReplaceForm({
 }
 
 /**
- * Stops a replacement that has not been retired.
+ * Stops a replacement that has not been retired. A refusal shows as a toast.
  */
 export function CancelReplacementButton({
     graph,
@@ -125,39 +128,43 @@ export function CancelReplacementButton({
     context: string;
     section: ReplaceableSection;
     name: string;
-    onCancelled: (graph: StructureGraph) => void;
+    onCancelled: (graph: StructureGraph, message: string) => void;
 }) {
+    const version = graph.versions[context] ?? '';
     const form = useHttp<
         { version: string; section: string; name: string },
         { graph: StructureGraph }
-    >({
-        version: graph.versions[context] ?? '',
-        section,
-        name,
-    });
+    >({ version, section, name });
+
+    const cancel = () => {
+        form.transform((data) => ({ ...data, version }));
+        form.post(
+            endpoints.cancelReplacement.replace(
+                '__CONTEXT__',
+                encodeURIComponent(context),
+            ),
+            {
+                onSuccess: (response) =>
+                    onCancelled(
+                        response.graph,
+                        `Cancelled the replacement by ${name}`,
+                    ),
+                onError: (errors) =>
+                    toast.error(
+                        errors.name ??
+                            errors.version ??
+                            'The replacement could not be cancelled.',
+                    ),
+            },
+        );
+    };
 
     return (
-        <div className="space-y-1">
-            <Button
-                size="sm"
-                variant="outline"
-                disabled={form.processing}
-                onClick={() =>
-                    form.post(
-                        endpoints.cancelReplacement.replace(
-                            '__CONTEXT__',
-                            encodeURIComponent(context),
-                        ),
-                        {
-                            onSuccess: (response) =>
-                                onCancelled(response.graph),
-                        },
-                    )
-                }
-            >
-                Cancel replacement
-            </Button>
-            <InputError message={form.errors.name ?? form.errors.version} />
-        </div>
+        <IconAction
+            icon={Undo2}
+            label="Cancel replacement"
+            disabled={form.processing}
+            onClick={cancel}
+        />
     );
 }
