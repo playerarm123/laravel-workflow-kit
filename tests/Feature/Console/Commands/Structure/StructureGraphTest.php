@@ -344,6 +344,29 @@ describe('StructureGraph', function () {
                 ->and($graph['childrenBuilt'][$context])->toBe(['Box.Hinge']);
         });
 
+        it('draws the root and every child of an aggregate as an entity card, before either lists a method', function () {
+            $context = SAMPLING_GRAPH_CONTEXT;
+            $files = new StructureFiles(base_path());
+            $manifest = $files->read($context);
+            $files->write([...$manifest, 'aggregates' => [...$manifest['aggregates'], 'Box' => ['children' => ['Flap'], 'repository' => false]]]);
+
+            $graph = samplingGraph();
+            $view = $graph['contexts'][$context];
+
+            expect(samplingGraphNode($view, "entity:{$context}/Box"))->toMatchArray(['items' => [StructureGraph::NO_METHODS], 'status' => StructurePlanner::DONE, 'editable' => false])
+                ->and(samplingGraphNode($view, "entity:{$context}/Flap"))->toMatchArray([
+                    'items' => [StructureGraph::NO_METHODS],
+                    'status' => StructurePlanner::READY,
+                    'command' => "php artisan make:entity Flap --domain={$context}/Box --child",
+                    'editable' => true,
+                ])
+                ->and(samplingGraphNode($view, "entity:{$context}/Lid"))->toMatchArray(['status' => StructurePlanner::READY, 'editable' => false])
+                ->and(array_values(array_filter(samplingGraphEdgesFrom($view, "aggregate:{$context}/Box"), fn (array $edge): bool => in_array($edge[2], ['root', 'child'], true))))->toBe([
+                    ["aggregate:{$context}/Box", "entity:{$context}/Box", 'root'],
+                    ["aggregate:{$context}/Box", "entity:{$context}/Flap", 'child'],
+                ]);
+        });
+
         it('draws each exception tied to what refuses with it, and to each method that throws it', function () {
             $context = SAMPLING_GRAPH_CONTEXT;
             $files = new StructureFiles(base_path());

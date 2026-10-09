@@ -25,6 +25,11 @@ final class StructureGraph
     public const string DIFFERS = 'differs';
 
     /**
+     * The one line on the card of an entity that lists no method yet.
+     */
+    public const string NO_METHODS = 'no methods yet';
+
+    /**
      * Each status by how much it needs a person, least first.
      */
     private const array RANK = [StructurePlanner::DONE => 0, StructurePlanner::READY => 1, StructurePlanner::WAITING => 2, self::DIFFERS => 3];
@@ -434,10 +439,11 @@ final class StructureGraph
     }
 
     /**
-     * A context's entities that list methods: each tied to the aggregate that holds it, as its root
-     * or a child, and to the classes its methods' parameters name, each line labelled with the
-     * method. A card is never editable as a whole: the screen changes one method at a time, and
-     * `entityMethodsBuilt` says which ones the code already has.
+     * A context's entities: the root and every child of each aggregate, whether or not it lists
+     * methods yet, each tied to the aggregate that holds it and to the classes its methods'
+     * parameters name, each line labelled with the method. The screen changes one method at a
+     * time, and `entityMethodsBuilt` says which ones the code already has. A child the code does
+     * not have yet is editable: the screen may take it out again.
      *
      * @param  array<string, mixed>  $manifest
      * @return array{0: list<Node>, 1: list<Edge>, 2: array<string, Node>}
@@ -457,7 +463,18 @@ final class StructureGraph
         /** @var array<string, array{aggregate: string, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}> $entities */
         $entities = $manifest['entities'];
 
-        foreach ($entities as $entity => $entry) {
+        $drawn = [];
+
+        foreach ($aggregates as $aggregate => $holder) {
+            foreach ([$aggregate, ...$holder['children']] as $entity) {
+                $drawn[$entity] = $entities[$entity] ?? ['aggregate' => $aggregate, 'behaviours' => [], 'assertions' => []];
+            }
+        }
+
+        $builtChildren = $this->builtChildren($context);
+
+        foreach ([...$drawn, ...array_diff_key($entities, $drawn)] as $entity => $entry) {
+            $entity = (string) $entity;
             $id = StructureComparer::contextNode($context, 'entities', $entity);
             $lines = [];
 
@@ -497,7 +514,14 @@ final class StructureGraph
                 }
             }
 
-            $nodes[] = $this->node($id, 'entity', $entity, $this->capped($lines));
+            $child = $entity !== $entry['aggregate'] && in_array($entity, $aggregates[$entry['aggregate']]['children'] ?? [], true);
+            $nodes[] = $this->node(
+                $id,
+                'entity',
+                $entity,
+                $lines === [] ? [self::NO_METHODS] : $this->capped($lines),
+                editable: $child && ! in_array("{$entry['aggregate']}.{$entity}", $builtChildren, true),
+            );
 
             if (isset($aggregates[$entry['aggregate']])) {
                 $edges[] = $this->edge("aggregate:{$context}/{$entry['aggregate']}", $id, $entity === $entry['aggregate'] ? 'root' : 'child');
@@ -732,7 +756,8 @@ final class StructureGraph
         $worst = null;
 
         foreach ($view['nodes'] as $node) {
-            if ($node['status'] !== null) {
+            // An entity with no method yet is its aggregate's card drawn again, already counted.
+            if ($node['status'] !== null && $node['items'] !== [self::NO_METHODS]) {
                 $counts[$node['status']] = ($counts[$node['status']] ?? 0) + 1;
                 $worst = $worst === null || self::RANK[$node['status']] > self::RANK[$worst] ? $node['status'] : $worst;
             }

@@ -315,7 +315,7 @@ describe('StructurePlanner', function () {
             $domain = SAMPLING_PLAN_CONTEXT;
             $model = SAMPLING_PLAN_MODEL;
 
-            expect($nodes["child {$domain}/Sack/Thread"])->toBe(["aggregate:{$domain}/Sack"])
+            expect($nodes["child {$domain}/Sack/Thread"])->toBe(["aggregate:{$domain}/Sack", "entity:{$domain}/Thread"])
                 ->and($nodes['binding Weigher'])->toBe(["port:{$domain}/Weigher"])
                 ->and($nodes["enum {$domain}/SackGrade"])->toBe(["enum:{$domain}/SackGrade"])
                 ->and($nodes["method {$domain}/Sack::fill"])->toBe(["entity:{$domain}/Sack"])

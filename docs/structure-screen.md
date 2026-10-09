@@ -226,7 +226,7 @@ Finish with `php artisan test --testsuite=Architecture`. The `structure` check h
 | View | How to open it | What it shows |
 |---|---|---|
 | Overview | `/kit/structure`, or the **Structure** breadcrumb | One card per context and per HTTP resource, with their status counts. Edges show which context uses which, and how many use cases a resource calls. |
-| Context | Double-click a context, or `#context/{Name}` | Its aggregates, domain services, ports and use cases, with the repositories each one injects. **Vocabulary** adds enums and value objects. **Behaviour** adds the entities that have methods. **Exceptions** adds the exceptions. |
+| Context | Double-click a context, or `#context/{Name}` | Its aggregates, domain services, ports and use cases, with the repositories each one injects. **Vocabulary** adds enums and value objects. **Behaviour** adds every root and child entity, with its methods or `no methods yet`. **Exceptions** adds the exceptions. The browser remembers the three switches across reloads. |
 | Shared kernel | `#context/Shared` | Only the enums, value objects and invalid values every context may use. |
 | HTTP resource | Double-click a resource, or `#resource/{Name}` | Its model, policy, controller, actions and pages, and the use cases they call. |
 
@@ -327,6 +327,7 @@ Only what the code does not have yet can change:
 
 - A built card shows *The code already has it. Change the code and sync it, or replace it.* in place of Edit and Remove.
 - An entity and a controller lock one method at a time: a built method reads **built**, and the others stay editable.
+- A child entity has a card of its own under **Behaviour**, as the root does. Its panel takes methods the same way (**Add method**), and offers **Remove** while the code does not have the child and it lists no method. A child's name in the aggregate's panel opens its card.
 - A built aggregate locks its name and repository, but its panel still takes new child entities. `kit:apply` builds each one with `make:entity --child`. A built child reads **built**. The child's table, model and the repository's `syncChildren()` are still yours to write.
 - A piece that others use cannot be renamed or removed until nothing uses it. Examples: an aggregate a use case injects or that holds an exception, an enum a value object's field names, an exception a method throws, a use case with a refusal of its own, `index` while a list page needs it.
 

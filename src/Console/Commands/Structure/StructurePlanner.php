@@ -150,10 +150,10 @@ final class StructurePlanner
             $root = "App\\Domain\\{$context}\\{$aggregate}\\{$aggregate}Entity";
             $rootReady = class_exists($root);
 
-            $steps[] = $this->generator(1, "aggregate {$context}/{$aggregate}", $rootReady, null, 'make:entity', ['name' => $aggregate, '--domain' => "{$context}/{$aggregate}"], ["aggregate:{$context}/{$aggregate}"]);
+            $steps[] = $this->generator(1, "aggregate {$context}/{$aggregate}", $rootReady, null, 'make:entity', ['name' => $aggregate, '--domain' => "{$context}/{$aggregate}"], ["aggregate:{$context}/{$aggregate}", "entity:{$context}/{$aggregate}"]);
 
             foreach ($entry['children'] as $child) {
-                $steps[] = $this->generator(2, "child {$context}/{$aggregate}/{$child}", class_exists("App\\Domain\\{$context}\\{$aggregate}\\Entities\\{$child}Entity"), $rootReady ? null : "the root {$aggregate}Entity comes first", 'make:entity', ['name' => $child, '--domain' => "{$context}/{$aggregate}", '--child' => true], ["aggregate:{$context}/{$aggregate}"]);
+                $steps[] = $this->generator(2, "child {$context}/{$aggregate}/{$child}", class_exists("App\\Domain\\{$context}\\{$aggregate}\\Entities\\{$child}Entity"), $rootReady ? null : "the root {$aggregate}Entity comes first", 'make:entity', ['name' => $child, '--domain' => "{$context}/{$aggregate}", '--child' => true], ["aggregate:{$context}/{$aggregate}", "entity:{$context}/{$child}"]);
             }
 
             if ($entry['repository']) {
