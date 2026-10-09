@@ -296,6 +296,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | ฟอร์ม | ช่อง | ถูกปฏิเสธเมื่อ |
 |---|---|---|
 | Aggregate | Name; Child entities, separated by commas; Repository | child ซ้ำกับ root, ลบ child ที่ยังมี method อยู่, เอาติ๊ก Repository ออกขณะที่ยังมีชิ้นอื่น inject อยู่ |
+| Child entities (ใน panel ของการ์ด aggregate ทุกใบ) | ชื่อ child ใหม่ แล้วกด **Add child**; ปุ่ม **Remove** ข้าง child ที่ยังไม่สร้าง | ชื่อไม่เป็น StudlyCase หรือซ้ำกับ root, aggregate มี child ชื่อนี้แล้ว หรือโค้ดมีแล้ว (ให้ sync แทน), ลบ child ที่มี method หรือที่โค้ดมีแล้ว |
 | Domain service | Name; Shape of handle(): `creates`, `data` หรือ `plain`; Builds the aggregate (สำหรับ `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | repository หรือ aggregate ที่มันสร้างอยู่คนละ context ([layers.md](../resources/boost/guidelines/layers.md)) |
 | Port | Name; Layer: `domain` หรือ `application`; Adapter ในรูป `Infra/{Folder}/{Prefix}{Port}` (ไม่ใส่ก็ได้) | adapter ไม่อยู่ในรูปนั้น |
 | Use case | Name; Shape of __invoke(): `command-result`, `command` หรือ `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (เลือกจาก context ไหนก็ได้) | shape ที่รับ Command คืนค่าอื่นที่ไม่ใช่ `void`, `string`, `int` หรือ `result` ([handlers.md](../resources/boost/guidelines/handlers.md)), use case แบบรายการไม่ได้ชื่อ `List{Name}` คู่กับ `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)), repository ไม่มีอยู่จริง |
@@ -326,6 +327,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 
 - การ์ดที่สร้างแล้วจะขึ้นข้อความ *The code already has it. Change the code and sync it, or replace it.* แทนปุ่ม Edit และ Remove
 - entity กับ controller ล็อกทีละ method: method ที่สร้างแล้วจะขึ้นว่า **built** ส่วนที่เหลือยังแก้ได้
+- aggregate ที่สร้างแล้วล็อกชื่อและ repository แต่ใน panel ยังเพิ่ม child entity ใหม่ได้ `kit:apply` จะสร้างให้ด้วย `make:entity --child` child ที่สร้างแล้วจะขึ้นว่า **built** ส่วนตารางของ child, model และ `syncChildren()` ใน repository ยังต้องเขียนเอง
 - ชิ้นที่ยังมีชิ้นอื่นใช้อยู่ เปลี่ยนชื่อหรือลบไม่ได้ จนกว่าจะไม่มีใครใช้ เช่น aggregate ที่ use case inject อยู่หรือมี exception สังกัดอยู่, enum ที่ field ของ value object อ้างถึง, exception ที่ method throw อยู่, use case ที่มี refusal ของตัวเอง, `index` ขณะที่ยังมีหน้ารายการต้องใช้
 
 ### Sync ของที่สร้างแล้วจากโค้ด

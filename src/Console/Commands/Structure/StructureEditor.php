@@ -77,7 +77,7 @@ final class StructureEditor
         if ($name !== $previous && array_key_exists($name, $manifest[$section])) {
             $errors['name'][] = "The manifest already has {$name}.";
         } elseif ($name !== $previous && in_array($name, $built, true)) {
-            $errors['name'][] = "The code already has {$name}. Run `php artisan kit:import --context={$context} --force` to read it into the manifest.";
+            $errors['name'][] = "The code already has {$name}. Run `php artisan kit:import --context={$context} --sync` to read it into the manifest.";
         }
 
         $entry = $this->normalised($section, $entry);
@@ -172,7 +172,7 @@ final class StructureEditor
         if ($name !== $previous && (isset($entry['behaviours'][$name]) || isset($entry['assertions'][$name]))) {
             $errors['name'][] = "The manifest already has {$entity}::{$name}.";
         } elseif ($name !== $previous && in_array($name, $this->builtMethods($context, $entity), true)) {
-            $errors['name'][] = "The code already has {$entity}::{$name}. Run `php artisan kit:import --context={$context} --force` to read it into the manifest.";
+            $errors['name'][] = "The code already has {$entity}::{$name}. Run `php artisan kit:import --context={$context} --sync` to read it into the manifest.";
         }
 
         $errors = $this->merge($errors, $this->paramErrors($context, $aggregate, $params));
@@ -221,6 +221,75 @@ final class StructureEditor
         } else {
             $manifest['entities'][$entity] = $entry;
         }
+
+        return $this->writeChecked($context, $manifest);
+    }
+
+    /**
+     * Adds a child entity to an aggregate, built or not. A built aggregate keeps its name and its
+     * repository, but takes new children the way a built entity takes new methods: kit:apply
+     * builds each one the code does not have yet.
+     *
+     * @return array<string, list<string>> what is wrong, by field; empty when it was written
+     */
+    public function addChild(string $context, string $version, string $aggregate, string $child): array
+    {
+        $manifest = $this->manifest($context);
+        $refused = $this->refusal($context, $manifest, $version, 'aggregates') ?? $this->childRefusal($manifest, $aggregate);
+
+        if ($refused !== null || $manifest === null) {
+            return $refused ?? [];
+        }
+
+        /** @var list<string> $children */
+        $children = $manifest['aggregates'][$aggregate]['children'];
+
+        $why = match (true) {
+            preg_match(self::NAME, $child) !== 1 || $child === $aggregate => "A child is a StudlyCase name other than the root's: {$child} is not.",
+            in_array($child, $children, true) => "{$aggregate} already has the child {$child}.",
+            in_array($child, $this->builtChildren($context, $aggregate), true) => "The code already has {$child}. Run `php artisan kit:import --context={$context} --sync` to read it into the manifest.",
+            default => null,
+        };
+
+        if ($why !== null) {
+            return ['child' => [$why]];
+        }
+
+        $manifest['aggregates'][$aggregate]['children'] = [...$children, $child];
+
+        return $this->writeChecked($context, $manifest);
+    }
+
+    /**
+     * Removes a child entity the code does not have yet. A built child stays, and so does one the
+     * manifest still lists methods for.
+     *
+     * @return array<string, list<string>> what is wrong, by field; empty when it was removed
+     */
+    public function removeChild(string $context, string $version, string $aggregate, string $child): array
+    {
+        $manifest = $this->manifest($context);
+        $refused = $this->refusal($context, $manifest, $version, 'aggregates') ?? $this->childRefusal($manifest, $aggregate);
+
+        if ($refused !== null || $manifest === null) {
+            return $refused ?? [];
+        }
+
+        /** @var list<string> $children */
+        $children = $manifest['aggregates'][$aggregate]['children'];
+
+        $why = match (true) {
+            ! in_array($child, $children, true) => "{$aggregate} has no child {$child}.",
+            in_array($child, $this->builtChildren($context, $aggregate), true) => "The code already has {$child}, so it stays.",
+            isset($manifest['entities'][$child]) => "{$child} lists its methods under entities, so it stays a child.",
+            default => null,
+        };
+
+        if ($why !== null) {
+            return ['name' => [$why]];
+        }
+
+        $manifest['aggregates'][$aggregate]['children'] = array_values(array_diff($children, [$child]));
 
         return $this->writeChecked($context, $manifest);
     }
@@ -505,6 +574,27 @@ final class StructureEditor
         }
 
         return null;
+    }
+
+    /**
+     * Why the children of this aggregate cannot change: the manifest does not list it.
+     *
+     * @param  array<string, mixed>|null  $manifest
+     * @return array<string, list<string>>|null
+     */
+    private function childRefusal(?array $manifest, string $aggregate): ?array
+    {
+        return is_array($manifest['aggregates'][$aggregate] ?? null) ? null : ['aggregate' => ["The manifest has no aggregate {$aggregate}."]];
+    }
+
+    /**
+     * The children of an aggregate the code already has.
+     *
+     * @return list<string>
+     */
+    private function builtChildren(string $context, string $aggregate): array
+    {
+        return $this->reader->read($context)['aggregates'][$aggregate]['children'] ?? [];
     }
 
     /**

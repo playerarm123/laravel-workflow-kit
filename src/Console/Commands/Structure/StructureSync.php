@@ -48,6 +48,18 @@ final class StructureSync
                 }
 
                 $merged = $this->withIntent($entry, $entries[$name] ?? null);
+
+                if ($section === 'aggregates') {
+                    foreach ($this->designedChildren($merged, $entries[$name] ?? null) as $child) {
+                        if ($prune) {
+                            $changes[] = "aggregates.{$name}.children.{$child}: removed";
+                        } else {
+                            $kept[] = "aggregates.{$name}.children.{$child}";
+                            $merged['children'][] = $child;
+                        }
+                    }
+                }
+
                 $change = $this->change("{$section}.{$name}", $entries[$name] ?? null, $merged);
 
                 if ($change !== null) {
@@ -184,7 +196,13 @@ final class StructureSync
             return ['error' => "{$name} is in the middle of a replacement. kit:apply and kit:retire settle it."];
         }
 
-        $manifest[$section][$name] = $this->withIntent($built, $manifest[$section][$name] ?? null);
+        $merged = $this->withIntent($built, $manifest[$section][$name] ?? null);
+
+        if ($section === 'aggregates') {
+            $merged['children'] = [...$merged['children'], ...$this->designedChildren($merged, $manifest[$section][$name] ?? null)];
+        }
+
+        $manifest[$section][$name] = $merged;
 
         return ['manifest' => $manifest];
     }
@@ -369,6 +387,20 @@ final class StructureSync
         return is_array($manifest)
             ? $manifest
             : ['resource' => $resource, 'model' => null, 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => []];
+    }
+
+    /**
+     * The children the manifest designs for a built aggregate and the code does not have yet:
+     * kit:apply builds them, so a sync keeps them as it keeps any piece not built.
+     *
+     * @param  array<string, mixed>  $built
+     * @return list<string>
+     */
+    private function designedChildren(array $built, mixed $designed): array
+    {
+        $children = is_array($designed) && is_array($designed['children'] ?? null) ? $designed['children'] : [];
+
+        return array_values(array_diff($children, is_array($built['children']) ? $built['children'] : []));
     }
 
     /**

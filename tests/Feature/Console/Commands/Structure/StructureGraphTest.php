@@ -340,7 +340,8 @@ describe('StructureGraph', function () {
                     ["entity:{$context}/Box", "aggregate:{$context}/Lid", 'pack'],
                     ["entity:{$context}/Box", 'external:Shared/Money', 'pack'],
                 ])
-                ->and($graph['entityMethodsBuilt'][$context])->toBe(['Hinge.swing']);
+                ->and($graph['entityMethodsBuilt'][$context])->toBe(['Hinge.swing'])
+                ->and($graph['childrenBuilt'][$context])->toBe(['Box.Hinge']);
         });
 
         it('draws each exception tied to what refuses with it, and to each method that throws it', function () {

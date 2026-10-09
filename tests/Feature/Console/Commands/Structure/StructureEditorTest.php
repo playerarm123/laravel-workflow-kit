@@ -606,4 +606,46 @@ describe('StructureEditor', function () {
                 ->and($editor->sync(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'aggregates', 'Pallet'))->toBe(['name' => ['The code has no Pallet, so there is nothing to sync from.']]);
         });
     });
+
+    describe('children', function () {
+        it('adds a child to an aggregate the code already has, and removes one it does not have yet', function () {
+            $editor = samplingEditor();
+
+            expect($editor->addChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'Lid'))->toBe([])
+                ->and(samplingEditManifest()['aggregates']['Crate'])->toBe(['children' => ['Lid'], 'repository' => true])
+                ->and($editor->removeChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'Lid'))->toBe([])
+                ->and(samplingEditManifest()['aggregates']['Crate']['children'])->toBe([]);
+        });
+
+        it('refuses a child that is no name, the root\'s name, one already listed, or one the code has', function () {
+            $built = app_path('Domain/'.SAMPLING_EDIT_CONTEXT.'/Crate/Entities/HingeEntity.php');
+            File::ensureDirectoryExists(dirname($built));
+            File::put($built, "<?php\n\nnamespace App\\Domain\\".SAMPLING_EDIT_CONTEXT."\\Crate\\Entities;\n\nuse App\\Domain\\Shared\\DomainEntity;\n\nfinal class HingeEntity extends DomainEntity\n{\n    public function id(): string { return 'hinge'; }\n\n    public static function entityName(): string { return 'Hinge'; }\n}\n");
+            $editor = samplingEditor();
+            $editor->addChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'Lid');
+
+            expect($editor->addChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'lid-flap'))->toBe(['child' => ["A child is a StudlyCase name other than the root's: lid-flap is not."]])
+                ->and($editor->addChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'Crate'))->toBe(['child' => ["A child is a StudlyCase name other than the root's: Crate is not."]])
+                ->and($editor->addChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'Lid'))->toBe(['child' => ['Crate already has the child Lid.']])
+                ->and($editor->addChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'Hinge'))->toBe(['child' => ['The code already has Hinge. Run `php artisan kit:import --context='.SAMPLING_EDIT_CONTEXT.' --sync` to read it into the manifest.']])
+                ->and($editor->addChild(SAMPLING_EDIT_CONTEXT, 'stale', 'Crate', 'Strap'))->toHaveKey('version')
+                ->and($editor->addChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Barrel', 'Strap'))->toBe(['aggregate' => ['The manifest has no aggregate Barrel.']]);
+        });
+
+        it('keeps a child the code has, one the manifest lists methods for, and one it never listed', function () {
+            $built = app_path('Domain/'.SAMPLING_EDIT_CONTEXT.'/Crate/Entities/HingeEntity.php');
+            File::ensureDirectoryExists(dirname($built));
+            File::put($built, "<?php\n\nnamespace App\\Domain\\".SAMPLING_EDIT_CONTEXT."\\Crate\\Entities;\n\nuse App\\Domain\\Shared\\DomainEntity;\n\nfinal class HingeEntity extends DomainEntity\n{\n    public function id(): string { return 'hinge'; }\n\n    public static function entityName(): string { return 'Hinge'; }\n}\n");
+            (new StructureFiles(base_path()))->write([...samplingEditManifest(),
+                'aggregates' => [...samplingEditManifest()['aggregates'], 'Crate' => ['children' => ['Hinge', 'Lid'], 'repository' => true]],
+                'entities' => ['Lid' => ['aggregate' => 'Crate', 'behaviours' => ['open' => ['params' => [], 'throws' => []]], 'assertions' => []]],
+            ]);
+            $editor = samplingEditor();
+
+            expect($editor->removeChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'Hinge'))->toBe(['name' => ['The code already has Hinge, so it stays.']])
+                ->and($editor->removeChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'Lid'))->toBe(['name' => ['Lid lists its methods under entities, so it stays a child.']])
+                ->and($editor->removeChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'Strap'))->toBe(['name' => ['Crate has no child Strap.']])
+                ->and(samplingEditManifest()['aggregates']['Crate']['children'])->toBe(['Hinge', 'Lid']);
+        });
+    });
 });
