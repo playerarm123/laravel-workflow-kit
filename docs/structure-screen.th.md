@@ -226,7 +226,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | มุมมอง | เปิดยังไง | แสดงอะไร |
 |---|---|---|
 | ภาพรวม | `/kit/structure` หรือ breadcrumb **Structure** | การ์ดหนึ่งใบต่อ context และต่อ HTTP resource พร้อมจำนวนในแต่ละสถานะ เส้นเชื่อมบอกว่า context ไหนใช้ context ไหน และ resource เรียก use case กี่ตัว |
-| Context | ดับเบิลคลิก context หรือ `#context/{Name}` | aggregate, domain service, port และ use case พร้อม repository ที่แต่ละตัว inject **Vocabulary** เพิ่ม enum และ value object, **Behaviour** เพิ่ม entity ที่มี method และ **Exceptions** เพิ่ม exception |
+| Context | ดับเบิลคลิก context หรือ `#context/{Name}` | aggregate, domain service, port และ use case พร้อม repository ที่แต่ละตัว inject **Vocabulary** เพิ่ม enum และ value object, **Behaviour** เพิ่ม root และ child entity ทุกตัว พร้อม method หรือคำว่า `no methods yet` และ **Exceptions** เพิ่ม exception เบราว์เซอร์จำสถานะสวิตช์ทั้งสามไว้แม้รีโหลดหน้า |
 | Shared kernel | `#context/Shared` | เฉพาะ enum, value object และ invalid value ที่ทุก context ใช้ได้ |
 | HTTP resource | ดับเบิลคลิก resource หรือ `#resource/{Name}` | model, policy, controller, action และ page พร้อม use case ที่เรียก |
 
@@ -327,6 +327,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 
 - การ์ดที่สร้างแล้วจะขึ้นข้อความ *The code already has it. Change the code and sync it, or replace it.* แทนปุ่ม Edit และ Remove
 - entity กับ controller ล็อกทีละ method: method ที่สร้างแล้วจะขึ้นว่า **built** ส่วนที่เหลือยังแก้ได้
+- child entity มีการ์ดของตัวเองเมื่อเปิด **Behaviour** เหมือน root ใน panel เพิ่ม method ได้แบบเดียวกัน (**Add method**) และมีปุ่ม **Remove** ตราบที่โค้ดยังไม่มี child นั้นและยังไม่มี method กดชื่อ child ใน panel ของ aggregate เพื่อเปิดการ์ดของมันได้
 - aggregate ที่สร้างแล้วล็อกชื่อและ repository แต่ใน panel ยังเพิ่ม child entity ใหม่ได้ `kit:apply` จะสร้างให้ด้วย `make:entity --child` child ที่สร้างแล้วจะขึ้นว่า **built** ส่วนตารางของ child, model และ `syncChildren()` ใน repository ยังต้องเขียนเอง
 - ชิ้นที่ยังมีชิ้นอื่นใช้อยู่ เปลี่ยนชื่อหรือลบไม่ได้ จนกว่าจะไม่มีใครใช้ เช่น aggregate ที่ use case inject อยู่หรือมี exception สังกัดอยู่, enum ที่ field ของ value object อ้างถึง, exception ที่ method throw อยู่, use case ที่มี refusal ของตัวเอง, `index` ขณะที่ยังมีหน้ารายการต้องใช้
 

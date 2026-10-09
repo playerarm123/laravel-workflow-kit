@@ -173,6 +173,33 @@ function belongsHere(editing: Editing, place: StructureTarget | null): boolean {
 }
 
 /**
+ * A view switch the browser remembers, so a reload opens the views the developer last had on.
+ * The browser may refuse storage (a private window, a policy), and then the switch starts off.
+ */
+function useRememberedSwitch(name: string): [boolean, (on: boolean) => void] {
+    const key = `kit.structure.${name}`;
+    const [on, setOn] = useState(() => {
+        try {
+            return window.localStorage.getItem(key) === '1';
+        } catch {
+            return false;
+        }
+    });
+
+    const remember = (next: boolean) => {
+        setOn(next);
+
+        try {
+            window.localStorage.setItem(key, next ? '1' : '0');
+        } catch {
+            // Storage is off: the switch still works until the page reloads.
+        }
+    };
+
+    return [on, remember];
+}
+
+/**
  * The structure manifest as a diagram: the whole project, then one context or HTTP resource at a
  * time. Every node, edge and status comes from StructureGraph. The pieces the code does not have
  * yet are changed through the side panel, and each change answers with the graph again.
@@ -181,9 +208,11 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
     const [graph, setGraph] = useState(payload.graph);
     const [editing, setEditing] = useState<Editing | null>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [showVocabulary, setShowVocabulary] = useState(false);
-    const [showBehaviour, setShowBehaviour] = useState(false);
-    const [showExceptions, setShowExceptions] = useState(false);
+    const [showVocabulary, setShowVocabulary] =
+        useRememberedSwitch('vocabulary');
+    const [showBehaviour, setShowBehaviour] = useRememberedSwitch('behaviour');
+    const [showExceptions, setShowExceptions] =
+        useRememberedSwitch('exceptions');
     const hash = useSyncExternalStore(
         subscribeToHash,
         () => window.location.hash,
@@ -547,6 +576,10 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                                     saved(next);
                                 }}
                                 onChanged={saved}
+                                onSelect={(id) => {
+                                    setShowBehaviour(true);
+                                    setSelectedId(id);
+                                }}
                             />
                         ))}
                     <ByHand graph={graph} />
@@ -695,6 +728,7 @@ function Details({
     onEdit,
     onRemoved,
     onChanged,
+    onSelect,
 }: {
     node: StructureNodeData;
     graph: StructureGraph;
@@ -704,6 +738,7 @@ function Details({
     onEdit: (editing: Editing) => void;
     onRemoved: (graph: StructureGraph) => void;
     onChanged: (graph: StructureGraph) => void;
+    onSelect: (id: string) => void;
 }) {
     const contextSection = CONTEXT_SECTIONS[node.kind];
     const resourceSection = RESOURCE_SECTIONS[node.kind];
@@ -905,6 +940,17 @@ function Details({
                     context={context}
                     aggregate={name}
                     onChanged={onChanged}
+                    onSelect={onSelect}
+                />
+            )}
+            {node.kind === 'entity' && context !== null && (
+                <ChildOf
+                    graph={graph}
+                    endpoints={endpoints}
+                    context={context}
+                    entity={name}
+                    removable={node.editable}
+                    onRemoved={onRemoved}
                 />
             )}
             {node.kind === 'entity' && context !== null && (
@@ -1025,6 +1071,57 @@ function Methods({
 }
 
 /**
+ * Which aggregate a child entity belongs to, and its Remove while the code does not have it yet
+ * and it lists no method. A root says nothing here: its aggregate's card holds it.
+ */
+function ChildOf({
+    graph,
+    endpoints,
+    context,
+    entity,
+    removable,
+    onRemoved,
+}: {
+    graph: StructureGraph;
+    endpoints: StructureEndpoints;
+    context: string;
+    entity: string;
+    removable: boolean;
+    onRemoved: (graph: StructureGraph) => void;
+}) {
+    const manifest = graph.manifests[context];
+    const aggregate = Object.entries(manifest?.aggregates ?? {}).find(
+        ([, entry]) => entry?.children.includes(entity),
+    )?.[0];
+
+    if (aggregate === undefined) {
+        return null;
+    }
+
+    return (
+        <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">
+                child of {aggregate}
+            </span>
+            {removable && manifest?.entities[entity] === undefined && (
+                <RemoveButton
+                    url={endpoints.removeChild.replace(
+                        '__CONTEXT__',
+                        encodeURIComponent(context),
+                    )}
+                    version={graph.versions[context] ?? ''}
+                    section="aggregates"
+                    name={entity}
+                    owner={context}
+                    entity={aggregate}
+                    onRemoved={onRemoved}
+                />
+            )}
+        </div>
+    );
+}
+
+/**
  * An aggregate's child entities. A built aggregate keeps its name and repository but takes new
  * children, the way a built entity takes new methods: kit:apply builds each one the code does not
  * have yet, and a child the code already has reads built.
@@ -1035,12 +1132,14 @@ function AggregateChildren({
     context,
     aggregate,
     onChanged,
+    onSelect,
 }: {
     graph: StructureGraph;
     endpoints: StructureEndpoints;
     context: string;
     aggregate: string;
     onChanged: (graph: StructureGraph) => void;
+    onSelect: (id: string) => void;
 }) {
     const children =
         graph.manifests[context]?.aggregates[aggregate]?.children ?? [];
@@ -1077,7 +1176,15 @@ function AggregateChildren({
                             key={child}
                             className="flex items-center justify-between gap-2"
                         >
-                            <span className="font-mono text-xs">{child}</span>
+                            <button
+                                type="button"
+                                className="font-mono text-xs underline-offset-2 hover:underline"
+                                onClick={() =>
+                                    onSelect(`entity:${context}/${child}`)
+                                }
+                            >
+                                {child}
+                            </button>
                             {built.includes(`${aggregate}.${child}`) ? (
                                 <span className="text-xs text-muted-foreground">
                                     built
