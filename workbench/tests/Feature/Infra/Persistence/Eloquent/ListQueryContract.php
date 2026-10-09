@@ -8,6 +8,8 @@ use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+require_once __DIR__.'/../../../../../vendor/playerarm123/laravel-workflow-kit/tests/Architecture/Support/rules.php';
+
 /**
  * The cases every list read query must pass (list-queries.md), registered with
  * their fixed titles so the workflow kit's tests/Architecture/ListQueriesTest can find
@@ -126,9 +128,11 @@ function listQueryContract(
 
 /**
  * A `break` hook for any list: drop a column the read sorts by, so the database refuses it.
- * The test database runs each test in a transaction, which takes the DDL back.
+ * Postgres rolls the DDL back with the test's transaction. MySQL and MariaDB commit it at once,
+ * so the next test migrates the database fresh instead.
  */
 function breakListQueryColumn(string $table, string $column): void
 {
     Schema::table($table, fn (Blueprint $blueprint) => $blueprint->dropColumn($column));
+    ruleForgetSchemaAfterDdl();
 }

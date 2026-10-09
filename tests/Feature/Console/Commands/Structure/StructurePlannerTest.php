@@ -276,6 +276,22 @@ describe('StructurePlanner', function () {
                 ->and($steps['route sampling-sacks.stitch'])->toBe([StructurePlanner::WAITING, 'its controller comes first']);
         });
 
+        it('takes a resource route as done only once it registers every method the manifest lists', function () {
+            $routes = samplingPlanMarkersRoot().'/routes/web.php';
+            $register = fn (string $narrowing) => File::put($routes, "<?php\n\nRoute::resource('sacks', \\App\\Http\\Controllers\\".SAMPLING_PLAN_MODEL."Controller::class){$narrowing};\n// kit:routes\n");
+
+            $register("->only(['index'])");
+            $narrow = samplingPlanSteps()['route sampling-sacks'][0];
+            $register("->only([\n    'index',\n    'update',\n])");
+            $covering = samplingPlanSteps()['route sampling-sacks'][0];
+            $register("->except(['update'])");
+            $excepted = samplingPlanSteps()['route sampling-sacks'][0];
+
+            expect($narrow)->not->toBe(StructurePlanner::DONE)
+                ->and($covering)->toBe(StructurePlanner::DONE)
+                ->and($excepted)->not->toBe(StructurePlanner::DONE);
+        });
+
         it('runs the steps in the order they depend on each other', function () {
             $titles = array_keys(samplingPlanSteps());
             $position = fn (string $title): int => (int) array_search($title, $titles, true);

@@ -14,4 +14,6 @@ it('narrows the grid through the toolbar and keeps the query on the url')->todo(
 
 it('loads the next page of cards as the user scrolls')->todo();
 
-it('shows the empty state, and the no results state once filtered to nothing')->todo();
+it('shows the empty state when there is nothing yet')->todo();
+
+it('shows the no results state once filtered to nothing')->todo();

@@ -202,7 +202,7 @@ A step that waits for code a person writes (a Command's fields, a Row's keys) is
 **Do**
 - Put `// kit:bindings` on its own line as the last entry of one provider's `$bindings`, and `// kit:routes` as the last line of the route group new pages belong in. `kit:apply` writes each new line above its marker, with full class names, so no `use` line changes. Without a marker, or with more than one, it prints the line for you to place. *Review only.*
 - Finish by hand what no generator writes, which `kit:plan` lists last as the check's own messages: a second repository or one from another context, a handler that returns `int`, a controller method outside the resource ones, a policy ability other than the CRUD ones, `#[UsePolicy]` on the model, and a page of kind `page`. *Review only.*
-- Count a route as done once a route file registers its controller, whatever uri it chose. *Review only.*
+- Count a route as done once a route file registers its controller, whatever uri it chose. A `Route::resource()` counts only once it registers every controller method the manifest lists: `kit:apply` widens its `only([...])` to cover a method added later, and leaves one an `except([...])` holds back for you to change by hand. *Review only.*
 
 **Why:** the generators already write every piece the way the rules want it. What was left to a person was the order to run them in and the flags each one takes, which the manifest already says. The run stops where only a person can go on, and says why, so it never writes a page for a Row that has no columns.
 

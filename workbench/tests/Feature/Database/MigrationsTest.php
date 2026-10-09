@@ -39,7 +39,7 @@ function migrationSchemaSpec(): array
  */
 function migrationSchemaTables(): array
 {
-    return array_values(array_unique(array_column(Schema::getTables(), 'name')));
+    return ruleSchemaTables();
 }
 
 describe('the migrated schema', function () {

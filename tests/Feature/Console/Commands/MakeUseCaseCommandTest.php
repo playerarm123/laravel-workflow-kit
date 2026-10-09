@@ -518,18 +518,17 @@ it('writes a command and a result whenever a query is asked for, since a list ta
         ->and(File::exists(useCaseClassPath('ListSamplingItemHandler')))->toBeFalse();
 });
 
-it('injects the repository and the port together when both are asked for', function () {
+it('refuses a repository on a list use case, which reads through its query port only', function () {
     runMakeUseCase([
         'name' => 'ListSamplingItem',
         '--domain' => 'Sampling',
         '--repo' => 'Sample',
         '--query' => true,
-    ], carries: null)->assertSuccessful();
+    ], carries: null)
+        ->expectsOutputToContain('A list reads through its query port and never through a repository')
+        ->assertFailed();
 
-    expect(File::get(useCaseClassPath('ListSamplingItem/ListSamplingItemHandler')))
-        ->toContain('use App\Domain\Sampling\Sample\SampleRepository;')
-        ->toContain('protected SampleRepository $repo,')
-        ->toContain('protected ListSamplingItemQuery $query,');
+    expect(File::exists(useCaseClassPath('ListSamplingItem/ListSamplingItemHandler')))->toBeFalse();
 });
 
 it('creates the adapter test mirroring where the adapter lands', function () {

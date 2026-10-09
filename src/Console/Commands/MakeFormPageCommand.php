@@ -10,6 +10,7 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\WritesGeneratedFiles;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureFiles;
 use Playerarm123\LaravelWorkflowKit\WorkflowKit;
 
 /**
@@ -63,7 +64,9 @@ class MakeFormPageCommand extends Command implements PromptsForMissingInput
             $this->writeTypes($shape),
             $this->writeForm($shape),
             $this->writePage('create', ['create', 'index']),
-            $this->writePage('edit', ['edit', 'index', 'show']),
+            $this->writePage('edit', ['edit', 'index', ...($this->hasShow() ? ['show'] : [])], [
+                '{{ back }}' => $this->hasShow() ? 'show('.$this->variable().')' : 'index()',
+            ]),
         ]));
 
         $this->format($written);
@@ -257,13 +260,32 @@ TSX;
     }
 
     /**
-     * @param  list<string>  $routes  the Wayfinder route functions the page calls
+     * Whether the resource has a page of its own to go back to: its `show` route is registered, or
+     * its HTTP manifest (structure.md) lists a `show` method still to build. Without one, the edit
+     * page goes back to the list, so it never imports a route Wayfinder does not write.
      */
-    protected function writePage(string $page, array $routes): ?string
+    protected function hasShow(): bool
+    {
+        if (Route::has($this->prefix().'.show')) {
+            return true;
+        }
+
+        $files = new StructureFiles(base_path());
+        $manifest = $files->resourceExists($this->subject()) ? $files->readResource($this->subject()) : null;
+
+        return is_array($manifest) && is_array($manifest['controller'] ?? null) && array_key_exists('show', $manifest['controller']);
+    }
+
+    /**
+     * @param  list<string>  $routes  the Wayfinder route functions the page calls
+     * @param  array<string, string>  $replacements
+     */
+    protected function writePage(string $page, array $routes, array $replacements = []): ?string
     {
         sort($routes);
 
         return $this->writeFromStub("form-page-{$page}.stub", resource_path('js/pages/'.$this->prefix()."/{$page}.tsx"), 'Page', [
+            ...$replacements,
             '{{ imports }}' => $this->importBlock([
                 '@inertiajs/react' => "import { Head, Link, setLayoutProps } from '@inertiajs/react';",
                 'lucide-react' => "import { ArrowLeft } from 'lucide-react';",
@@ -325,7 +347,7 @@ TSX;
     protected function warnAboutRoutes(): void
     {
         $missing = array_values(array_filter(
-            ['index', 'show', 'create', 'store', 'edit', 'update'],
+            ['index', ...($this->hasShow() ? ['show'] : []), 'create', 'store', 'edit', 'update'],
             fn (string $action): bool => ! Route::has($this->prefix().'.'.$action),
         ));
 
