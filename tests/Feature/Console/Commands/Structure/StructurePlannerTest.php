@@ -30,7 +30,7 @@ function writeSamplingPlanFixtures(): void
     $context = SAMPLING_PLAN_CONTEXT;
     $useCases = "App\\Application\\{$context}\\UseCases";
     $fixtures = [
-        "Domain/{$context}/Sack/SackEntity.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Sack;\n\nfinal class SackEntity\n{\n    public function stitch(): void {}\n}\n",
+        "Domain/{$context}/Sack/SackEntity.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Sack;\n\nfinal class SackEntity\n{\n    public function __construct(\n        private string \$id,\n        private Enums\\SackColour \$colour,\n    ) {}\n\n    public function stitch(): void {}\n}\n",
         "Domain/{$context}/Sack/Exceptions/SackTornException.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Sack\\Exceptions;\n\nfinal class SackTornException extends \\RuntimeException {}\n",
         "Domain/{$context}/Sack/Enums/SackColour.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Sack\\Enums;\n\nenum SackColour: string\n{\n    case Red = 'red';\n}\n",
         "Application/{$context}/UseCases/ListSamplingSacks/ListSamplingSacksHandler.php" => "<?php\n\nnamespace {$useCases}\\ListSamplingSacks;\n\nfinal class ListSamplingSacksHandler {}\n",
@@ -88,6 +88,7 @@ function writeSamplingPlanFixtures(): void
         'entities' => [
             'Sack' => [
                 'aggregate' => 'Sack',
+                'state' => ['colour' => 'SackColour', 'size' => 'int', 'grade' => 'SackGrade', 'wrap' => 'int'],
                 'behaviours' => [
                     'stitch' => ['params' => [], 'throws' => []],
                     'fill' => ['params' => ['colour' => 'SackColour', 'tags' => '...string'], 'throws' => ['SackTornException', 'SackFullException']],
@@ -97,7 +98,7 @@ function writeSamplingPlanFixtures(): void
                     'assertIntact' => ['params' => [], 'throws' => ['SackTornException']],
                 ],
             ],
-            'Thread' => ['aggregate' => 'Sack', 'behaviours' => ['snap' => ['params' => [], 'throws' => []]], 'assertions' => []],
+            'Thread' => ['aggregate' => 'Sack', 'state' => ['length' => 'int'], 'behaviours' => ['snap' => ['params' => [], 'throws' => []]], 'assertions' => []],
         ],
     ]);
     $files->writeResource([
@@ -206,6 +207,19 @@ describe('StructurePlanner', function () {
                 ->and($steps["method {$domain}/Thread::snap"])->toBe([StructurePlanner::WAITING, 'ThreadEntity is not built yet'])
                 ->and($steps)->not->toHaveKey("exception {$domain}/Sack/SackTornException")
                 ->and($steps)->not->toHaveKey("exception {$domain}/Shared/SamplingPlanScaleException");
+        });
+
+        it('builds the state of an entity one property at a time, in the order the manifest lists it', function () {
+            $steps = samplingPlanSteps();
+            $domain = SAMPLING_PLAN_CONTEXT;
+            $titles = array_keys($steps);
+
+            expect($steps["state {$domain}/Sack.colour"][0])->toBe(StructurePlanner::DONE)
+                ->and($steps["state {$domain}/Sack.size"])->toBe([StructurePlanner::READY, "php artisan make:entity-state Sack --domain={$domain}/Sack --field=size:int"])
+                ->and($steps["state {$domain}/Sack.grade"])->toBe([StructurePlanner::WAITING, 'SackGrade is not built yet'])
+                ->and($steps["state {$domain}/Sack.wrap"])->toBe([StructurePlanner::WAITING, 'grade comes first, to keep the order of the state'])
+                ->and($steps["state {$domain}/Thread.length"])->toBe([StructurePlanner::WAITING, 'ThreadEntity is not built yet'])
+                ->and(array_search("state {$domain}/Sack.wrap", $titles, true))->toBeLessThan(array_search("method {$domain}/Sack::stitch", $titles, true));
         });
 
         it('builds each exception the manifest designs with the generator its kind takes, a use case\'s once the use case exists', function () {

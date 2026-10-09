@@ -344,6 +344,29 @@ describe('StructureGraph', function () {
                 ->and($graph['childrenBuilt'][$context])->toBe(['Box.Hinge']);
         });
 
+        it('draws an entity\'s state above its methods, tied to the classes each property names', function () {
+            $context = SAMPLING_GRAPH_CONTEXT;
+            $files = new StructureFiles(base_path());
+            $manifest = $files->read($context);
+            $files->write([...$manifest,
+                'aggregates' => [...$manifest['aggregates'], 'Box' => ['children' => [], 'repository' => false]],
+                'enums' => ['BoxGrade' => ['aggregate' => 'Box', 'backing' => 'string', 'cases' => ['A' => 'a']]],
+                'entities' => [
+                    'Box' => ['aggregate' => 'Box', 'state' => ['grade' => 'BoxGrade', 'price' => '?Shared/Money', 'count' => 'int'], 'behaviours' => ['tip' => ['params' => [], 'throws' => []]], 'assertions' => []],
+                ],
+            ]);
+
+            $graph = samplingGraph();
+            $view = $graph['contexts'][$context];
+
+            expect(samplingGraphNode($view, "entity:{$context}/Box")['items'])->toBe(['grade: BoxGrade', 'price: ?Shared/Money', 'count: int', 'tip()'])
+                ->and(samplingGraphEdgesFrom($view, "entity:{$context}/Box"))->toBe([
+                    ["entity:{$context}/Box", "enum:{$context}/BoxGrade", 'state'],
+                    ["entity:{$context}/Box", 'external:Shared/Money', 'state'],
+                ])
+                ->and($graph['entityStateBuilt'][$context])->toBe([]);
+        });
+
         it('draws the root and every child of an aggregate as an entity card, before either lists a method', function () {
             $context = SAMPLING_GRAPH_CONTEXT;
             $files = new StructureFiles(base_path());
@@ -353,9 +376,9 @@ describe('StructureGraph', function () {
             $graph = samplingGraph();
             $view = $graph['contexts'][$context];
 
-            expect(samplingGraphNode($view, "entity:{$context}/Box"))->toMatchArray(['items' => [StructureGraph::NO_METHODS], 'status' => StructurePlanner::DONE, 'editable' => false])
+            expect(samplingGraphNode($view, "entity:{$context}/Box"))->toMatchArray(['items' => [StructureGraph::NOTHING_DESIGNED], 'status' => StructurePlanner::DONE, 'editable' => false])
                 ->and(samplingGraphNode($view, "entity:{$context}/Flap"))->toMatchArray([
-                    'items' => [StructureGraph::NO_METHODS],
+                    'items' => [StructureGraph::NOTHING_DESIGNED],
                     'status' => StructurePlanner::READY,
                     'command' => "php artisan make:entity Flap --domain={$context}/Box --child",
                     'editable' => true,

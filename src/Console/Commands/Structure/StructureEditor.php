@@ -165,8 +165,8 @@ final class StructureEditor
         }
 
         $aggregate = (string) $this->holderOf($manifest, $entity);
-        /** @var array{aggregate: string, behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
-        $entry = $manifest['entities'][$entity] ?? ['aggregate' => $aggregate, 'behaviours' => [], 'assertions' => []];
+        /** @var array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
+        $entry = $manifest['entities'][$entity] ?? self::emptyEntity($aggregate);
         $errors = [];
 
         if ($name !== $previous && (isset($entry['behaviours'][$name]) || isset($entry['assertions'][$name]))) {
@@ -212,17 +212,128 @@ final class StructureEditor
             return $refused ?? [];
         }
 
-        /** @var array{aggregate: string, behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
+        /** @var array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
         $entry = $manifest['entities'][$entity];
         unset($entry['behaviours'][$name], $entry['assertions'][$name]);
 
-        if ($entry['behaviours'] === [] && $entry['assertions'] === []) {
-            unset($manifest['entities'][$entity]);
-        } else {
-            $manifest['entities'][$entity] = $entry;
+        return $this->writeChecked($context, self::withEntity($manifest, $entity, $entry));
+    }
+
+    /**
+     * Adds a property to an entity's state, or changes or renames the one named `$previous`. A new
+     * one goes last, as `make:entity-state` adds it after the constructor's others; a changed one
+     * keeps its place. A property the code already has stays as it is.
+     *
+     * @return array<string, list<string>> what is wrong, by field; empty when it was written
+     */
+    public function saveState(string $context, string $version, string $entity, ?string $previous, string $name, string $type): array
+    {
+        $manifest = $this->manifest($context);
+        $refused = $this->refusal($context, $manifest, $version, 'entities', byMethod: true)
+            ?? $this->entityRefusal($context, $manifest, $entity)
+            ?? ($previous === null ? null : $this->stateLockedRefusal($context, $manifest, $entity, $previous));
+
+        if ($refused !== null || $manifest === null) {
+            return $refused ?? [];
         }
 
+        $aggregate = (string) $this->holderOf($manifest, $entity);
+        /** @var array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
+        $entry = $manifest['entities'][$entity] ?? self::emptyEntity($aggregate);
+        $type = trim($type);
+        $errors = [];
+
+        if (preg_match(self::METHOD, $name) !== 1) {
+            $errors['name'][] = 'A property name is camelCase.';
+        } elseif ($name === StructureFiles::ENTITY_ID) {
+            $errors['name'][] = 'Every entity already holds its id.';
+        } elseif ($name !== $previous && isset($entry['state'][$name])) {
+            $errors['name'][] = "The manifest already has {$entity}.{$name}.";
+        } elseif ($name !== $previous && array_key_exists($name, $this->builtState($context, $entity))) {
+            $errors['name'][] = "The code already has {$entity}.{$name}. Run `php artisan kit:import --context={$context} --sync` to read it into the manifest.";
+        }
+
+        if ($type === '') {
+            $errors['type'][] = 'A property has a type.';
+        }
+
+        foreach ($type === '' ? [] : (preg_split('/[|&]/', ltrim($type, '?')) ?: []) as $part) {
+            if (! $this->isKnownType($context, $aggregate, $part)) {
+                $errors['type'][] = "The type {$part} is no builtin, and no enum, value object or entity a manifest lists.";
+            }
+        }
+
+        if ($errors !== []) {
+            return $errors;
+        }
+
+        $state = [];
+
+        foreach ($entry['state'] as $property => $was) {
+            $state[$property === $previous ? $name : $property] = $property === $previous ? $type : $was;
+        }
+
+        $state[$name] = $type;
+        $entry['state'] = $state;
+        $manifest['entities'][$entity] = $entry;
+
         return $this->writeChecked($context, $manifest);
+    }
+
+    /**
+     * Removes a property the code does not have yet, and the entity's entry once it lists nothing.
+     *
+     * @return array<string, list<string>> what is wrong, by field; empty when it was removed
+     */
+    public function removeState(string $context, string $version, string $entity, string $name): array
+    {
+        $manifest = $this->manifest($context);
+        $refused = $this->refusal($context, $manifest, $version, 'entities', byMethod: true)
+            ?? $this->entityRefusal($context, $manifest, $entity)
+            ?? $this->stateLockedRefusal($context, $manifest, $entity, $name);
+
+        if ($refused !== null || $manifest === null) {
+            return $refused ?? [];
+        }
+
+        /** @var array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
+        $entry = $manifest['entities'][$entity];
+        unset($entry['state'][$name]);
+
+        return $this->writeChecked($context, self::withEntity($manifest, $entity, $entry));
+    }
+
+    /**
+     * An entity's entry before it lists anything.
+     *
+     * @return array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>}
+     */
+    private static function emptyEntity(string $aggregate): array
+    {
+        return ['aggregate' => $aggregate, 'state' => [], 'behaviours' => [], 'assertions' => []];
+    }
+
+    /**
+     * The manifest with the entity's entry as given, or without it once it lists nothing.
+     *
+     * @param  array<string, mixed>  $manifest
+     * @param  array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>}  $entry
+     * @return array<string, mixed>
+     */
+    private static function withEntity(array $manifest, string $entity, array $entry): array
+    {
+        /** @var array<string, mixed> $entities */
+        $entities = $manifest['entities'];
+
+        if ($entry['state'] === [] && $entry['behaviours'] === [] && $entry['assertions'] === []) {
+            unset($entities[$entity]);
+        } else {
+            $entities[$entity] = $entry;
+        }
+
+        $manifest['entities'] = $entities;
+
+        return $manifest;
     }
 
     /**
@@ -310,7 +421,11 @@ final class StructureEditor
         }
 
         $sync = new StructureSync($this->files, $this->reader);
-        $synced = $entity !== null ? $sync->syncMethod($context, $entity, $name) : $sync->syncPiece($context, $section, $name);
+        $synced = match (true) {
+            $entity !== null && str_starts_with($name, StructureSync::STATE_PREFIX) => $sync->syncProperty($context, $entity, substr($name, strlen(StructureSync::STATE_PREFIX))),
+            $entity !== null => $sync->syncMethod($context, $entity, $name),
+            default => $sync->syncPiece($context, $section, $name),
+        };
 
         if (isset($synced['error'])) {
             return ['name' => [$synced['error']]];
@@ -632,6 +747,38 @@ final class StructureEditor
         }
 
         return null;
+    }
+
+    /**
+     * Why the named property may not change: the manifest does not list it, or the code already has
+     * it.
+     *
+     * @param  array<string, mixed>|null  $manifest
+     * @return array<string, list<string>>|null
+     */
+    private function stateLockedRefusal(string $context, ?array $manifest, string $entity, string $property): ?array
+    {
+        $entry = $manifest['entities'][$entity] ?? null;
+
+        if (! is_array($entry) || ! isset($entry['state'][$property])) {
+            return ['name' => ["The manifest has no {$entity}.{$property}."]];
+        }
+
+        if (array_key_exists($property, $this->builtState($context, $entity))) {
+            return ['name' => ["The code already has {$entity}.{$property}, so the screen leaves it alone."]];
+        }
+
+        return null;
+    }
+
+    /**
+     * The state of an entity the code already has, each property with its type.
+     *
+     * @return array<string, string>
+     */
+    private function builtState(string $context, string $entity): array
+    {
+        return $this->reader->read($context)['entities'][$entity]['state'] ?? [];
     }
 
     /**

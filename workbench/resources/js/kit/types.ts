@@ -97,8 +97,13 @@ export type ExceptionEntry = {
  */
 export type EntityMethod = { params: Record<string, string>; throws: string[] };
 
+/**
+ * An entity's state is each property its constructor promotes, but for its id, to its type, in
+ * the constructor's order. Each one has a getter of the same name.
+ */
 export type EntityEntry = {
     aggregate: string;
+    state: Record<string, string>;
     behaviours: Partial<Record<string, EntityMethod>>;
     assertions: Partial<Record<string, EntityMethod>>;
 };
@@ -188,6 +193,7 @@ export type StructureGraph = {
     resourceVersions: Partial<Record<string, string>>;
     resourceBuilt: Partial<Record<string, string[]>>;
     entityMethodsBuilt: Partial<Record<string, string[]>>;
+    entityStateBuilt: Partial<Record<string, string[]>>;
     childrenBuilt: Partial<Record<string, string[]>>;
     outOfStep: Partial<Record<string, string[]>>;
     resourceOutOfStep: Partial<Record<string, string[]>>;
@@ -207,6 +213,8 @@ export type StructureEndpoints = {
     cancelReplacement: string;
     saveMethod: string;
     removeMethod: string;
+    saveState: string;
+    removeState: string;
     addChild: string;
     removeChild: string;
     syncPiece: string;

@@ -41,7 +41,7 @@ final class StructureFiles
         'enums' => ['aggregate' => 'string|null', 'backing' => ['string', 'int', null], 'cases' => 'map', 'transitions' => 'transitions'],
         'valueObjects' => ['aggregate' => 'string|null', 'fields' => 'map:string'],
         'exceptions' => ['kind' => ['refusal', 'value', 'application'], 'aggregate' => 'string|null', 'useCase' => 'string|null'],
-        'entities' => ['aggregate' => 'string', 'behaviours' => 'methods', 'assertions' => 'methods'],
+        'entities' => ['aggregate' => 'string', 'state' => 'map:string', 'behaviours' => 'methods', 'assertions' => 'methods'],
     ];
 
     /**
@@ -52,17 +52,24 @@ final class StructureFiles
 
     /**
      * What a manifest written before a section or a key existed holds when nothing else says: no
-     * exceptions designed (exceptions.md), and no domain service with an exception of its own. The
+     * exceptions designed (exceptions.md), no domain service with an exception of its own, and no
+     * state on an entity. The
      * canonical form writes them, so the next save or `kit:import` adds them to the file. `read()`
      * takes them from the code instead, so a project that already has exceptions stays green.
      */
-    public const array DEFAULTS = ['exceptions' => [], 'services.exception' => false];
+    public const array DEFAULTS = ['exceptions' => [], 'services.exception' => false, 'entities.state' => []];
 
     /**
      * Keys only a manifest holds: what the design intends while the code catches up. The reader
      * never reports them, the comparison skips them, and a file leaves them out while they are null.
      */
     public const array INTENT_KEYS = ['replaces'];
+
+    /**
+     * The property every entity has from `make:entity`, which a base class answers for, so an
+     * entity's `state` never lists it.
+     */
+    public const string ENTITY_ID = 'id';
 
     public function __construct(
         private readonly string $root,
@@ -165,6 +172,14 @@ final class StructureFiles
             foreach ($document['services'] as $name => $service) {
                 if (is_array($service) && ! array_key_exists('exception', $service)) {
                     $document['services'][$name]['exception'] = self::DEFAULTS['services.exception'];
+                }
+            }
+        }
+
+        if (is_array($document['entities'] ?? null)) {
+            foreach ($document['entities'] as $name => $entity) {
+                if (is_array($entity) && ! array_key_exists('state', $entity)) {
+                    $document['entities'][$name]['state'] = self::DEFAULTS['entities.state'];
                 }
             }
         }
@@ -494,7 +509,8 @@ final class StructureFiles
 
     /**
      * What an entity's entry says that its keys alone do not: that it is the root or a child of the
-     * aggregate it names, that it lists something, and that each method sits in the right group.
+     * aggregate it names, that it lists something, that its state names camelCase properties other
+     * than the `id` every entity already has, and that each method sits in the right group.
      *
      * @param  array<string, mixed>  $entry
      * @return list<string>
@@ -512,8 +528,16 @@ final class StructureFiles
             $problems[] = sprintf('entities.%s: "aggregate" must name the aggregate whose root or child it is', $name);
         }
 
-        if ($entry['behaviours'] === [] && $entry['assertions'] === []) {
-            $problems[] = sprintf('entities.%s: lists no behaviour and no assertion, so leave it out', $name);
+        if ($entry['state'] === [] && $entry['behaviours'] === [] && $entry['assertions'] === []) {
+            $problems[] = sprintf('entities.%s: lists no state, no behaviour and no assertion, so leave it out', $name);
+        }
+
+        foreach (array_keys($entry['state']) as $property) {
+            if (preg_match('/^[a-z][A-Za-z0-9]*$/', (string) $property) !== 1) {
+                $problems[] = sprintf('entities.%s: the state %s is not a camelCase name', $name, $property);
+            } elseif ($property === self::ENTITY_ID) {
+                $problems[] = sprintf('entities.%s: "state" holds id, which every entity already has — leave it out', $name);
+            }
         }
 
         foreach (['behaviours' => false, 'assertions' => true] as $group => $assertion) {

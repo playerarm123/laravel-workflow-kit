@@ -112,6 +112,23 @@ With **Exceptions** on as well, the exception's card is tied to `Crate`, which r
 
 ![The Exceptions view](images/structure-exceptions.png)
 
+### 6b. Give the entity its state
+
+Select the `Crate` entity card (under **Behaviour**) and click **Add state**:
+
+- **Name:** `status`;
+- **Type:** `CrateStatus`. The field offers builtins, then the enums, value objects and entities of `Crate`, then those elsewhere with their prefix.
+
+Each property lands last, after the ones the entity holds, and the card lists it above the methods (`status: CrateStatus`), tied to the enum it names. `kit:apply` runs `make:entity-state`, which writes:
+
+- a private property the constructor promotes;
+- a parameter of `reconstitute()`, passed on to `new self(…)`;
+- a getter of the same name, `status(): CrateStatus`.
+
+![Giving an entity its state](images/structure-entity-state.png)
+
+It leaves `create()` for you, because what a new crate starts with (`CrateStatus::Open`) is a rule you decide. It warns you, and PHPStan and the entity's test name the gap until `create()` passes the property. Map the property in the repository's `toModel()` and `toEntity()` too.
+
 ### 7. Add the use cases
 
 Click **Add use case** for `CreateCrate`:
@@ -226,7 +243,7 @@ Finish with `php artisan test --testsuite=Architecture`. The `structure` check h
 | View | How to open it | What it shows |
 |---|---|---|
 | Overview | `/kit/structure`, or the **Structure** breadcrumb | One card per context and per HTTP resource, with their status counts. Edges show which context uses which, and how many use cases a resource calls. |
-| Context | Double-click a context, or `#context/{Name}` | Its aggregates, domain services, ports and use cases, with the repositories each one injects. **Vocabulary** adds enums and value objects. **Behaviour** adds every root and child entity, with its methods or `no methods yet`. **Exceptions** adds the exceptions. The browser remembers the three switches across reloads. |
+| Context | Double-click a context, or `#context/{Name}` | Its aggregates, domain services, ports and use cases, with the repositories each one injects. **Vocabulary** adds enums and value objects. **Behaviour** adds every root and child entity, with its state and its methods, or `nothing designed yet`. **Exceptions** adds the exceptions. The browser remembers the three switches across reloads. |
 | Shared kernel | `#context/Shared` | Only the enums, value objects and invalid values every context may use. |
 | HTTP resource | Double-click a resource, or `#resource/{Name}` | Its model, policy, controller, actions and pages, and the use cases they call. |
 
@@ -257,7 +274,7 @@ Each kind has its own shape, colour and icon. The **Legend** at the top left nam
 | Page | folded sheet, icon by kind (table, grid, form, page) | zinc |
 | Elsewhere | dashed | grey |
 
-A card lists up to six lines, then `… N more`. A status lists its moves (`Open → Sealed`, `Sealed · final`) in place of its values. An enum lists its cases, a value object its fields, and an entity its methods.
+A card lists up to six lines, then `… N more`. A status lists its moves (`Open → Sealed`, `Sealed · final`) in place of its values. An enum lists its cases, a value object its fields, and an entity its state (`status: CrateStatus`) then its methods.
 
 Click a card to select it. Click empty canvas to clear the selection. Double-click a card that opens something (a context, a resource, or an Elsewhere card) to go there. The panel offers the same as an **Open …** button.
 
@@ -303,6 +320,7 @@ The header offers the forms of the current view:
 | Enum | Name; Aggregate; Backing: `string`, `int` or `pure`; A status: each case lists the cases it may become; Cases, in order | Cases are not TitleCase, or two share a value. A status is not named `*Status`, or no case may become another ([states.md](../resources/boost/guidelines/states.md)). |
 | Value object | Name; Aggregate; Fields, in constructor order (name and type) | A field is not camelCase. A type is neither a builtin, nor a class a manifest designs, nor a class the code has. |
 | Exception | Name; Kind: Refusal of an aggregate, Invalid value or Refusal of a use case (the shared kernel takes invalid values only); Aggregate (for a refusal or an invalid value); Use case, or None (for a use case's refusal) | The name does not end with `Exception`. The aggregate or the use case is not in this context ([exceptions.md](../resources/boost/guidelines/exceptions.md)). |
+| State | Name; Type | The name is not camelCase, is `id`, or is taken. The type is unknown. |
 | Method | Entity; Name; Parameters, in order (name and type; `...Type` for a variadic last one); Throws | A name or parameter is not camelCase. A type is unknown. An exception does not end with `Exception`. An exception of the shared kernel or another aggregate is neither designed in its manifest nor in the code. |
 
 Every name is StudlyCase (methods and fields camelCase), and must not be taken in the manifest or in the code. A name the code already has means the manifest is behind: run `php artisan kit:import --context=X --force` to read it back.
@@ -326,14 +344,14 @@ Select a card, then **Edit** or **Remove**. Remove asks first: *Remove X? It lea
 Only what the code does not have yet can change:
 
 - A built card shows *The code already has it. Change the code and sync it, or replace it.* in place of Edit and Remove.
-- An entity and a controller lock one method at a time: a built method reads **built**, and the others stay editable.
-- A child entity has a card of its own under **Behaviour**, as the root does. Its panel takes methods the same way (**Add method**), and offers **Remove** while the code does not have the child and it lists no method. A child's name in the aggregate's panel opens its card.
+- An entity and a controller lock one method at a time: a built method reads **built**, and the others stay editable. An entity's state locks the same way, one property at a time: a built property reads **built, read by status()**.
+- A child entity has a card of its own under **Behaviour**, as the root does. Its panel takes state and methods the same way (**Add state**, **Add method**), and offers **Remove** while the code does not have the child and it lists nothing. A child's name in the aggregate's panel opens its card.
 - A built aggregate locks its name and repository, but its panel still takes new child entities. `kit:apply` builds each one with `make:entity --child`. A built child reads **built**. The child's table, model and the repository's `syncChildren()` are still yours to write.
 - A piece that others use cannot be renamed or removed until nothing uses it. Examples: an aggregate a use case injects or that holds an exception, an enum a value object's field names, an exception a method throws, a use case with a refusal of its own, `index` while a list page needs it.
 
 ### Syncing what is built from the code
 
-A built piece changes in the code: rename a parameter, add one, add an enum case, inject another repository. The card then reads **differs**, and its panel offers **Sync from code**, which takes that one piece from the code into the manifest. A built method of an entity or a controller has its own **Sync from code** beside **built**.
+A built piece changes in the code: rename a parameter, add one, add an enum case, inject another repository. The card then reads **differs**, and its panel offers **Sync from code**, which takes that one piece from the code into the manifest. A built method of an entity or a controller, and a built property of an entity's state, has its own **Sync from code** beside **built**.
 
 ![Sync from code on a card that differs](images/structure-sync.png)
 

@@ -185,5 +185,27 @@ describe('StructureComparer', function () {
                 ['in-code', 'lists entities.Bin.tip, which the code does not have yet — build it, or take it out of the manifest', "entity:{$context}/Bin"],
             ]);
         });
+
+        it('tells the state of an entity apart: a property only one side has, another type, another order, and one no getter returns', function () {
+            $context = SAMPLING_COMPARE_CONTEXT;
+            File::deleteDirectory(app_path("Domain/{$context}/Crate"));
+            File::deleteDirectory(app_path("Domain/{$context}/Pallet"));
+            File::ensureDirectoryExists(app_path("Domain/{$context}/Tote"));
+            File::put(app_path("Domain/{$context}/Tote/ToteEntity.php"), "<?php\n\nnamespace App\\Domain\\{$context}\\Tote;\n\nuse App\\Domain\\Shared\\AggregateRoot;\n\nfinal class ToteEntity extends AggregateRoot\n{\n    private function __construct(private string \$id, private int \$size, private string \$label, private ?string \$note) {}\n\n    public function id(): string { return \$this->id; }\n\n    public static function entityName(): string { return 'Tote'; }\n\n    public function size(): int { return \$this->size; }\n\n    public function label(): int { return 0; }\n}\n");
+            (new StructureFiles(base_path()))->write([
+                'context' => $context,
+                'aggregates' => ['Tote' => ['children' => [], 'repository' => false]],
+                'entities' => ['Tote' => ['aggregate' => 'Tote', 'state' => ['label' => 'string', 'size' => 'string', 'colour' => 'string'], 'behaviours' => [], 'assertions' => []]],
+            ]);
+
+            expect(samplingCompareDifferences(withNode: true))->toBe([
+                ['matches', 'entities.Tote.state.size is "int" in the code but "string" in the manifest', "entity:{$context}/Tote"],
+                ['in-json', 'is not in .kit/structure/'.$context.'.json — add it under "entities.Tote.state" (`php artisan kit:import --context='.$context.' --sync` adds it, keeping what is not built yet)', null],
+                ['matches', 'entities.Tote.state is in the order size, label in the code but label, size in the manifest', "entity:{$context}/Tote"],
+                ['in-code', 'lists entities.Tote.state.colour, which the code does not have yet — build it, or take it out of the manifest', "entity:{$context}/Tote"],
+                ['matches', 'has no getter — add public function label(): string that returns it', "entity:{$context}/Tote"],
+                ['matches', 'has no getter — add public function note(): ?string that returns it', "entity:{$context}/Tote"],
+            ]);
+        });
     });
 });

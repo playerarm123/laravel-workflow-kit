@@ -113,7 +113,7 @@ final class StructureReader
      * The shared kernel holds the kit's base classes and ports, so only its enums and value objects
      * are read.
      *
-     * @return array{context: string, aggregates: array<string, array{children: list<string>, repository: bool}>, services: array<string, array{shape: string, creates: string|null, repositories: list<string>, exception: bool}>, ports: array<string, array{layer: string, adapter: string|null}>, useCases: array<string, array{shape: string, returns: string, creates: bool, query: bool, repositories: list<string>}>, enums: array<string, array{aggregate: string|null, backing: string|null, cases: array<string, string|int|null>, transitions: array<string, list<string>>|null}>, valueObjects: array<string, array{aggregate: string|null, fields: array<string, string>}>, exceptions: array<string, array{kind: string, aggregate: string|null, useCase: string|null}>, entities: array<string, array{aggregate: string, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>}
+     * @return array{context: string, aggregates: array<string, array{children: list<string>, repository: bool}>, services: array<string, array{shape: string, creates: string|null, repositories: list<string>, exception: bool}>, ports: array<string, array{layer: string, adapter: string|null}>, useCases: array<string, array{shape: string, returns: string, creates: bool, query: bool, repositories: list<string>}>, enums: array<string, array{aggregate: string|null, backing: string|null, cases: array<string, string|int|null>, transitions: array<string, list<string>>|null}>, valueObjects: array<string, array{aggregate: string|null, fields: array<string, string>}>, exceptions: array<string, array{kind: string, aggregate: string|null, useCase: string|null}>, entities: array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>}
      */
     public function read(string $context): array
     {
@@ -399,10 +399,11 @@ final class StructureReader
     }
 
     /**
-     * Each entity that declares a behaviour or an assertion, with the aggregate that holds it. An
-     * entity that declares neither is left out, so a manifest lists only what it has to say.
+     * Each entity that holds state or declares a behaviour or an assertion, with the aggregate that
+     * holds it. An entity that has none of them is left out, so a manifest lists only what it has to
+     * say.
      *
-     * @return array<string, array{aggregate: string, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>
+     * @return array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>
      */
     private function entities(string $context): array
     {
@@ -410,10 +411,11 @@ final class StructureReader
 
         foreach ($this->entityClasses($context) as $aggregate => $classes) {
             foreach ($classes as $name => $class) {
+                $state = $this->entityState($class, $context, $aggregate);
                 $methods = $this->entityMethods($class, $context, $aggregate);
 
-                if ($methods['behaviours'] !== [] || $methods['assertions'] !== []) {
-                    $entities[$name] ??= ['aggregate' => $aggregate, ...$methods];
+                if ($state !== [] || $methods['behaviours'] !== [] || $methods['assertions'] !== []) {
+                    $entities[$name] ??= ['aggregate' => $aggregate, 'state' => $state, ...$methods];
                 }
             }
         }
@@ -421,6 +423,57 @@ final class StructureReader
         ksort($entities);
 
         return $entities;
+    }
+
+    /**
+     * The state an entity holds: its constructor's parameters in order, each with its type, but for
+     * the `id` every entity has. Each one is a property the constructor promotes, read back through
+     * a getter of the same name.
+     *
+     * @param  class-string  $class
+     * @return array<string, string>
+     */
+    private function entityState(string $class, string $context, string $aggregate): array
+    {
+        $state = [];
+
+        foreach ((new ReflectionClass($class))->getConstructor()?->getParameters() ?? [] as $parameter) {
+            if ($parameter->getName() !== StructureFiles::ENTITY_ID) {
+                $state[$parameter->getName()] = $this->fieldType($parameter->getType(), $context, $aggregate);
+            }
+        }
+
+        return $state;
+    }
+
+    /**
+     * Each entity's state that has no getter answering it: a public method of the same name that
+     * takes nothing and returns the property's type. The manifest has no word for a getter, so the
+     * comparison asks here.
+     *
+     * @return array<string, list<string>> entity → the properties without a getter
+     */
+    public function stateWithoutGetter(string $context): array
+    {
+        $missing = [];
+
+        foreach ($this->entityClasses($context) as $aggregate => $classes) {
+            foreach ($classes as $name => $class) {
+                $reflection = new ReflectionClass($class);
+
+                foreach ($this->entityState($class, $context, $aggregate) as $property => $type) {
+                    $getter = $reflection->hasMethod($property) ? $reflection->getMethod($property) : null;
+
+                    if ($getter === null || ! $getter->isPublic() || $getter->isStatic() || $getter->getNumberOfParameters() > 0 || $this->fieldType($getter->getReturnType(), $context, $aggregate) !== $type) {
+                        $missing[$name][] = $property;
+                    }
+                }
+            }
+        }
+
+        ksort($missing);
+
+        return $missing;
     }
 
     /**

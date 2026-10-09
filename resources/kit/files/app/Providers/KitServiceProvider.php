@@ -94,6 +94,8 @@ class KitServiceProvider extends ServiceProvider
                     'cancelReplacement' => route('kit.structure.replacements.cancel', ['context' => '__CONTEXT__']),
                     'saveMethod' => route('kit.structure.methods.store', ['context' => '__CONTEXT__']),
                     'removeMethod' => route('kit.structure.methods.remove', ['context' => '__CONTEXT__']),
+                    'saveState' => route('kit.structure.state.store', ['context' => '__CONTEXT__']),
+                    'removeState' => route('kit.structure.state.remove', ['context' => '__CONTEXT__']),
                     'addChild' => route('kit.structure.children.store', ['context' => '__CONTEXT__']),
                     'removeChild' => route('kit.structure.children.remove', ['context' => '__CONTEXT__']),
                     'syncPiece' => route('kit.structure.pieces.sync', ['context' => '__CONTEXT__']),
@@ -170,6 +172,26 @@ class KitServiceProvider extends ServiceProvider
                     $request->string('name')->toString(),
                 ),
             ))->name('.methods.remove');
+
+            Route::post('contexts/{context}/state', fn (Request $request, string $context): JsonResponse => $this->answer(
+                $this->structureEditor()->saveState(
+                    $context,
+                    $request->string('version')->toString(),
+                    $request->string('entity')->toString(),
+                    $request->filled('previous') ? $request->string('previous')->toString() : null,
+                    $request->string('name')->toString(),
+                    $request->string('type')->toString(),
+                ),
+            ))->name('.state.store');
+
+            Route::post('contexts/{context}/state/remove', fn (Request $request, string $context): JsonResponse => $this->answer(
+                $this->structureEditor()->removeState(
+                    $context,
+                    $request->string('version')->toString(),
+                    $request->string('entity')->toString(),
+                    $request->string('name')->toString(),
+                ),
+            ))->name('.state.remove');
 
             Route::post('contexts/{context}/children', fn (Request $request, string $context): JsonResponse => $this->answer(
                 $this->structureEditor()->addChild(

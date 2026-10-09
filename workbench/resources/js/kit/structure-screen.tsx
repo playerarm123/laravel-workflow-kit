@@ -33,6 +33,7 @@ import {
     RESOURCE_SECTION_LABELS,
     ResourcePieceForm,
 } from '@/kit/resource-piece-form';
+import { StateForm } from '@/kit/state-form';
 import { KIND_LABELS, StatusBadge, StructureNode } from '@/kit/structure-node';
 import type {
     ReplaceableSection,
@@ -107,6 +108,12 @@ type Editing =
           kind: 'method';
           context: string;
           entity: string | null;
+          previous: string | null;
+      }
+    | {
+          kind: 'state';
+          context: string;
+          entity: string;
           previous: string | null;
       };
 
@@ -512,6 +519,21 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                     {panel?.kind === 'method' && (
                         <MethodForm
                             key={`${panel.entity ?? ''}:${panel.previous ?? ''}`}
+                            graph={graph}
+                            endpoints={endpoints}
+                            context={panel.context}
+                            entity={panel.entity}
+                            previous={panel.previous}
+                            onSaved={(next) => {
+                                setShowBehaviour(true);
+                                saved(next);
+                            }}
+                            onCancel={() => setEditing(null)}
+                        />
+                    )}
+                    {panel?.kind === 'state' && (
+                        <StateForm
+                            key={`${panel.entity}:${panel.previous ?? ''}`}
                             graph={graph}
                             endpoints={endpoints}
                             context={panel.context}
@@ -954,6 +976,16 @@ function Details({
                 />
             )}
             {node.kind === 'entity' && context !== null && (
+                <EntityState
+                    graph={graph}
+                    endpoints={endpoints}
+                    context={context}
+                    entity={name}
+                    onEdit={onEdit}
+                    onRemoved={onChanged}
+                />
+            )}
+            {node.kind === 'entity' && context !== null && (
                 <EntityMethods
                     graph={graph}
                     endpoints={endpoints}
@@ -1236,6 +1268,108 @@ function AggregateChildren({
                     }
                 />
             </form>
+        </div>
+    );
+}
+
+/**
+ * An entity's state, each property with its type in the constructor's order. A property the code
+ * does not have yet can be changed or removed, and a new one added; a built one shows its getter.
+ */
+function EntityState({
+    graph,
+    endpoints,
+    context,
+    entity,
+    onEdit,
+    onRemoved,
+}: {
+    graph: StructureGraph;
+    endpoints: StructureEndpoints;
+    context: string;
+    entity: string;
+    onEdit: (editing: Editing) => void;
+    onRemoved: (graph: StructureGraph) => void;
+}) {
+    const state = graph.manifests[context]?.entities[entity]?.state ?? {};
+    const built = graph.entityStateBuilt[context] ?? [];
+    const outOfStep = graph.outOfStep[context] ?? [];
+
+    return (
+        <div className="space-y-3">
+            <h3 className="text-xs font-medium text-muted-foreground uppercase">
+                State
+            </h3>
+            <ul className="space-y-3">
+                {Object.entries(state).map(([property, type]) => (
+                    <li key={property} className="space-y-1">
+                        <div className="font-mono text-xs break-all">
+                            {property}: {type}
+                        </div>
+                        {built.includes(`${entity}.${property}`) ? (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                built, read by {property}()
+                                {outOfStep.includes(
+                                    `entities.${entity}.state.${property}`,
+                                ) && (
+                                    <SyncButton
+                                        url={endpoints.syncPiece.replace(
+                                            '__CONTEXT__',
+                                            encodeURIComponent(context),
+                                        )}
+                                        version={graph.versions[context] ?? ''}
+                                        section="entities"
+                                        name={`state.${property}`}
+                                        entity={entity}
+                                        onSynced={onRemoved}
+                                    />
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                        onEdit({
+                                            kind: 'state',
+                                            context,
+                                            entity,
+                                            previous: property,
+                                        })
+                                    }
+                                >
+                                    Edit
+                                </Button>
+                                <RemoveButton
+                                    url={endpoints.removeState.replace(
+                                        '__CONTEXT__',
+                                        encodeURIComponent(context),
+                                    )}
+                                    version={graph.versions[context] ?? ''}
+                                    section="entities"
+                                    name={property}
+                                    owner={context}
+                                    entity={entity}
+                                    onRemoved={onRemoved}
+                                />
+                            </div>
+                        )}
+                    </li>
+                ))}
+            </ul>
+            <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                    onEdit({ kind: 'state', context, entity, previous: null })
+                }
+            >
+                Add state
+            </Button>
+            <h3 className="pt-2 text-xs font-medium text-muted-foreground uppercase">
+                Methods
+            </h3>
         </div>
     );
 }

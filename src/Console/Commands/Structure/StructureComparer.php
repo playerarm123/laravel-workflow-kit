@@ -216,6 +216,8 @@ final class StructureComparer
             $differences[] = $this->difference('matches', $file, sprintf('entities.%s.aggregate is %s in the code but %s in the manifest', $name, json_encode($inCode['aggregate']), json_encode($inJson['aggregate'])), $node);
         }
 
+        $differences = [...$differences, ...$this->stateDifferences($context, $name, $inCode, $inJson, $node)];
+
         foreach (['behaviours', 'assertions'] as $group) {
             /** @var array<string, array{params: array<string, string>, throws: list<string>}> $code */
             $code = is_array($inCode[$group] ?? null) ? $inCode[$group] : [];
@@ -255,6 +257,62 @@ final class StructureComparer
 
             foreach (array_diff_key($json, $code) as $method => $entry) {
                 $differences[] = $this->difference('in-code', $file, sprintf('lists entities.%s.%s, which the code does not have yet — build it, or take it out of the manifest', $name, $method), $node);
+            }
+        }
+
+        return $differences;
+    }
+
+    /**
+     * Where an entity's state differs: a property only one side has, a type the two write
+     * differently, the two in another order (the order is the constructor's, which `reconstitute()`
+     * follows), and a property the code holds with no getter to read it by.
+     *
+     * @param  array<string, mixed>|null  $inCode
+     * @param  array<string, mixed>|null  $inJson
+     * @return list<array{check: string, subject: string, message: string, node: string|null}>
+     */
+    private function stateDifferences(string $context, string $name, ?array $inCode, ?array $inJson, ?string $node): array
+    {
+        $differences = [];
+        $file = $this->files->relativePath($context);
+        /** @var array<string, string> $code */
+        $code = is_array($inCode['state'] ?? null) ? $inCode['state'] : [];
+        /** @var array<string, string> $json */
+        $json = is_array($inJson['state'] ?? null) ? $inJson['state'] : [];
+
+        foreach ($code as $property => $type) {
+            if (! array_key_exists($property, $json)) {
+                $differences[] = $this->difference('in-json', $this->reader->classOf($context, 'entities', $name).'::$'.$property, sprintf(
+                    'is not in %s — add it under "entities.%s.state" (`%s --context=%s --sync` adds it, keeping what is not built yet)',
+                    $file,
+                    $name,
+                    self::IMPORT,
+                    $context,
+                ));
+            } elseif ($json[$property] !== $type) {
+                $differences[] = $this->difference('matches', $file, sprintf('entities.%s.state.%s is %s in the code but %s in the manifest', $name, $property, json_encode($type, JSON_UNESCAPED_SLASHES), json_encode($json[$property], JSON_UNESCAPED_SLASHES)), $node);
+            }
+        }
+
+        $shared = array_keys(array_intersect_key($code, $json));
+        $designed = array_values(array_filter(array_keys($json), fn (string $property): bool => in_array($property, $shared, true)));
+
+        if ($shared !== $designed) {
+            $differences[] = $this->difference('matches', $file, sprintf('entities.%s.state is in the order %s in the code but %s in the manifest', $name, implode(', ', $shared), implode(', ', $designed)), $node);
+        }
+
+        foreach (array_keys(array_diff_key($json, $code)) as $property) {
+            $differences[] = $this->difference('in-code', $file, sprintf('lists entities.%s.state.%s, which the code does not have yet — build it, or take it out of the manifest', $name, $property), $node);
+        }
+
+        if ($inCode !== null) {
+            foreach ($this->reader->stateWithoutGetter($context)[$name] ?? [] as $property) {
+                $differences[] = $this->difference('matches', $this->reader->classOf($context, 'entities', $name).'::$'.$property, sprintf(
+                    'has no getter — add public function %s(): %s that returns it',
+                    $property,
+                    $code[$property] ?? 'mixed',
+                ), $node);
             }
         }
 

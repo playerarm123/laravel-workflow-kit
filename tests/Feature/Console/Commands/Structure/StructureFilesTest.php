@@ -49,6 +49,7 @@ function samplingStructureManifest(): array
                     'seal' => ['params' => ['weight' => 'Weight', 'note' => '?string'], 'throws' => ['Shared/InvalidMoneyException', 'CrateSealedException']],
                     'label' => ['params' => [], 'throws' => []],
                 ],
+                'state' => ['weight' => '?Weight', 'status' => 'CrateStatus'],
                 'aggregate' => 'Crate',
             ],
         ],
@@ -64,7 +65,7 @@ afterEach(fn () => File::deleteDirectory(samplingStructureFilesRoot()));
 
 describe('StructureFiles', function () {
     describe('encode', function () {
-        it('writes the canonical form: sections in schema order, keys, lists and methods sorted, cases, fields and params as written, transitions in case order, empty maps as objects', function () {
+        it('writes the canonical form: sections in schema order, keys, lists and methods sorted, cases, fields, state and params as written, transitions in case order, empty maps as objects', function () {
             expect($this->files->encode(samplingStructureManifest()))->toBe(<<<'JSON'
 {
     "context": "Shipping",
@@ -143,6 +144,10 @@ describe('StructureFiles', function () {
     "entities": {
         "Crate": {
             "aggregate": "Crate",
+            "state": {
+                "weight": "?Weight",
+                "status": "CrateStatus"
+            },
             "behaviours": {
                 "label": {
                     "params": {},
@@ -170,6 +175,7 @@ describe('StructureFiles', function () {
         },
         "Lid": {
             "aggregate": "Crate",
+            "state": {},
             "behaviours": {
                 "open": {
                     "params": {},
@@ -400,14 +406,39 @@ JSON);
             ]);
         });
 
-        it('refuses an entity that lists no method, and any entity in the shared kernel', function () {
+        it('reads an entity written before state existed as one with none, and keeps an entity that lists only state', function () {
+            $document = samplingStructureManifest();
+            $document['entities'] = [
+                'Lid' => ['aggregate' => 'Crate', 'behaviours' => ['open' => ['params' => [], 'throws' => []]], 'assertions' => []],
+                'Pallet' => ['aggregate' => 'Pallet', 'state' => ['height' => 'int'], 'behaviours' => [], 'assertions' => []],
+            ];
+
+            expect($this->files->problems('Shipping', $document))->toBe([])
+                ->and(StructureFiles::withDefaults($document)['entities']['Lid']['state'])->toBe([]);
+        });
+
+        it('refuses state that names no camelCase property, or the id every entity has', function () {
+            $document = samplingStructureManifest();
+            $document['entities'] = ['Pallet' => ['aggregate' => 'Pallet', 'state' => ['id' => 'string', 'Height' => 'int', 'depth' => ''], 'behaviours' => [], 'assertions' => []]];
+
+            expect($this->files->problems('Shipping', $document))->toBe(['entities.Pallet: "state" must be an object of names to a type']);
+
+            $document['entities']['Pallet']['state'] = ['id' => 'string', 'Height' => 'int'];
+
+            expect($this->files->problems('Shipping', $document))->toBe([
+                'entities.Pallet: "state" holds id, which every entity already has — leave it out',
+                'entities.Pallet: the state Height is not a camelCase name',
+            ]);
+        });
+
+        it('refuses an entity that lists nothing, and any entity in the shared kernel', function () {
             $document = samplingStructureManifest();
             $document['entities'] = ['Pallet' => ['aggregate' => 'Pallet', 'behaviours' => [], 'assertions' => []]];
             $shared = ['context' => 'Shared', 'aggregates' => [], 'services' => [], 'ports' => [], 'useCases' => [], 'enums' => [], 'valueObjects' => [], 'entities' => [
                 'Crate' => ['aggregate' => 'Crate', 'behaviours' => ['seal' => ['params' => [], 'throws' => []]], 'assertions' => []],
             ]];
 
-            expect($this->files->problems('Shipping', $document))->toBe(['entities.Pallet: lists no behaviour and no assertion, so leave it out'])
+            expect($this->files->problems('Shipping', $document))->toBe(['entities.Pallet: lists no state, no behaviour and no assertion, so leave it out'])
                 ->and($this->files->problems('Shared', $shared))->toBe(['entities.Crate: the shared kernel has no entities']);
         });
 

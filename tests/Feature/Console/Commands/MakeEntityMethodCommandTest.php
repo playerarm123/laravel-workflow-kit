@@ -87,6 +87,7 @@ describe('make:entity-method', function () {
             ->and(rtrim($code))->toEndWith("public function assertOpen(): void\n    {\n        //\n    }\n}")
             ->and((new StructureReader(base_path()))->read(SAMPLING_METHOD_CONTEXT)['entities']['Bin'])->toBe([
                 'aggregate' => 'Bin',
+                'state' => [],
                 'behaviours' => ['empty' => ['params' => [], 'throws' => []]],
                 'assertions' => ['assertOpen' => ['params' => [], 'throws' => []]],
             ]);
