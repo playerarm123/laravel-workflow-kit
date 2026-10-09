@@ -138,7 +138,27 @@ it('writes create and edit shells that pass the server defaults to the form', fu
         ->and(File::get(base_path(formPageGenerated()['edit'])))
         ->toContain('samplingPallet: { id: string };')
         ->toMatch('/SamplingPalletController\.update\.form\(\s*samplingPallet,?\s*\)/')
+        ->toContain('cancelHref={index()}')
+        ->toContain("import { edit, index } from '@/routes/sampling-pallets';")
+        ->not->toContain('show(');
+});
+
+it('sends the edit page back to the show page only when the resource has one', function () {
+    $manifest = base_path('.kit/structure/http/'.FORM_PAGE_SUBJECT.'.json');
+    File::put($manifest, (string) json_encode([
+        'resource' => FORM_PAGE_SUBJECT, 'model' => FORM_PAGE_SUBJECT, 'controller' => ['show' => [], 'edit' => []], 'actions' => [], 'policy' => null, 'pages' => [],
+    ]));
+
+    try {
+        expect(Artisan::call('make:form-page', ['name' => FORM_PAGE_SUBJECT]))->toBe(0)
+            ->and(Artisan::output())->toContain('sampling-pallets.show');
+    } finally {
+        File::delete($manifest);
+    }
+
+    expect(File::get(base_path(formPageGenerated()['edit'])))
         ->toContain('cancelHref={show(samplingPallet)}')
+        ->toContain('<Link href={show(samplingPallet)}>')
         ->toContain("import { edit, index, show } from '@/routes/sampling-pallets';");
 });
 
@@ -190,7 +210,7 @@ it('never overwrites a form or a page that already exists', function () {
 it('reports the routes and translation keys the pages still need', function () {
     expect(Artisan::call('make:form-page', ['name' => FORM_PAGE_SUBJECT]))->toBe(0)
         ->and(Artisan::output())
-        ->toContain('Routes [sampling-pallets.index')
+        ->toContain('Routes [sampling-pallets.index, sampling-pallets.create')
         ->toContain('lang/en.json is missing')
         ->toContain('sampling-pallets.create_title');
 });

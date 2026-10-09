@@ -65,6 +65,29 @@ describe('StructureMarkers', function () {
         });
     });
 
+    describe('a resource route', function () {
+        it('widens the only() of a resource a route file registers, in resource order, and leaves one that covers every method', function () {
+            File::put(samplingMarkersRoot().'/routes/web.php', "<?php\n\nRoute::group(function () {\n    Route::resource('bins', \\App\\Http\\Controllers\\BinController::class)->only(['index', 'store'])->names('bins');\n    // kit:routes\n});\n");
+            $markers = new StructureMarkers(samplingMarkersRoot());
+            $line = "Route::resource('bins', \\App\\Http\\Controllers\\BinController::class)->only(['index', 'create', 'store', 'edit', 'update']);";
+
+            expect($markers->resourceMethods('BinController'))->toBe(['index', 'store'])
+                ->and($markers->insert(StructureMarkers::ROUTES, $line))->toBe(StructureMarkers::WIDENED)
+                ->and(File::get(samplingMarkersRoot().'/routes/web.php'))->toContain("->only(['index', 'create', 'store', 'edit', 'update'])->names('bins');\n    // kit:routes")
+                ->and($markers->resourceMethods('BinController'))->toBe(['index', 'create', 'store', 'edit', 'update'])
+                ->and($markers->insert(StructureMarkers::ROUTES, $line))->toBe(StructureMarkers::PRESENT);
+        });
+
+        it('reads a resource with no only() as every method, and leaves one an except() holds back to a person', function () {
+            File::put(samplingMarkersRoot().'/routes/web.php', "<?php\n\nRoute::resource('bins', BinController::class)->except(['destroy']);\n// kit:routes\n");
+            $markers = new StructureMarkers(samplingMarkersRoot());
+
+            expect($markers->resourceMethods('BinController'))->toBe(['index', 'create', 'store', 'show', 'edit', 'update'])
+                ->and($markers->insert(StructureMarkers::ROUTES, "Route::resource('bins', \\App\\Http\\Controllers\\BinController::class)->only(['index', 'destroy']);"))->toBe(StructureMarkers::BY_HAND)
+                ->and($markers->resourceMethods('OtherController'))->toBeNull();
+        });
+    });
+
     describe('contains and matches', function () {
         it('looks through every file the marker may sit in', function () {
             writeSamplingMarkersFile('routes/admin.php', "<?php\n\nRoute::resource('boxes', \\App\\Http\\Controllers\\BoxController::class);\n");

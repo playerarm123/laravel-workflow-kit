@@ -8,6 +8,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
+require_once __DIR__.'/../../../../../vendor/playerarm123/laravel-workflow-kit/tests/Architecture/Support/rules.php';
+
 /**
  * The cases every Eloquent repository must pass (repositories.md), registered
  * with their fixed titles so the workflow kit's tests/Architecture/RepositoriesTest can
@@ -116,9 +118,14 @@ function repositoryContract(
 
 /**
  * A `corrupt` hook for any aggregate: drop a column toEntity() needs, so the stored row can no
- * longer be rebuilt. The test database runs each test in a transaction, which takes the DDL back.
+ * longer be rebuilt. Postgres rolls the DDL back with the test's transaction. MySQL and MariaDB
+ * commit it at once, so the next test migrates the database fresh instead.
+ *
+ * A hook that writes no DDL is faster on those engines: update the row to a value toEntity()
+ * refuses, such as `DB::table($table)->update(['status' => 'unknown'])`.
  */
 function dropRepositoryContractColumn(string $table, string $column): void
 {
     Schema::table($table, fn (Blueprint $blueprint) => $blueprint->dropColumn($column));
+    ruleForgetSchemaAfterDdl();
 }

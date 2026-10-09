@@ -264,6 +264,17 @@ it('adds the missing types to an existing types file and keeps what it held', fu
         ->and(substr_count(File::get(resource_path('js/types/index.ts')), "export type * from './sampling-carton';"))->toBe(1);
 });
 
+it('puts the imports above a docblock that belongs to the first type, never between the two', function () {
+    $doc = "/**\n * @see App\\Http\\Requests\\SamplingCarton\\SamplingCartonFormValues\n */\nexport type SamplingCartonFormValues = {\n    label: string;\n};\n";
+    File::put(base_path(listPageGenerated()['types']), $doc);
+
+    runMakeListPage()->assertSuccessful();
+
+    expect(File::get(base_path(listPageGenerated()['types'])))
+        ->toStartWith("import type { DtQuery } from '@/hooks/use-data-table';\nimport type { DtFilters } from './data-table';\n")
+        ->toContain($doc);
+});
+
 it('never overwrites a page or toolbar that already exists', function () {
     File::ensureDirectoryExists(resource_path('js/pages/sampling-cartons'));
     File::put(base_path(listPageGenerated()['page']), 'hand written');

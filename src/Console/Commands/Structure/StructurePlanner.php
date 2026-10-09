@@ -299,7 +299,7 @@ final class StructurePlanner
                 $arguments['--creates'] = true;
             }
 
-            $repository = $this->ownRepository($entry['repositories']);
+            $repository = $entry['query'] ? null : $this->ownRepository($entry['repositories']);
 
             if ($repository !== null) {
                 $arguments['--repo'] = $repository;
@@ -508,12 +508,14 @@ final class StructurePlanner
                 default => null,
             }, 'make:controller', $arguments, ["controller:{$resource}"]);
 
+            $registered = $this->markers->resourceMethods("{$model}Controller");
             $steps[] = $this->routeStep(
                 sprintf("Route::resource('%s', \\%s::class)->only(['%s']);", $prefix, $controllerClass, implode("', '", $methods)),
                 '/Route::resource\\([^;]*\\b'.$model.'Controller::class/',
                 "route {$prefix}",
                 class_exists($controllerClass),
                 ["controller:{$resource}"],
+                $registered === null ? null : array_diff($methods, $registered) === [],
             );
         }
 
@@ -660,14 +662,16 @@ final class StructurePlanner
     }
 
     /**
-     * A route line, done once a route file registers its controller, whatever uri it chose.
+     * A route line, done once a route file registers its controller, whatever uri it chose. A
+     * resource route is done only when it registers every method the manifest lists
+     * (`$covers`); kit:apply widens its `only([...])` otherwise.
      *
      * @param  list<string>  $nodes
      * @return PlannedStep
      */
-    private function routeStep(string $line, string $registered, string $title, bool $ready, array $nodes): array
+    private function routeStep(string $line, string $registered, string $title, bool $ready, array $nodes, ?bool $covers = null): array
     {
-        $done = $this->markers->matches(StructureMarkers::ROUTES, $registered);
+        $done = $covers ?? $this->markers->matches(StructureMarkers::ROUTES, $registered);
 
         return [
             'order' => 14,

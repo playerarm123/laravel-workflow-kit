@@ -200,8 +200,10 @@ trait WritesGeneratedFiles
             $offset = $existing[0][1] + strlen($existing[0][0]);
         }
 
-        // With no import to sit beside, go below the file's header comment, not above it.
-        $offset ??= preg_match('#^\s*/\*.*?\*/\n#s', $contents, $header) === 1 ? strlen($header[0]) : 0;
+        // With no import to sit beside, go below the file's header comment, not above it. A comment
+        // the next line's declaration follows straight away is that declaration's doc, not a
+        // header, so the import goes above it and never splits the two.
+        $offset ??= preg_match('#^\s*/\*.*?\*/\n(?=[ \t]*\n)#s', $contents, $header) === 1 ? strlen($header[0]) : 0;
 
         return substr($contents, 0, $offset).$import."\n".substr($contents, $offset);
     }

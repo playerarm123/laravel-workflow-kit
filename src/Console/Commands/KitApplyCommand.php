@@ -86,6 +86,11 @@ class KitApplyCommand extends Command
                 if ($written === StructureMarkers::WRITTEN) {
                     $routes = $routes || $step['marker'] === StructureMarkers::ROUTES;
                     $this->components->info(sprintf('Wrote [%s] above %s in [%s].', $step['line'], $step['marker'], $markers->fileOf((string) $step['marker'])));
+                } elseif ($written === StructureMarkers::WIDENED) {
+                    $routes = true;
+                    $this->components->info(sprintf('Widened the existing Route::resource() to register every method of [%s].', $step['line']));
+                } elseif ($written === StructureMarkers::BY_HAND) {
+                    $this->components->warn(sprintf('The existing Route::resource() holds a method back with except(), so make it register every method by hand: %s', $step['line']));
                 } elseif ($written !== StructureMarkers::PRESENT) {
                     $this->components->warn(sprintf(
                         '%s %s, so place this line by hand: %s',

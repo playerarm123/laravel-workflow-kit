@@ -1,6 +1,8 @@
 <?php
 
 use Composer\InstalledVersions;
+use Illuminate\Foundation\Testing\RefreshDatabaseState;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Shared helpers for the rule tests under the workflow kit's tests/Architecture, which a
@@ -433,6 +435,41 @@ function rulePhpunitEnv(string $key): ?string
     }
 
     return null;
+}
+
+/**
+ * The tables of the database the default connection works in, by name.
+ *
+ * `Schema::getTables()` alone lists every schema the database user can see: on MySQL and
+ * MariaDB that is every database on the server, the project's own dev database included. The
+ * connection's current schema listing names the database on MySQL and MariaDB, and the
+ * search_path on Postgres.
+ *
+ * @return list<string>
+ */
+function ruleSchemaTables(): array
+{
+    return array_values(array_unique(array_column(
+        Schema::getTables(Schema::getCurrentSchemaListing()),
+        'name',
+    )));
+}
+
+/**
+ * Makes the next test build the database again after a test changed its schema, on an engine
+ * whose DDL does not roll back.
+ *
+ * RefreshDatabase wraps each test in a transaction. Postgres takes DDL back with it, but MySQL
+ * and MariaDB commit a `drop column` on the spot, so the next test would find the column gone.
+ * Forgetting that the database was migrated sends the next test through `migrate:fresh`.
+ */
+function ruleForgetSchemaAfterDdl(?string $driver = null): void
+{
+    $driver ??= Schema::getConnection()->getDriverName();
+
+    if (in_array($driver, ['mysql', 'mariadb'], true)) {
+        RefreshDatabaseState::$migrated = false;
+    }
 }
 
 /**

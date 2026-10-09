@@ -141,7 +141,7 @@ Name each file's helpers so no two files share one (`{aggregates}CreateActor`, `
 ### 4. Verify
 
 ```bash
-vendor/bin/pint --dirty --format agent
+vendor/bin/pint --dirty --format agent   # outside a git repository: vendor/bin/pint --format agent <files you touched>
 vendor/bin/phpstan analyse
 php artisan test --compact --testsuite=Architecture
 php artisan test --compact --filter={Aggregate}

@@ -1080,6 +1080,10 @@ final class StructureEditor
             $errors['query'][] = 'A list use case is named List{Name} and takes a Command and returns a Result (list-queries.md).';
         }
 
+        if ($entry['query'] === true && $entry['repositories'] !== []) {
+            $errors['repositories'][] = 'A list use case reads through its query port, never through a repository (list-queries.md).';
+        }
+
         /** @var list<string> $repositories */
         $repositories = $entry['repositories'];
 

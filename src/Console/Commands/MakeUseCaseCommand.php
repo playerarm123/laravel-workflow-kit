@@ -42,6 +42,12 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
             return self::FAILURE;
         }
 
+        if ($this->carriesQuery() && filled($this->option('repo'))) {
+            $this->components->error('A list reads through its query port and never through a repository, so it writes nothing and records no audit entry (list-queries.md). Drop --repo.');
+
+            return self::FAILURE;
+        }
+
         if ($this->option('result') && ! $this->option('command') && ! $this->carriesQuery()) {
             $this->components->error('A Result comes back only from a Command (handlers.md). Pass --command --result.');
 

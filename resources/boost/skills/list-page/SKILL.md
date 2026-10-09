@@ -114,7 +114,7 @@ The generators have already scaffolded the test files with `->todo()`. Write in 
 | `List{Aggregate}sHandlerTest` | default sort + no filter; a silent fallback for unknown values (sort/direction/filter/perPage); sorts by every value of the enum (dataset); desc; search (case-insensitive, escapes `%`/`_`, trims + echoes); each filter + echo; paging default 10 / every size / fallback; the row has every field; a flat envelope |
 | `EloquentList{Aggregate}sQueryTest` | calls `listQueryContract()` + resolves from the port; sorts on the real column for every sort key (dataset); paging links point at the current request |
 | `{Aggregate}Controller/IndexTest` | guest redirect to login; `assertInertia` `component('{aggregates}/index')` + `has('{aggregates}')` `has('sort')` `has('filters')` + `where('can.x', bool)` as a dataset of the users the policy answers differently |
-| `tests/Browser/{Aggregates}/IndexTest` | renders with no JS error or console log; what the browser computes itself (money/rate/date formatting, badges); searching or filtering in the toolbar keeps `sort`/`direction` on the URL; the empty + no-results states; the row buttons' dialogs |
+| `tests/Browser/{Aggregates}/IndexTest` | renders with no JS error or console log; what the browser computes itself (money/rate/date formatting, badges); searching or filtering in the toolbar keeps `sort`/`direction` on the URL; the empty state and the no-results state, one test each, because a second `visit()` in one Pest browser test does not show the second state; the row buttons' dialogs |
 | `{Aggregate}Controller/DestroyTest` | guest redirect + `assertModelExists`; a user who may delete: `->from(index)->delete()->assertRedirect(index)` + `assertInertiaFlash('toast.type', 'success')` / `toast.title` / `toast.message` + `assertModelMissing`; a user who may not: `assertForbidden` + `assertModelExists` |
 
 Name each file's helpers so no two files share one (`{aggregates}IndexActor`, `{aggregates}DestroyActor`). Pest shares one global namespace.
@@ -122,7 +122,7 @@ Name each file's helpers so no two files share one (`{aggregates}IndexActor`, `{
 ### 4. Verify
 
 ```bash
-vendor/bin/pint --dirty --format agent
+vendor/bin/pint --dirty --format agent   # outside a git repository: vendor/bin/pint --format agent <files you touched>
 vendor/bin/phpstan
 php artisan test --compact --filter={Aggregate}
 php artisan test --compact --testsuite=Architecture

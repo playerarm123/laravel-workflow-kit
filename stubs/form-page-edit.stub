@@ -28,7 +28,7 @@ export default function Edit({ {{ variable }}, defaults }: Props) {
                     />
 
                     <Button variant="outline" asChild>
-                        <Link href={show({{ variable }})}>
+                        <Link href={{{ back }}}>
                             <ArrowLeft className="size-4" />
                             {t('common.back')}
                         </Link>
@@ -39,7 +39,7 @@ export default function Edit({ {{ variable }}, defaults }: Props) {
                     action={ {{ subject }}Controller.update.form({{ variable }})}
                     defaults={defaults}
                     submitLabel={t('common.save')}
-                    cancelHref={show({{ variable }})}
+                    cancelHref={{{ back }}}
                 />
             </div>
         </>

@@ -195,6 +195,7 @@ describe('StructureEditor', function () {
             'a Command and Result use case returning void' => ['useCases', 'PackPallet', ['shape' => 'command-result', 'returns' => 'void'], 'returns'],
             'a Command use case returning a Result' => ['useCases', 'PackPallet', ['shape' => 'command', 'returns' => 'result'], 'returns'],
             'a query not named List' => ['useCases', 'PackPallet', ['shape' => 'command-result', 'returns' => 'result', 'query' => true], 'query'],
+            'a list that injects a repository' => ['useCases', 'ListPallets', ['shape' => 'command-result', 'returns' => 'result', 'query' => true, 'repositories' => ['Pallet']], 'repositories'],
             'a repository another context lacks' => ['useCases', 'PackPallet', ['shape' => 'plain', 'returns' => 'void', 'repositories' => [SAMPLING_EDIT_OTHER.'/Lid']], 'repositories'],
         ]);
 
