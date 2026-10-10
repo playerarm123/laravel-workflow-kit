@@ -283,7 +283,7 @@ describe('OpenCrateService', function () {
 
 ## 8. บนหน้าจอ structure
 
-เลือก **Add ▸ Domain service** ใน context ([structure-screen.th.md](structure-screen.th.md)) ฟอร์มรับรูปแบบ aggregate ที่ service แบบ Creates สร้าง ว่ามี exception ของตัวเองหรือไม่ และ repository ที่ inject จากนั้น `kit:apply` จะรัน `make:domain-service` พร้อม flag ที่ตรงกัน มันส่ง `--repo` ให้เฉพาะ repository ตัวแรกของ context เดียวกับ service และไม่ส่งให้ service แบบ Creates เลย repository ตัวอื่นต้องเพิ่มเข้า constructor เอง ระหว่างที่ยังไม่ได้เพิ่ม `structure:matches` จะบอกไว้
+เลือก **Add ▸ Domain service** ใน context ([structure-screen.th.md](structure-screen.th.md)) ฟอร์มรับรูปแบบ aggregate ที่ service แบบ Creates สร้าง ว่ามี exception ของตัวเองหรือไม่ และ repository ที่ inject จากนั้น `kit:apply` จะรัน `make:domain-service` พร้อม flag ที่ตรงกัน มันส่ง `--repo` ให้เฉพาะ repository ตัวแรกของ context เดียวกับ service ไม่ว่า service จะเป็นรูปแบบไหน repository ตัวอื่นต้องเพิ่มเข้า constructor เอง ระหว่างที่ยังไม่ได้เพิ่ม `structure:matches` จะบอกไว้
 
 ## เช็คลิสต์
 

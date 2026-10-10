@@ -283,7 +283,7 @@ Then:
 
 ## 8. On the structure screen
 
-Choose **Add ▸ Domain service** in a context ([structure-screen.md](structure-screen.md)). The form takes the shape, the aggregate a Creates service builds, whether it has its own exception and the repositories it injects. `kit:apply` then runs `make:domain-service` with the matching flags. It passes `--repo` for the first repository of the service's own context, and none to a Creates service, so add any other repository to the constructor by hand. Until you do, `structure:matches` names it.
+Choose **Add ▸ Domain service** in a context ([structure-screen.md](structure-screen.md)). The form takes the shape, the aggregate a Creates service builds, whether it has its own exception and the repositories it injects. `kit:apply` then runs `make:domain-service` with the matching flags. It passes `--repo` for the first repository of the service's own context, whatever the shape, so add any other repository to the constructor by hand. Until you do, `structure:matches` names it.
 
 ## Checklist
 

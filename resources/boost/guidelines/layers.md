@@ -82,7 +82,7 @@ php artisan make:domain-service {Name} --domain={Context} (--creates={Aggregate}
 | `--exception` | `{Name}Exception` beside the service, extending `DomainException` (exceptions.md) |
 | `--force` | the service again over one that exists |
 
-`--repo` takes one repository. Add a second one of the same context to the constructor by hand. `kit:apply` passes the first repository of the service's own context that `services.{Name}.repositories` lists, and none to a Creates service, so `matches` names a repository the manifest lists and the constructor lacks until it is added (structure.md).
+`--repo` takes one repository. Add a second one of the same context to the constructor by hand. `kit:apply` passes the first repository of the service's own context that `services.{Name}.repositories` lists, whatever the shape, so `matches` names any other repository the manifest lists and the constructor lacks until it is added (structure.md).
 
 Until a person writes `handle()`, its body is `throw new LogicException('{Name}Service::handle() is not implemented yet.');`. That one throw is allowed in the domain (exceptions.md, *check `domain-throws`*), and `kit:apply` waits on the same text before it swaps in a service that replaces another (structure.md). Its test starts as one todo. *Review only.*
 

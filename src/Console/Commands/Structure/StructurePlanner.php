@@ -263,7 +263,7 @@ final class StructurePlanner
 
             $repository = $this->ownRepository($entry['repositories']);
 
-            if ($repository !== null && $entry['shape'] !== 'creates') {
+            if ($repository !== null) {
                 $arguments['--repo'] = $repository;
             }
 

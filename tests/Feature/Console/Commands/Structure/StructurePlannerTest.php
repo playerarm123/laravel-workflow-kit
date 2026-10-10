@@ -53,6 +53,7 @@ function writeSamplingPlanFixtures(): void
         ],
         'services' => [
             'PackSack' => ['shape' => 'creates', 'creates' => 'Sack', 'repositories' => ['Sack']],
+            'SortSack' => ['shape' => 'creates', 'creates' => 'Sack', 'repositories' => ['Elsewhere/Bin']],
             'WeighSack' => ['shape' => 'plain', 'creates' => null, 'repositories' => ['Sack'], 'exception' => true],
         ],
         'ports' => [
@@ -249,7 +250,8 @@ describe('StructurePlanner', function () {
             $domain = SAMPLING_PLAN_CONTEXT;
 
             expect($steps["port {$domain}/Weigher"][1])->toBe("php artisan make:port Weigher --domain={$domain} --adapter=Digital --infra=Scales")
-                ->and($steps["service {$domain}/PackSack"][1])->toBe("php artisan make:domain-service PackSack --domain={$domain} --creates=Sack")
+                ->and($steps["service {$domain}/PackSack"][1])->toBe("php artisan make:domain-service PackSack --domain={$domain} --creates=Sack --repo=Sack")
+                ->and($steps["service {$domain}/SortSack"][1])->toBe("php artisan make:domain-service SortSack --domain={$domain} --creates=Sack")
                 ->and($steps["service {$domain}/WeighSack"][1])->toBe("php artisan make:domain-service WeighSack --domain={$domain} --plain --repo=Sack --exception")
                 ->and($steps["use case {$domain}/ShipSack"][1])->toBe("php artisan make:use-case ShipSack --domain={$domain} --command --result --creates --repo=Sack")
                 ->and($steps["use case {$domain}/TidySacks"][1])->toBe("php artisan make:use-case TidySacks --domain={$domain} --plain")
