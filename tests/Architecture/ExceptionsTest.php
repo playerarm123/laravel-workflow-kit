@@ -25,6 +25,7 @@ require_once __DIR__.'/Support/rules.php';
  *     uncatchable: list<class-string>,
  *     domain: string,
  *     domain_base: class-string,
+ *     domain_placeholder: array{class: string, ends_with: string},
  *     context_bases: list<class-string>,
  *     refusal_home: string,
  *     refusal_base: string,
@@ -92,6 +93,9 @@ function exceptionsSpec(): array
         ],
         'domain' => 'app/Domain',
         'domain_base' => 'App\Domain\Shared\DomainException',
+        // What make:domain-service writes into handle() until a person writes it. The planner waits
+        // on the same text (StructurePlanner, structure.md), so domain-throws lets it stand.
+        'domain_placeholder' => ['class' => 'LogicException', 'ends_with' => '::handle() is not implemented yet.'],
         'context_bases' => ['App\Domain\Shared\DomainException', 'App\Application\ApplicationException'],
         'refusal_home' => '#^app/Domain/(?!Shared/)([^/]+)/[^/]+/Exceptions/[^/]+\.php$#',
         'refusal_base' => 'App\Domain\%1$s\Exceptions\%1$sDomainException',
@@ -144,6 +148,28 @@ function exceptionsTokens(string $file): array
         token_get_all((string) file_get_contents(ruleProjectPath($file))),
         fn (array|string $token): bool => ! is_array($token) || ! in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true),
     ));
+}
+
+/**
+ * Whether the throw at `$index` is the placeholder make:domain-service writes into `handle()`:
+ * `throw new LogicException('{Name}Service::handle() is not implemented yet.')`, with nothing
+ * else in the call. Any other LogicException stays a violation of domain-throws.
+ *
+ * @param  list<array{0: int, 1: string, 2: int}|string>  $tokens  without whitespace and comments
+ */
+function exceptionsIsServicePlaceholder(array $tokens, int $index): bool
+{
+    $placeholder = exceptionsSpec()['domain_placeholder'];
+    $new = $tokens[$index + 1] ?? null;
+    $class = $tokens[$index + 2] ?? null;
+    $message = $tokens[$index + 4] ?? null;
+
+    return is_array($new) && $new[0] === T_NEW
+        && is_array($class) && ltrim($class[1], '\\') === $placeholder['class']
+        && ($tokens[$index + 3] ?? null) === '('
+        && is_array($message) && $message[0] === T_CONSTANT_ENCAPSED_STRING
+        && str_ends_with(substr($message[1], 1, -1), $placeholder['ends_with'])
+        && ($tokens[$index + 5] ?? null) === ')';
 }
 
 /**
@@ -566,7 +592,7 @@ describe('exceptions', function () {
             $self = ruleClassOf($file);
 
             foreach ($tokens as $index => $token) {
-                if (! is_array($token) || $token[0] !== T_THROW) {
+                if (! is_array($token) || $token[0] !== T_THROW || exceptionsIsServicePlaceholder($tokens, $index)) {
                     continue;
                 }
 
@@ -592,6 +618,32 @@ describe('exceptions', function () {
         }
 
         expect(ruleUnexcused('exceptions', 'domain-throws', $violations))->toBe([]);
+    });
+
+    it('lets a scaffolded domain service keep its placeholder until handle() is written, and nothing else', function () {
+        $throws = function (string $code): array {
+            $tokens = array_values(array_filter(
+                token_get_all("<?php\n".$code),
+                fn (array|string $token): bool => ! is_array($token) || ! in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true),
+            ));
+            $found = [];
+
+            foreach ($tokens as $index => $token) {
+                if (is_array($token) && $token[0] === T_THROW) {
+                    $found[] = exceptionsIsServicePlaceholder($tokens, $index);
+                }
+            }
+
+            return $found;
+        };
+
+        expect($throws("throw new LogicException('PackCrateService::handle() is not implemented yet.');"))->toBe([true])
+            ->and($throws('throw new \\LogicException("PackCrateService::handle() is not implemented yet.");'))->toBe([true])
+            ->and($throws("throw new LogicException('PackCrateService::pack() is not implemented yet.');"))->toBe([false])
+            ->and($throws("throw new LogicException('Crates cannot be packed.');"))->toBe([false])
+            ->and($throws("throw new RuntimeException('PackCrateService::handle() is not implemented yet.');"))->toBe([false])
+            ->and($throws("throw new LogicException('PackCrateService::handle() is not implemented yet.', 0, \$previous);"))->toBe([false])
+            ->and($throws('throw CrateFullException::full($id);'))->toBe([false]);
     });
 
     it('roots every refusal of an aggregate in its context\'s base', function () {

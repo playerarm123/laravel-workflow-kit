@@ -103,6 +103,7 @@ function contextGroups(
                         previous: null,
                     },
                 },
+                piece('services', 'Domain service', 'service'),
                 piece('exceptions', 'Exception', 'exception'),
             ],
         },
@@ -117,7 +118,6 @@ function contextGroups(
             label: 'Application',
             items: [
                 piece('useCases', 'Use case', 'useCase'),
-                piece('services', 'Domain service', 'service'),
                 piece('ports', 'Port', 'port'),
             ],
         },

@@ -274,8 +274,10 @@ describe('testing', function () {
                 continue;
             }
 
+            $reachesRepository = str_ends_with($subject, testingSpec()['service_suffix']) && str_starts_with($test, 'tests/Feature/');
+
             $violations[] = ['subject' => $subject, 'message' => $elsewhere !== null && is_file(ruleProjectPath($elsewhere))
-                ? sprintf('is tested in %s — move it to %s', $elsewhere, $test)
+                ? sprintf('is tested in %s — move it to %s%s', $elsewhere, $test, $reachesRepository ? ', because the service now reaches a repository, directly or through another service, and resolve it from the container there' : '')
                 : sprintf('has no %s', $test)];
         }
 

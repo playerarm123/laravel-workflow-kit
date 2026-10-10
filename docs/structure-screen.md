@@ -306,7 +306,7 @@ At the bottom, **By hand (N)** lists every difference between the code and the m
 The header's menus offer the forms of the current view:
 
 - **Overview:** **New ▸** Context, HTTP resource.
-- **Context:** **Add ▸** Domain (Aggregate, Entity method, Exception), Vocabulary (Enum, Value object), Application (Use case, Domain service, Port); **View ▸** the Vocabulary, Behaviour and Exceptions switches.
+- **Context:** **Add ▸** Domain (Aggregate, Entity method, Domain service, Exception), Vocabulary (Enum, Value object), Application (Use case, Port); **View ▸** the Vocabulary, Behaviour and Exceptions switches.
 - **Shared kernel:** **Add ▸** Enum, Value object, Invalid value.
 - **HTTP resource:** **Add ▸** Controller method, Action, Page; the gear opens Model and policy.
 - **Every view:** **?** opens the Guide and the Docs.
@@ -321,7 +321,7 @@ The header's menus offer the forms of the current view:
 |---|---|---|
 | Aggregate | Name; Child entities, separated by commas; Repository | A child repeats the root. A child that still has methods is removed. Repository is unticked while something injects it. |
 | Child entities (in the panel of any aggregate card) | A new child's name under the table, then its **+**; the bin icon in the row of a child not built yet | The name is not StudlyCase or is the root's. The aggregate already lists it, or the code already has it (sync it instead). A child that has methods, or that the code has, cannot be removed. |
-| Domain service | Name; Shape of handle(): `creates`, `data` or `plain`; Builds the aggregate (for `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | A repository, or the aggregate it builds, is in another context ([layers.md](../resources/boost/guidelines/layers.md)). |
+| Domain service | Name; Shape of handle(): `creates`, `data` or `plain`; Builds the aggregate (for `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | A repository, or the aggregate it builds, is in another context ([layers.md](../resources/boost/guidelines/layers.md)). When to design one, and the code it becomes: [domain-services.md](domain-services.md). |
 | Port | Name; Layer: `domain` or `application`; Adapter, as `Infra/{Folder}/{Prefix}{Port}` (optional) | The adapter is not in that form. |
 | Use case | Name; Shape of __invoke(): `command-result`, `command` or `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (from any context) | A Command shape returns something other than `void`, `string`, `int` or `result` ([handlers.md](../resources/boost/guidelines/handlers.md)). A list is not `List{Name}` with `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)). A repository does not exist. |
 | Enum | Name; Aggregate; Backing: `string`, `int` or `pure`; A status: each case lists the cases it may become; Cases, in order | Cases are not TitleCase, or two share a value. A status is not named `*Status`, or no case may become another ([states.md](../resources/boost/guidelines/states.md)). |

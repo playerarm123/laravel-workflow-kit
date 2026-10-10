@@ -103,7 +103,7 @@ try {
 
 **Do** end every catch in `app/Domain` and `app/Application` with `throw`. Either clean up and rethrow (delete the files a failed write left), or translate a library's exception into the domain's own exception. *Check `swallow`.*
 
-**Do** throw only subclasses of `DomainException` from `app/Domain`. `throw $e` inside a catch is a rethrow and counts as one. *Check `domain-throws`.*
+**Do** throw only subclasses of `DomainException` from `app/Domain`. `throw $e` inside a catch is a rethrow and counts as one. The one other throw allowed is the placeholder `make:domain-service` writes into a new service, `throw new LogicException('{Name}Service::handle() is not implemented yet.')`, until a person writes `handle()` (layers.md). *Check `domain-throws`.*
 
 **Why:** a handler that swallows an exception reports success for work that did not happen. A raw `InvalidArgumentException` from a value object cannot be told apart from PHP's own, so no caller can catch it by reason.
 

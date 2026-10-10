@@ -306,7 +306,7 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 เมนูบนแถบด้านบนเปิดฟอร์มตามมุมมองที่อยู่:
 
 - **ภาพรวม:** **New ▸** Context, HTTP resource
-- **Context:** **Add ▸** Domain (Aggregate, Entity method, Exception), Vocabulary (Enum, Value object), Application (Use case, Domain service, Port) และ **View ▸** สวิตช์ Vocabulary, Behaviour กับ Exceptions
+- **Context:** **Add ▸** Domain (Aggregate, Entity method, Domain service, Exception), Vocabulary (Enum, Value object), Application (Use case, Port) และ **View ▸** สวิตช์ Vocabulary, Behaviour กับ Exceptions
 - **Shared kernel:** **Add ▸** Enum, Value object, Invalid value
 - **HTTP resource:** **Add ▸** Controller method, Action, Page และไอคอนเฟืองเปิด Model and policy
 - **ทุกมุมมอง:** **?** เปิด Guide และ Docs
@@ -321,7 +321,7 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 |---|---|---|
 | Aggregate | Name; Child entities, separated by commas; Repository | child ซ้ำกับ root, ลบ child ที่ยังมี method อยู่, เอาติ๊ก Repository ออกขณะที่ยังมีชิ้นอื่น inject อยู่ |
 | Child entities (ใน panel ของการ์ด aggregate ทุกใบ) | ชื่อ child ใหม่ใต้ตาราง แล้วกด **+**; ไอคอนถังขยะในแถวของ child ที่ยังไม่สร้าง | ชื่อไม่เป็น StudlyCase หรือซ้ำกับ root, aggregate มี child ชื่อนี้แล้ว หรือโค้ดมีแล้ว (ให้ sync แทน), ลบ child ที่มี method หรือที่โค้ดมีแล้ว |
-| Domain service | Name; Shape of handle(): `creates`, `data` หรือ `plain`; Builds the aggregate (สำหรับ `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | repository หรือ aggregate ที่มันสร้างอยู่คนละ context ([layers.md](../resources/boost/guidelines/layers.md)) |
+| Domain service | Name; Shape of handle(): `creates`, `data` หรือ `plain`; Builds the aggregate (สำหรับ `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | repository หรือ aggregate ที่มันสร้างอยู่คนละ context ([layers.md](../resources/boost/guidelines/layers.md)) ควรออกแบบเมื่อไหร่และกลายเป็นโค้ดแบบไหน ดู [domain-services.th.md](domain-services.th.md) |
 | Port | Name; Layer: `domain` หรือ `application`; Adapter ในรูป `Infra/{Folder}/{Prefix}{Port}` (ไม่ใส่ก็ได้) | adapter ไม่อยู่ในรูปนั้น |
 | Use case | Name; Shape of __invoke(): `command-result`, `command` หรือ `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (เลือกจาก context ไหนก็ได้) | shape ที่รับ Command คืนค่าอื่นที่ไม่ใช่ `void`, `string`, `int` หรือ `result` ([handlers.md](../resources/boost/guidelines/handlers.md)), use case แบบรายการไม่ได้ชื่อ `List{Name}` คู่กับ `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)), repository ไม่มีอยู่จริง |
 | Enum | Name; Aggregate; Backing: `string`, `int` หรือ `pure`; A status: each case lists the cases it may become; Cases, in order | case ไม่เป็น TitleCase หรือมีค่าซ้ำกัน, status ไม่ได้ชื่อ `*Status` หรือไม่มี case ไหนเปลี่ยนไปเป็น case อื่นได้เลย ([states.md](../resources/boost/guidelines/states.md)) |
