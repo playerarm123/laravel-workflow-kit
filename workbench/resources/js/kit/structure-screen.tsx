@@ -1,40 +1,45 @@
-import { useHttp } from '@inertiajs/react';
-import { Background, Controls, MiniMap, ReactFlow } from '@xyflow/react';
-import { useState, useSyncExternalStore } from 'react';
-import type { FormEvent } from 'react';
-import InputError from '@/components/input-error';
 import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
-import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+    Background,
+    Controls,
+    MiniMap,
+    ReactFlow,
+    useReactFlow,
+} from '@xyflow/react';
+import { ArrowUpRight, Copy, Pencil, Replace, Settings2 } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { toast } from 'sonner';
 import { ContextForm } from '@/kit/context-form';
 import { ExceptionForm } from '@/kit/exception-form';
-import { layoutView, withoutKinds } from '@/kit/layout';
+import { layoutView, NODE_WIDTH, withoutKinds } from '@/kit/layout';
 import { Legend } from '@/kit/legend';
-import { MethodForm, methodOf } from '@/kit/method-form';
-import { PieceForm, SECTION_LABELS } from '@/kit/piece-form';
+import { MethodForm } from '@/kit/method-form';
+import { styleOf } from '@/kit/node-styles';
+import {
+    AggregateChildren,
+    ByHand,
+    ChildOf,
+    ControllerMethods,
+    endpointFor,
+    EntityMethods,
+    EntityState,
+    RemoveButton,
+    SyncButton,
+} from '@/kit/panel-sections';
+import type { Changed, Editing } from '@/kit/panel-sections';
+import {
+    IconAction,
+    PanelRow,
+    PanelSection,
+    PanelTable,
+} from '@/kit/panel-table';
+import { PieceForm } from '@/kit/piece-form';
 import { CancelReplacementButton, ReplaceForm } from '@/kit/replace-form';
 import { NewResourceForm, ResourceSettingsForm } from '@/kit/resource-form';
-import {
-    RESOURCE_SECTION_LABELS,
-    ResourcePieceForm,
-} from '@/kit/resource-piece-form';
+import { ResourcePieceForm } from '@/kit/resource-piece-form';
 import { StateForm } from '@/kit/state-form';
 import { KIND_LABELS, StatusBadge, StructureNode } from '@/kit/structure-node';
+import { StructureToolbar } from '@/kit/structure-toolbar';
 import type {
     ReplaceableSection,
     ResourceSection,
@@ -50,6 +55,8 @@ import type {
 import { VocabularyForm } from '@/kit/vocabulary-form';
 
 const NODE_TYPES = { structure: StructureNode };
+
+const FIT_VIEW = { minZoom: 0.5, maxZoom: 1 };
 
 const CONTEXT_SECTIONS: Partial<Record<StructureNodeKind, StructureSection>> = {
     aggregate: 'aggregates',
@@ -67,55 +74,10 @@ const CONTEXT_SECTIONS: Partial<Record<StructureNodeKind, StructureSection>> = {
  */
 const SHARED = 'Shared';
 
-const SHARED_SECTIONS: StructureSection[] = [
-    'enums',
-    'valueObjects',
-    'exceptions',
-];
-
 const RESOURCE_SECTIONS: Partial<Record<StructureNodeKind, ResourceSection>> = {
     action: 'actions',
     page: 'pages',
 };
-
-/**
- * What the side panel edits: a piece of the context or resource open now, the resource's
- * settings, or a new context or resource.
- */
-type Editing =
-    | {
-          kind: 'piece';
-          context: string;
-          section: StructureSection;
-          previous: string | null;
-      }
-    | {
-          kind: 'resource-piece';
-          resource: string;
-          section: ResourceSection;
-          previous: string | null;
-      }
-    | { kind: 'resource-settings'; resource: string }
-    | { kind: 'context' }
-    | { kind: 'resource' }
-    | {
-          kind: 'replace';
-          context: string;
-          section: ReplaceableSection;
-          name: string;
-      }
-    | {
-          kind: 'method';
-          context: string;
-          entity: string | null;
-          previous: string | null;
-      }
-    | {
-          kind: 'state';
-          context: string;
-          entity: string;
-          previous: string | null;
-      };
 
 function subscribeToHash(onChange: () => void): () => void {
     window.addEventListener('hashchange', onChange);
@@ -168,6 +130,7 @@ function belongsHere(editing: Editing, place: StructureTarget | null): boolean {
         case 'piece':
         case 'replace':
         case 'method':
+        case 'state':
             return place?.view === 'context' && place.name === editing.context;
         case 'resource-piece':
         case 'resource-settings':
@@ -209,7 +172,9 @@ function useRememberedSwitch(name: string): [boolean, (on: boolean) => void] {
 /**
  * The structure manifest as a diagram: the whole project, then one context or HTTP resource at a
  * time. Every node, edge and status comes from StructureGraph. The pieces the code does not have
- * yet are changed through the side panel, and each change answers with the graph again.
+ * yet are changed through the side panel, and each change answers with the graph again, which
+ * the screen swaps in where it stands: the cards keep their places, the card in hand stays
+ * selected, and a card the change adds is selected and brought into view.
  */
 export function StructureScreen({ payload }: { payload: StructurePayload }) {
     const [graph, setGraph] = useState(payload.graph);
@@ -220,6 +185,8 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
     const [showBehaviour, setShowBehaviour] = useRememberedSwitch('behaviour');
     const [showExceptions, setShowExceptions] =
         useRememberedSwitch('exceptions');
+    const flow = useReactFlow();
+    const focus = useRef<string | null>(null);
     const hash = useSyncExternalStore(
         subscribeToHash,
         () => window.location.hash,
@@ -227,201 +194,115 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
     );
     const place = placeOf(hash);
     const context = place?.view === 'context' ? place.name : null;
+    const resource = place?.view === 'resource' ? place.name : null;
     const shared = context === SHARED;
     const fullView = viewOf(graph, place);
-    const hidden: StructureNodeKind[] =
+    const hidden = (
         context === null || shared
             ? []
             : [
-                  ...(showVocabulary
-                      ? []
-                      : (['enum', 'valueObject'] as StructureNodeKind[])),
-                  ...(showBehaviour ? [] : (['entity'] as StructureNodeKind[])),
-                  ...(showExceptions
-                      ? []
-                      : (['exception'] as StructureNodeKind[])),
-              ];
-    const view = withoutKinds(fullView, hidden);
-    const { nodes, edges } = layoutView(view);
+                  ...(showVocabulary ? [] : ['enum', 'valueObject']),
+                  ...(showBehaviour ? [] : ['entity']),
+                  ...(showExceptions ? [] : ['exception']),
+              ]
+    ).join(',');
+    const view = withoutKinds(
+        fullView,
+        hidden === '' ? [] : (hidden.split(',') as StructureNodeKind[]),
+    );
+    const { nodes, edges } = layoutView(view, `${hash}|${hidden}`);
     const selected = view.nodes.find((node) => node.id === selectedId) ?? null;
-    const resource = place?.view === 'resource' ? place.name : null;
     const panel =
         editing !== null && belongsHere(editing, place) ? editing : null;
     const endpoints = payload.endpoints;
 
-    const saved = (next: StructureGraph) => {
+    useEffect(() => {
+        const id = focus.current;
+
+        if (id === null) {
+            return;
+        }
+
+        focus.current = null;
+        const node = nodes.find((candidate) => candidate.id === id);
+
+        if (node !== undefined) {
+            void flow.setCenter(
+                node.position.x + NODE_WIDTH / 2,
+                node.position.y + (node.height ?? 0) / 2,
+                { zoom: flow.getZoom(), duration: 300 },
+            );
+        }
+    }, [nodes, flow]);
+
+    /**
+     * Swaps in the graph a change answered with, closes the form, and says what happened. The
+     * selection stays. After a form adds a card to the view open now, that card is selected and
+     * brought into view; a change made inside the panel (a child, a row removed) leaves the
+     * panel on the card it was made from.
+     */
+    const changed = (
+        next: StructureGraph,
+        message: string,
+        follow: boolean,
+    ) => {
+        const before = new Set(fullView.nodes.map((node) => node.id));
+        const added = follow
+            ? viewOf(next, place).nodes.find(
+                  (node) => !before.has(node.id) && node.kind !== 'external',
+              )
+            : undefined;
+
         setGraph(next);
         setEditing(null);
+
+        if (added !== undefined) {
+            setSelectedId(added.id);
+            focus.current = added.id;
+        }
+
+        toast.success(message);
     };
+
+    const changedHere: Changed = (next, message) =>
+        changed(next, message, false);
+
+    const saved = (next: StructureGraph, name?: string) =>
+        changed(next, name === undefined ? 'Saved' : `Saved ${name}`, true);
+
+    const switches =
+        context === null || shared
+            ? []
+            : [
+                  {
+                      label: 'Vocabulary',
+                      icon: 'enum' as const,
+                      on: showVocabulary,
+                      set: setShowVocabulary,
+                  },
+                  {
+                      label: 'Behaviour',
+                      icon: 'entity' as const,
+                      on: showBehaviour,
+                      set: setShowBehaviour,
+                  },
+                  {
+                      label: 'Exceptions',
+                      icon: 'exception' as const,
+                      on: showExceptions,
+                      set: setShowExceptions,
+                  },
+              ];
 
     return (
         <div className="flex h-screen flex-col bg-background text-foreground">
-            <header className="flex items-center justify-between gap-4 border-b px-4 py-3">
-                <Breadcrumb>
-                    <BreadcrumbList>
-                        <BreadcrumbItem>
-                            {place === null ? (
-                                <BreadcrumbPage>Structure</BreadcrumbPage>
-                            ) : (
-                                <BreadcrumbLink href="#">
-                                    Structure
-                                </BreadcrumbLink>
-                            )}
-                        </BreadcrumbItem>
-                        {place !== null && (
-                            <>
-                                <BreadcrumbSeparator />
-                                <BreadcrumbItem>
-                                    <BreadcrumbPage>
-                                        {place.view === 'context'
-                                            ? 'Context'
-                                            : 'HTTP resource'}{' '}
-                                        {place.name}
-                                    </BreadcrumbPage>
-                                </BreadcrumbItem>
-                            </>
-                        )}
-                    </BreadcrumbList>
-                </Breadcrumb>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                    <a
-                        href={endpoints.guide}
-                        className="text-sm text-muted-foreground hover:text-foreground"
-                    >
-                        Guide
-                    </a>
-                    <a
-                        href={endpoints.docs}
-                        className="mr-2 text-sm text-muted-foreground hover:text-foreground"
-                    >
-                        Docs
-                    </a>
-                    {place === null && (
-                        <>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setEditing({ kind: 'context' })}
-                            >
-                                New context
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setEditing({ kind: 'resource' })}
-                            >
-                                New HTTP resource
-                            </Button>
-                        </>
-                    )}
-                    {context !== null && !shared && (
-                        <Button
-                            size="sm"
-                            variant={showVocabulary ? 'secondary' : 'outline'}
-                            aria-pressed={showVocabulary}
-                            onClick={() => setShowVocabulary(!showVocabulary)}
-                        >
-                            Vocabulary
-                        </Button>
-                    )}
-                    {context !== null && !shared && (
-                        <Button
-                            size="sm"
-                            variant={showBehaviour ? 'secondary' : 'outline'}
-                            aria-pressed={showBehaviour}
-                            onClick={() => setShowBehaviour(!showBehaviour)}
-                        >
-                            Behaviour
-                        </Button>
-                    )}
-                    {context !== null && !shared && (
-                        <Button
-                            size="sm"
-                            variant={showExceptions ? 'secondary' : 'outline'}
-                            aria-pressed={showExceptions}
-                            onClick={() => setShowExceptions(!showExceptions)}
-                        >
-                            Exceptions
-                        </Button>
-                    )}
-                    {context !== null &&
-                        (shared
-                            ? SHARED_SECTIONS
-                            : (Object.keys(
-                                  SECTION_LABELS,
-                              ) as StructureSection[])
-                        ).map((section) => (
-                            <Button
-                                key={section}
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                    setEditing({
-                                        kind: 'piece',
-                                        context,
-                                        section,
-                                        previous: null,
-                                    })
-                                }
-                            >
-                                Add {SECTION_LABELS[section]}
-                            </Button>
-                        ))}
-                    {context !== null && !shared && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                                setEditing({
-                                    kind: 'method',
-                                    context,
-                                    entity: null,
-                                    previous: null,
-                                })
-                            }
-                        >
-                            Add method
-                        </Button>
-                    )}
-                    {resource !== null && (
-                        <>
-                            {(
-                                Object.keys(
-                                    RESOURCE_SECTION_LABELS,
-                                ) as ResourceSection[]
-                            ).map((section) => (
-                                <Button
-                                    key={section}
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() =>
-                                        setEditing({
-                                            kind: 'resource-piece',
-                                            resource,
-                                            section,
-                                            previous: null,
-                                        })
-                                    }
-                                >
-                                    Add {RESOURCE_SECTION_LABELS[section]}
-                                </Button>
-                            ))}
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                    setEditing({
-                                        kind: 'resource-settings',
-                                        resource,
-                                    })
-                                }
-                            >
-                                Model and policy
-                            </Button>
-                        </>
-                    )}
-                </div>
-            </header>
+            <StructureToolbar
+                place={place}
+                shared={shared}
+                endpoints={endpoints}
+                switches={switches}
+                onEdit={setEditing}
+            />
             <div className="flex min-h-0 flex-1">
                 <main className="min-w-0 flex-1">
                     <ReactFlow
@@ -433,7 +314,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                         nodesConnectable={false}
                         colorMode="system"
                         fitView
-                        fitViewOptions={{ minZoom: 0.5, maxZoom: 1 }}
+                        fitViewOptions={FIT_VIEW}
                         zoomOnDoubleClick={false}
                         minZoom={0.1}
                         onNodeClick={(_, node) => setSelectedId(node.id)}
@@ -453,7 +334,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                         <ContextForm
                             endpoints={endpoints}
                             onSaved={(next, name) => {
-                                saved(next);
+                                saved(next, name);
                                 open({ view: 'context', name });
                             }}
                             onCancel={() => setEditing(null)}
@@ -463,7 +344,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                         <NewResourceForm
                             endpoints={endpoints}
                             onSaved={(next, name) => {
-                                saved(next);
+                                saved(next, name);
                                 open({ view: 'resource', name });
                             }}
                             onCancel={() => setEditing(null)}
@@ -479,9 +360,9 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                                 context={panel.context}
                                 section={panel.section}
                                 previous={panel.previous}
-                                onSaved={(next) => {
+                                onSaved={(next, name) => {
                                     setShowVocabulary(true);
-                                    saved(next);
+                                    saved(next, name);
                                 }}
                                 onCancel={() => setEditing(null)}
                             />
@@ -494,9 +375,9 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                                 endpoints={endpoints}
                                 context={panel.context}
                                 previous={panel.previous}
-                                onSaved={(next) => {
+                                onSaved={(next, name) => {
                                     setShowExceptions(true);
-                                    saved(next);
+                                    saved(next, name);
                                 }}
                                 onCancel={() => setEditing(null)}
                             />
@@ -512,7 +393,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                                 context={panel.context}
                                 section={panel.section}
                                 previous={panel.previous}
-                                onSaved={(next) => saved(next)}
+                                onSaved={saved}
                                 onCancel={() => setEditing(null)}
                             />
                         )}
@@ -593,14 +474,15 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                                 context={context}
                                 resource={resource}
                                 onEdit={setEditing}
-                                onRemoved={(next) => {
+                                onRemoved={(next, message) => {
                                     setSelectedId(null);
-                                    saved(next);
+                                    changedHere(next, message);
                                 }}
-                                onChanged={saved}
+                                onChanged={changedHere}
                                 onSelect={(id) => {
                                     setShowBehaviour(true);
                                     setSelectedId(id);
+                                    focus.current = id;
                                 }}
                             />
                         ))}
@@ -609,60 +491,6 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
             </div>
         </div>
     );
-}
-
-/**
- * A card's lines in full. An enum's cases and a value object's fields are cut at six on the card,
- * so the panel reads them from the manifest. A status's card shows its moves in place of its
- * values, so the panel lists both.
- */
-function fullItems(
-    graph: StructureGraph,
-    context: string,
-    node: StructureNodeData,
-): string[] {
-    const manifest = graph.manifests[context];
-    const name = nameOf(node);
-
-    if (node.kind === 'enum') {
-        const entry = manifest?.enums[name];
-
-        if (entry === undefined) {
-            return node.items;
-        }
-
-        const transitions = entry.transitions;
-
-        return [
-            entry.backing ?? 'pure',
-            ...Object.entries(entry.cases).map(([value, backed]) =>
-                backed === null ? value : `${value} = ${backed}`,
-            ),
-            ...(transitions === null
-                ? []
-                : Object.entries(transitions).map(([value, next]) =>
-                      next.length === 0
-                          ? `${value} · final`
-                          : `${value} → ${next.join(', ')}`,
-                  )),
-        ];
-    }
-
-    if (node.kind === 'exception') {
-        return [...node.items, ...throwersOf(graph, context, name)];
-    }
-
-    if (node.kind === 'valueObject') {
-        const entry = manifest?.valueObjects[name];
-
-        return entry === undefined
-            ? node.items
-            : Object.entries(entry.fields).map(
-                  ([field, type]) => `${field}: ${type}`,
-              );
-    }
-
-    return node.items;
 }
 
 /**
@@ -703,7 +531,7 @@ function throwersOf(
                     definition?.throws.some((thrown) => names.includes(thrown))
                 ) {
                     throwers.push(
-                        `thrown by ${owner === context ? '' : `${owner}/`}${entity}::${method}`,
+                        `${owner === context ? '' : `${owner}/`}${entity}::${method}()`,
                     );
                 }
             }
@@ -741,6 +569,127 @@ function replacementOf(
     };
 }
 
+/**
+ * What a card says beyond its title, as the panel lays it out: an enum's cases and moves and a
+ * value object's fields as tables read from the manifest (the card cuts them at six), an
+ * exception's methods that throw it, and any other card's lines as they are.
+ */
+function CardContents({
+    graph,
+    context,
+    node,
+}: {
+    graph: StructureGraph;
+    context: string | null;
+    node: StructureNodeData;
+}) {
+    const manifest = context === null ? undefined : graph.manifests[context];
+    const name = nameOf(node);
+    const lines =
+        node.items.length > 0 ? (
+            <div className="space-y-0.5 text-xs text-muted-foreground">
+                {node.items.map((item) => (
+                    <div key={item} className="break-all">
+                        {item}
+                    </div>
+                ))}
+            </div>
+        ) : null;
+
+    if (node.kind === 'enum' && manifest?.enums[name] !== undefined) {
+        const entry = manifest.enums[name];
+        const transitions = entry.transitions;
+
+        return (
+            <>
+                <PanelSection title={`Cases · ${entry.backing ?? 'pure'}`}>
+                    <PanelTable head={['Case', 'Value']} empty="No cases yet.">
+                        {Object.entries(entry.cases).map(([value, backed]) => (
+                            <PanelRow
+                                key={value}
+                                cells={[
+                                    value,
+                                    backed === null ? '—' : String(backed),
+                                ]}
+                            />
+                        ))}
+                    </PanelTable>
+                </PanelSection>
+                {transitions !== null && (
+                    <PanelSection title="Moves">
+                        <PanelTable
+                            head={['Case', 'May become']}
+                            empty="No moves yet."
+                        >
+                            {Object.entries(transitions).map(
+                                ([value, next]) => (
+                                    <PanelRow
+                                        key={value}
+                                        cells={[
+                                            value,
+                                            next.length === 0 ? (
+                                                <span
+                                                    key="final"
+                                                    className="text-muted-foreground"
+                                                >
+                                                    final
+                                                </span>
+                                            ) : (
+                                                next.join(', ')
+                                            ),
+                                        ]}
+                                    />
+                                ),
+                            )}
+                        </PanelTable>
+                    </PanelSection>
+                )}
+            </>
+        );
+    }
+
+    if (
+        node.kind === 'valueObject' &&
+        manifest?.valueObjects[name] !== undefined
+    ) {
+        return (
+            <PanelSection title="Fields">
+                <PanelTable head={['Field', 'Type']} empty="No fields yet.">
+                    {Object.entries(manifest.valueObjects[name].fields).map(
+                        ([field, type]) => (
+                            <PanelRow key={field} cells={[field, type]} />
+                        ),
+                    )}
+                </PanelTable>
+            </PanelSection>
+        );
+    }
+
+    if (node.kind === 'exception' && context !== null) {
+        return (
+            <>
+                {lines}
+                <PanelSection title="Thrown by">
+                    <PanelTable
+                        head={['Method']}
+                        empty="No method throws it yet."
+                    >
+                        {throwersOf(graph, context, name).map((thrower) => (
+                            <PanelRow key={thrower} cells={[thrower]} />
+                        ))}
+                    </PanelTable>
+                </PanelSection>
+            </>
+        );
+    }
+
+    if (node.kind === 'controller' || node.kind === 'entity') {
+        return null;
+    }
+
+    return lines;
+}
+
 function Details({
     node,
     graph,
@@ -758,13 +707,15 @@ function Details({
     context: string | null;
     resource: string | null;
     onEdit: (editing: Editing) => void;
-    onRemoved: (graph: StructureGraph) => void;
-    onChanged: (graph: StructureGraph) => void;
+    onRemoved: Changed;
+    onChanged: Changed;
     onSelect: (id: string) => void;
 }) {
     const contextSection = CONTEXT_SECTIONS[node.kind];
     const resourceSection = RESOURCE_SECTIONS[node.kind];
     const name = nameOf(node);
+    const look = styleOf(node);
+    const Icon = look.icon;
     const replaceable =
         context !== null &&
         (contextSection === 'ports' ||
@@ -772,189 +723,223 @@ function Details({
             contextSection === 'services')
             ? replacementOf(graph, context, contextSection, name)
             : null;
+    const actions: ReactNode[] = [];
+
+    if (node.target !== null) {
+        const target = node.target;
+
+        actions.push(
+            <IconAction
+                key="open"
+                icon={ArrowUpRight}
+                label={`Open ${target.name}`}
+                onClick={() => open(target)}
+            />,
+        );
+    }
+
+    if (contextSection !== undefined && context !== null && node.editable) {
+        actions.push(
+            <IconAction
+                key="edit"
+                icon={Pencil}
+                label={`Edit ${name}`}
+                onClick={() =>
+                    onEdit({
+                        kind: 'piece',
+                        context,
+                        section: contextSection,
+                        previous: name,
+                    })
+                }
+            />,
+            <RemoveButton
+                key="remove"
+                url={endpointFor(endpoints.removePiece, context)}
+                version={graph.versions[context] ?? ''}
+                section={contextSection}
+                name={name}
+                owner={context}
+                onRemoved={onRemoved}
+            />,
+        );
+    }
+
+    if (resourceSection !== undefined && resource !== null && node.editable) {
+        actions.push(
+            <IconAction
+                key="edit"
+                icon={Pencil}
+                label={`Edit ${name}`}
+                onClick={() =>
+                    onEdit({
+                        kind: 'resource-piece',
+                        resource,
+                        section: resourceSection,
+                        previous: name,
+                    })
+                }
+            />,
+            <RemoveButton
+                key="remove"
+                url={endpointFor(endpoints.removeResourcePiece, resource)}
+                version={graph.resourceVersions[resource] ?? ''}
+                section={resourceSection}
+                name={name}
+                owner={resource}
+                onRemoved={onRemoved}
+            />,
+        );
+    }
+
+    if (
+        (node.kind === 'model' || node.kind === 'policy') &&
+        resource !== null &&
+        node.editable
+    ) {
+        actions.push(
+            <IconAction
+                key="settings"
+                icon={Settings2}
+                label="Edit model and policy"
+                onClick={() => onEdit({ kind: 'resource-settings', resource })}
+            />,
+        );
+    }
+
+    if (
+        contextSection !== undefined &&
+        context !== null &&
+        (graph.outOfStep[context] ?? []).includes(`${contextSection}.${name}`)
+    ) {
+        actions.push(
+            <SyncButton
+                key="sync"
+                url={endpointFor(endpoints.syncPiece, context)}
+                version={graph.versions[context] ?? ''}
+                section={contextSection}
+                name={name}
+                onSynced={onChanged}
+            />,
+        );
+    }
+
+    if (
+        resource !== null &&
+        (resourceSection !== undefined ||
+            node.kind === 'model' ||
+            node.kind === 'policy') &&
+        (graph.resourceOutOfStep[resource] ?? []).includes(
+            resourceSection !== undefined
+                ? `${resourceSection}.${name}`
+                : node.kind,
+        )
+    ) {
+        actions.push(
+            <SyncButton
+                key="sync"
+                url={endpointFor(endpoints.syncResourcePiece, resource)}
+                version={graph.resourceVersions[resource] ?? ''}
+                section={resourceSection ?? node.kind}
+                name={resourceSection !== undefined ? name : ''}
+                onSynced={onChanged}
+            />,
+        );
+    }
+
+    if (
+        replaceable !== null &&
+        context !== null &&
+        !node.editable &&
+        replaceable.canStart
+    ) {
+        actions.push(
+            <IconAction
+                key="replace"
+                icon={Replace}
+                label={`Replace ${name}`}
+                onClick={() =>
+                    onEdit({
+                        kind: 'replace',
+                        context,
+                        section: replaceable.section,
+                        name,
+                    })
+                }
+            />,
+        );
+    }
+
+    if (replaceable !== null && context !== null && replaceable.replacing) {
+        actions.push(
+            <CancelReplacementButton
+                key="cancel-replacement"
+                graph={graph}
+                endpoints={endpoints}
+                context={context}
+                section={replaceable.section}
+                name={name}
+                onCancelled={onChanged}
+            />,
+        );
+    }
+
+    const command = node.command;
 
     return (
-        <section className="space-y-3">
-            <div>
-                <div className="text-xs text-muted-foreground">
-                    {KIND_LABELS[node.kind]}
+        <section className="space-y-5">
+            <div className="space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Icon className={`size-3.5 ${look.accent}`} />
+                            {KIND_LABELS[node.kind]}
+                        </div>
+                        <div className="font-medium break-all">
+                            {node.label}
+                        </div>
+                    </div>
+                    {node.status !== null && (
+                        <StatusBadge status={node.status} />
+                    )}
                 </div>
-                <div className="font-medium break-all">{node.label}</div>
+                {actions.length > 0 && (
+                    <div className="-ml-1.5 flex flex-wrap items-center">
+                        {actions}
+                    </div>
+                )}
+                {node.reason !== null && (
+                    <p className="text-xs text-muted-foreground">
+                        {node.reason}
+                    </p>
+                )}
+                {command !== null && (
+                    <div className="flex items-start gap-1 rounded-md bg-muted p-2">
+                        <code className="min-w-0 flex-1 text-xs break-all whitespace-pre-wrap">
+                            {command}
+                        </code>
+                        <IconAction
+                            icon={Copy}
+                            label="Copy the command"
+                            className="-my-1 size-6"
+                            onClick={() =>
+                                void navigator.clipboard
+                                    .writeText(command)
+                                    .then(() => toast.success('Copied'))
+                            }
+                        />
+                    </div>
+                )}
+                {(contextSection !== undefined ||
+                    resourceSection !== undefined) &&
+                    !node.editable && (
+                        <p className="text-xs text-muted-foreground">
+                            The code already has it. Change the code and sync
+                            it, or replace it.
+                        </p>
+                    )}
             </div>
-            {node.status !== null && <StatusBadge status={node.status} />}
-            {node.reason !== null && (
-                <p className="text-muted-foreground">{node.reason}</p>
-            )}
-            {node.command !== null && (
-                <pre className="rounded-md bg-muted p-2 text-xs break-all whitespace-pre-wrap">
-                    {node.command}
-                </pre>
-            )}
-            {node.kind !== 'controller' &&
-                node.kind !== 'entity' &&
-                node.items.length > 0 && (
-                    <ul className="list-inside list-disc text-muted-foreground">
-                        {(context !== null
-                            ? fullItems(graph, context, node)
-                            : node.items
-                        ).map((item) => (
-                            <li key={item} className="break-all">
-                                {item}
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            {node.target !== null && (
-                <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => node.target !== null && open(node.target)}
-                >
-                    Open {node.target.name}
-                </Button>
-            )}
-            {contextSection !== undefined &&
-                context !== null &&
-                node.editable && (
-                    <div className="flex gap-2">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                                onEdit({
-                                    kind: 'piece',
-                                    context,
-                                    section: contextSection,
-                                    previous: name,
-                                })
-                            }
-                        >
-                            Edit
-                        </Button>
-                        <RemoveButton
-                            url={endpoints.removePiece.replace(
-                                '__CONTEXT__',
-                                encodeURIComponent(context),
-                            )}
-                            version={graph.versions[context] ?? ''}
-                            section={contextSection}
-                            name={name}
-                            owner={context}
-                            onRemoved={onRemoved}
-                        />
-                    </div>
-                )}
-            {contextSection !== undefined &&
-                context !== null &&
-                (graph.outOfStep[context] ?? []).includes(
-                    `${contextSection}.${name}`,
-                ) && (
-                    <SyncButton
-                        url={endpoints.syncPiece.replace(
-                            '__CONTEXT__',
-                            encodeURIComponent(context),
-                        )}
-                        version={graph.versions[context] ?? ''}
-                        section={contextSection}
-                        name={name}
-                        onSynced={onChanged}
-                    />
-                )}
-            {resource !== null &&
-                (resourceSection !== undefined ||
-                    node.kind === 'model' ||
-                    node.kind === 'policy') &&
-                (graph.resourceOutOfStep[resource] ?? []).includes(
-                    resourceSection !== undefined
-                        ? `${resourceSection}.${name}`
-                        : node.kind,
-                ) && (
-                    <SyncButton
-                        url={endpoints.syncResourcePiece.replace(
-                            '__RESOURCE__',
-                            encodeURIComponent(resource),
-                        )}
-                        version={graph.resourceVersions[resource] ?? ''}
-                        section={resourceSection ?? node.kind}
-                        name={resourceSection !== undefined ? name : ''}
-                        onSynced={onChanged}
-                    />
-                )}
-            {replaceable !== null &&
-                context !== null &&
-                !node.editable &&
-                replaceable.canStart && (
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                            onEdit({
-                                kind: 'replace',
-                                context,
-                                section: replaceable.section,
-                                name,
-                            })
-                        }
-                    >
-                        Replace
-                    </Button>
-                )}
-            {replaceable !== null &&
-                context !== null &&
-                replaceable.replacing && (
-                    <CancelReplacementButton
-                        graph={graph}
-                        endpoints={endpoints}
-                        context={context}
-                        section={replaceable.section}
-                        name={name}
-                        onCancelled={onChanged}
-                    />
-                )}
-            {resourceSection !== undefined &&
-                resource !== null &&
-                node.editable && (
-                    <div className="flex gap-2">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                                onEdit({
-                                    kind: 'resource-piece',
-                                    resource,
-                                    section: resourceSection,
-                                    previous: name,
-                                })
-                            }
-                        >
-                            Edit
-                        </Button>
-                        <RemoveButton
-                            url={endpoints.removeResourcePiece.replace(
-                                '__RESOURCE__',
-                                encodeURIComponent(resource),
-                            )}
-                            version={graph.resourceVersions[resource] ?? ''}
-                            section={resourceSection}
-                            name={name}
-                            owner={resource}
-                            onRemoved={onRemoved}
-                        />
-                    </div>
-                )}
-            {(node.kind === 'model' || node.kind === 'policy') &&
-                resource !== null &&
-                node.editable && (
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                            onEdit({ kind: 'resource-settings', resource })
-                        }
-                    >
-                        Edit model and policy
-                    </Button>
-                )}
+            <CardContents graph={graph} context={context} node={node} />
             {node.kind === 'aggregate' && context !== null && (
                 <AggregateChildren
                     graph={graph}
@@ -966,684 +951,43 @@ function Details({
                 />
             )}
             {node.kind === 'entity' && context !== null && (
-                <ChildOf
-                    graph={graph}
-                    endpoints={endpoints}
-                    context={context}
-                    entity={name}
-                    removable={node.editable}
-                    onRemoved={onRemoved}
-                />
-            )}
-            {node.kind === 'entity' && context !== null && (
-                <EntityState
-                    graph={graph}
-                    endpoints={endpoints}
-                    context={context}
-                    entity={name}
-                    onEdit={onEdit}
-                    onRemoved={onChanged}
-                />
-            )}
-            {node.kind === 'entity' && context !== null && (
-                <EntityMethods
-                    graph={graph}
-                    endpoints={endpoints}
-                    context={context}
-                    entity={name}
-                    onEdit={onEdit}
-                    onRemoved={onChanged}
-                />
+                <>
+                    <ChildOf
+                        graph={graph}
+                        endpoints={endpoints}
+                        context={context}
+                        entity={name}
+                        removable={node.editable}
+                        onSelect={onSelect}
+                        onRemoved={onRemoved}
+                    />
+                    <EntityState
+                        graph={graph}
+                        endpoints={endpoints}
+                        context={context}
+                        entity={name}
+                        onEdit={onEdit}
+                        onChanged={onChanged}
+                    />
+                    <EntityMethods
+                        graph={graph}
+                        endpoints={endpoints}
+                        context={context}
+                        entity={name}
+                        onEdit={onEdit}
+                        onChanged={onChanged}
+                    />
+                </>
             )}
             {node.kind === 'controller' && resource !== null && (
-                <Methods
+                <ControllerMethods
                     graph={graph}
                     endpoints={endpoints}
                     resource={resource}
                     onEdit={onEdit}
-                    onRemoved={onRemoved}
+                    onChanged={onChanged}
                 />
             )}
-            {(contextSection !== undefined || resourceSection !== undefined) &&
-                !node.editable && (
-                    <p className="text-xs text-muted-foreground">
-                        The code already has it. Change the code and sync it, or
-                        replace it.
-                    </p>
-                )}
         </section>
-    );
-}
-
-/**
- * A controller's methods, one row each, with the use cases it calls. A method the code does not
- * have yet can be changed or removed.
- */
-function Methods({
-    graph,
-    endpoints,
-    resource,
-    onEdit,
-    onRemoved,
-}: {
-    graph: StructureGraph;
-    endpoints: StructureEndpoints;
-    resource: string;
-    onEdit: (editing: Editing) => void;
-    onRemoved: (graph: StructureGraph) => void;
-}) {
-    const controller = graph.resourceManifests[resource]?.controller ?? {};
-    const built = graph.resourceBuilt[resource] ?? [];
-    const outOfStep = graph.resourceOutOfStep[resource] ?? [];
-
-    return (
-        <ul className="space-y-3">
-            {Object.entries(controller).map(([method, useCases]) => (
-                <li key={method} className="space-y-1">
-                    <div className="font-mono text-xs">{method}()</div>
-                    {(useCases ?? []).map((useCase) => (
-                        <div
-                            key={useCase}
-                            className="text-xs text-muted-foreground"
-                        >
-                            {useCase}
-                        </div>
-                    ))}
-                    {built.includes(`controller.${method}`) ? (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            built
-                            {outOfStep.includes(`controller.${method}`) && (
-                                <SyncButton
-                                    url={endpoints.syncResourcePiece.replace(
-                                        '__RESOURCE__',
-                                        encodeURIComponent(resource),
-                                    )}
-                                    version={
-                                        graph.resourceVersions[resource] ?? ''
-                                    }
-                                    section="controller"
-                                    name={method}
-                                    onSynced={onRemoved}
-                                />
-                            )}
-                        </div>
-                    ) : (
-                        <div className="flex gap-2">
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                    onEdit({
-                                        kind: 'resource-piece',
-                                        resource,
-                                        section: 'controller',
-                                        previous: method,
-                                    })
-                                }
-                            >
-                                Edit
-                            </Button>
-                            <RemoveButton
-                                url={endpoints.removeResourcePiece.replace(
-                                    '__RESOURCE__',
-                                    encodeURIComponent(resource),
-                                )}
-                                version={graph.resourceVersions[resource] ?? ''}
-                                section="controller"
-                                name={method}
-                                owner={resource}
-                                onRemoved={onRemoved}
-                            />
-                        </div>
-                    )}
-                </li>
-            ))}
-        </ul>
-    );
-}
-
-/**
- * Which aggregate a child entity belongs to, and its Remove while the code does not have it yet
- * and it lists no method. A root says nothing here: its aggregate's card holds it.
- */
-function ChildOf({
-    graph,
-    endpoints,
-    context,
-    entity,
-    removable,
-    onRemoved,
-}: {
-    graph: StructureGraph;
-    endpoints: StructureEndpoints;
-    context: string;
-    entity: string;
-    removable: boolean;
-    onRemoved: (graph: StructureGraph) => void;
-}) {
-    const manifest = graph.manifests[context];
-    const aggregate = Object.entries(manifest?.aggregates ?? {}).find(
-        ([, entry]) => entry?.children.includes(entity),
-    )?.[0];
-
-    if (aggregate === undefined) {
-        return null;
-    }
-
-    return (
-        <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">
-                child of {aggregate}
-            </span>
-            {removable && manifest?.entities[entity] === undefined && (
-                <RemoveButton
-                    url={endpoints.removeChild.replace(
-                        '__CONTEXT__',
-                        encodeURIComponent(context),
-                    )}
-                    version={graph.versions[context] ?? ''}
-                    section="aggregates"
-                    name={entity}
-                    owner={context}
-                    entity={aggregate}
-                    onRemoved={onRemoved}
-                />
-            )}
-        </div>
-    );
-}
-
-/**
- * An aggregate's child entities. A built aggregate keeps its name and repository but takes new
- * children, the way a built entity takes new methods: kit:apply builds each one the code does not
- * have yet, and a child the code already has reads built.
- */
-function AggregateChildren({
-    graph,
-    endpoints,
-    context,
-    aggregate,
-    onChanged,
-    onSelect,
-}: {
-    graph: StructureGraph;
-    endpoints: StructureEndpoints;
-    context: string;
-    aggregate: string;
-    onChanged: (graph: StructureGraph) => void;
-    onSelect: (id: string) => void;
-}) {
-    const children =
-        graph.manifests[context]?.aggregates[aggregate]?.children ?? [];
-    const built = graph.childrenBuilt[context] ?? [];
-    const version = graph.versions[context] ?? '';
-    const form = useHttp<
-        { version: string; aggregate: string; child: string },
-        { graph: StructureGraph }
-    >({ version, aggregate, child: '' });
-
-    const add = (event: FormEvent) => {
-        event.preventDefault();
-        form.post(
-            endpoints.addChild.replace(
-                '__CONTEXT__',
-                encodeURIComponent(context),
-            ),
-            {
-                onSuccess: (response) => {
-                    form.setData('child', '');
-                    onChanged(response.graph);
-                },
-            },
-        );
-    };
-
-    return (
-        <div className="space-y-3">
-            <div className="text-xs font-medium">Child entities</div>
-            {children.length > 0 && (
-                <ul className="space-y-2">
-                    {children.map((child) => (
-                        <li
-                            key={child}
-                            className="flex items-center justify-between gap-2"
-                        >
-                            <button
-                                type="button"
-                                className="font-mono text-xs underline-offset-2 hover:underline"
-                                onClick={() =>
-                                    onSelect(`entity:${context}/${child}`)
-                                }
-                            >
-                                {child}
-                            </button>
-                            {built.includes(`${aggregate}.${child}`) ? (
-                                <span className="text-xs text-muted-foreground">
-                                    built
-                                </span>
-                            ) : (
-                                <RemoveButton
-                                    url={endpoints.removeChild.replace(
-                                        '__CONTEXT__',
-                                        encodeURIComponent(context),
-                                    )}
-                                    version={version}
-                                    section="aggregates"
-                                    name={child}
-                                    owner={context}
-                                    entity={aggregate}
-                                    onRemoved={onChanged}
-                                />
-                            )}
-                        </li>
-                    ))}
-                </ul>
-            )}
-            <form onSubmit={add} className="space-y-1">
-                <div className="flex gap-2">
-                    <Input
-                        value={form.data.child}
-                        placeholder="Lid"
-                        aria-label="New child entity"
-                        onChange={(event) =>
-                            form.setData('child', event.target.value)
-                        }
-                    />
-                    <Button
-                        type="submit"
-                        size="sm"
-                        variant="outline"
-                        disabled={
-                            form.processing || form.data.child.trim() === ''
-                        }
-                    >
-                        Add child
-                    </Button>
-                </div>
-                <InputError
-                    message={
-                        form.errors.child ??
-                        form.errors.version ??
-                        form.errors.aggregate
-                    }
-                />
-            </form>
-        </div>
-    );
-}
-
-/**
- * An entity's state, each property with its type in the constructor's order. A property the code
- * does not have yet can be changed or removed, and a new one added; a built one shows its getter.
- */
-function EntityState({
-    graph,
-    endpoints,
-    context,
-    entity,
-    onEdit,
-    onRemoved,
-}: {
-    graph: StructureGraph;
-    endpoints: StructureEndpoints;
-    context: string;
-    entity: string;
-    onEdit: (editing: Editing) => void;
-    onRemoved: (graph: StructureGraph) => void;
-}) {
-    const state = graph.manifests[context]?.entities[entity]?.state ?? {};
-    const built = graph.entityStateBuilt[context] ?? [];
-    const outOfStep = graph.outOfStep[context] ?? [];
-
-    return (
-        <div className="space-y-3">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase">
-                State
-            </h3>
-            <ul className="space-y-3">
-                {Object.entries(state).map(([property, type]) => (
-                    <li key={property} className="space-y-1">
-                        <div className="font-mono text-xs break-all">
-                            {property}: {type}
-                        </div>
-                        {built.includes(`${entity}.${property}`) ? (
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                built, read by {property}()
-                                {outOfStep.includes(
-                                    `entities.${entity}.state.${property}`,
-                                ) && (
-                                    <SyncButton
-                                        url={endpoints.syncPiece.replace(
-                                            '__CONTEXT__',
-                                            encodeURIComponent(context),
-                                        )}
-                                        version={graph.versions[context] ?? ''}
-                                        section="entities"
-                                        name={`state.${property}`}
-                                        entity={entity}
-                                        onSynced={onRemoved}
-                                    />
-                                )}
-                            </div>
-                        ) : (
-                            <div className="flex gap-2">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() =>
-                                        onEdit({
-                                            kind: 'state',
-                                            context,
-                                            entity,
-                                            previous: property,
-                                        })
-                                    }
-                                >
-                                    Edit
-                                </Button>
-                                <RemoveButton
-                                    url={endpoints.removeState.replace(
-                                        '__CONTEXT__',
-                                        encodeURIComponent(context),
-                                    )}
-                                    version={graph.versions[context] ?? ''}
-                                    section="entities"
-                                    name={property}
-                                    owner={context}
-                                    entity={entity}
-                                    onRemoved={onRemoved}
-                                />
-                            </div>
-                        )}
-                    </li>
-                ))}
-            </ul>
-            <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                    onEdit({ kind: 'state', context, entity, previous: null })
-                }
-            >
-                Add state
-            </Button>
-            <h3 className="pt-2 text-xs font-medium text-muted-foreground uppercase">
-                Methods
-            </h3>
-        </div>
-    );
-}
-
-/**
- * An entity's methods, behaviours first, each with its parameters and the exceptions it throws. A
- * method the code does not have yet can be changed or removed, and a new one added.
- */
-function EntityMethods({
-    graph,
-    endpoints,
-    context,
-    entity,
-    onEdit,
-    onRemoved,
-}: {
-    graph: StructureGraph;
-    endpoints: StructureEndpoints;
-    context: string;
-    entity: string;
-    onEdit: (editing: Editing) => void;
-    onRemoved: (graph: StructureGraph) => void;
-}) {
-    const manifest = graph.manifests[context];
-    const entry = manifest?.entities[entity];
-    const built = graph.entityMethodsBuilt[context] ?? [];
-    const outOfStep = graph.outOfStep[context] ?? [];
-    const methods = [
-        ...Object.keys(entry?.behaviours ?? {}),
-        ...Object.keys(entry?.assertions ?? {}),
-    ];
-
-    return (
-        <div className="space-y-3">
-            <ul className="space-y-3">
-                {methods.map((method) => {
-                    const definition = methodOf(manifest, entity, method);
-
-                    return (
-                        <li key={method} className="space-y-1">
-                            <div className="font-mono text-xs break-all">
-                                {method}(
-                                {Object.entries(definition?.params ?? {})
-                                    .map(([param, type]) => `${type} $${param}`)
-                                    .join(', ')}
-                                )
-                            </div>
-                            {(definition?.throws ?? []).map((exception) => (
-                                <div
-                                    key={exception}
-                                    className="text-xs break-all text-muted-foreground"
-                                >
-                                    throws {exception}
-                                </div>
-                            ))}
-                            {built.includes(`${entity}.${method}`) ? (
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    built
-                                    {outOfStep.includes(
-                                        `entities.${entity}.${method}`,
-                                    ) && (
-                                        <SyncButton
-                                            url={endpoints.syncPiece.replace(
-                                                '__CONTEXT__',
-                                                encodeURIComponent(context),
-                                            )}
-                                            version={
-                                                graph.versions[context] ?? ''
-                                            }
-                                            section="entities"
-                                            name={method}
-                                            entity={entity}
-                                            onSynced={onRemoved}
-                                        />
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="flex gap-2">
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() =>
-                                            onEdit({
-                                                kind: 'method',
-                                                context,
-                                                entity,
-                                                previous: method,
-                                            })
-                                        }
-                                    >
-                                        Edit
-                                    </Button>
-                                    <RemoveButton
-                                        url={endpoints.removeMethod.replace(
-                                            '__CONTEXT__',
-                                            encodeURIComponent(context),
-                                        )}
-                                        version={graph.versions[context] ?? ''}
-                                        section="entities"
-                                        name={method}
-                                        owner={context}
-                                        entity={entity}
-                                        onRemoved={onRemoved}
-                                    />
-                                </div>
-                            )}
-                        </li>
-                    );
-                })}
-            </ul>
-            <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                    onEdit({ kind: 'method', context, entity, previous: null })
-                }
-            >
-                Add method
-            </Button>
-        </div>
-    );
-}
-
-function RemoveButton({
-    url,
-    version,
-    section,
-    name,
-    owner,
-    entity = '',
-    onRemoved,
-}: {
-    url: string;
-    version: string;
-    section: string;
-    name: string;
-    owner: string;
-    entity?: string;
-    onRemoved: (graph: StructureGraph) => void;
-}) {
-    const [confirming, setConfirming] = useState(false);
-    const form = useHttp<
-        { version: string; section: string; name: string; entity: string },
-        { graph: StructureGraph }
-    >({ version, section, name, entity });
-    const error =
-        form.errors.name ??
-        form.errors.version ??
-        form.errors.section ??
-        form.errors.entity;
-
-    const remove = () =>
-        form.post(url, {
-            onSuccess: (response) => {
-                setConfirming(false);
-                onRemoved(response.graph);
-            },
-        });
-
-    return (
-        <>
-            <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setConfirming(true)}
-            >
-                Remove
-            </Button>
-            <Dialog open={confirming} onOpenChange={setConfirming}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Remove {name}?</DialogTitle>
-                        <DialogDescription>
-                            It leaves the manifest of {owner}. Git keeps the
-                            file as it was.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <InputError message={error} />
-                    <DialogFooter>
-                        <Button
-                            variant="ghost"
-                            onClick={() => setConfirming(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            disabled={form.processing}
-                            onClick={remove}
-                        >
-                            Remove
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </>
-    );
-}
-
-function ByHand({ graph }: { graph: StructureGraph }) {
-    if (graph.byHand.length === 0) {
-        return null;
-    }
-
-    return (
-        <section className="space-y-2">
-            <h2 className="font-medium">By hand ({graph.byHand.length})</h2>
-            <p className="text-xs text-muted-foreground">
-                Where the code differs from the manifest in a piece the diagram
-                does not draw.
-            </p>
-            <ul className="space-y-2">
-                {graph.byHand.map((difference) => (
-                    <li
-                        key={`${difference.check}:${difference.subject}:${difference.message}`}
-                        className="text-xs"
-                    >
-                        <div className="font-mono break-all">
-                            [structure:{difference.check}] {difference.subject}
-                        </div>
-                        <div className="text-muted-foreground">
-                            {difference.message}
-                        </div>
-                    </li>
-                ))}
-            </ul>
-        </section>
-    );
-}
-
-/**
- * Takes a built piece back from the code once the code has changed, so the manifest says what the
- * code holds again. What is not built yet stays as designed.
- */
-function SyncButton({
-    url,
-    version,
-    section,
-    name,
-    entity = '',
-    onSynced,
-}: {
-    url: string;
-    version: string;
-    section: string;
-    name: string;
-    entity?: string;
-    onSynced: (graph: StructureGraph) => void;
-}) {
-    const form = useHttp<
-        { version: string; section: string; name: string; entity: string },
-        { graph: StructureGraph }
-    >({ version, section, name, entity });
-    const error =
-        form.errors.name ??
-        form.errors.version ??
-        form.errors.section ??
-        form.errors.entity;
-
-    return (
-        <div className="flex flex-col items-start gap-1">
-            <Button
-                size="sm"
-                variant="outline"
-                disabled={form.processing}
-                onClick={() =>
-                    form.post(url, {
-                        onSuccess: (response) => onSynced(response.graph),
-                    })
-                }
-            >
-                Sync from code
-            </Button>
-            <InputError message={error} />
-        </div>
     );
 }

@@ -14,7 +14,7 @@ The screen is registered only when the app runs with `APP_ENV=local`. It has no 
 - `resources/js/kit/structure.tsx` among the `input` of `laravel()` in `vite.config.ts`;
 - Vite: `npm run dev` while you work, or `npm run build`.
 
-`php artisan kit:setup` sets up the first two. Then open `http://your-app.test/kit/structure`. At the top, **Guide** opens this guide and **Docs** opens `/kit/docs`, the kit's rules and guides.
+`php artisan kit:setup` sets up the first two. Then open `http://your-app.test/kit/structure`. The **?** menu at the top right opens this **Guide**, and **Docs** opens `/kit/docs`, the kit's rules and guides.
 
 On a new project the overview shows a single card, `Shared`, the shared kernel every context may use.
 
@@ -26,7 +26,7 @@ The example builds a `Shipping` context with one aggregate, `Crate`, and a page 
 
 ### 1. Create the context
 
-Click **New context**, type `Shipping` and click **Create**. A context name is StudlyCase, and the kit's own folders (`Shared`, `Audit`, `Auth`, `Concerns`) are taken. The screen opens the new, empty context.
+Choose **New ▸ Context**, type `Shipping` and click **Create**. A context name is StudlyCase, and the kit's own folders (`Shared`, `Audit`, `Auth`, `Concerns`) are taken. The screen opens the new, empty context.
 
 ![The New context form](images/structure-new-context.png)
 
@@ -34,7 +34,7 @@ Click **New context**, type `Shipping` and click **Create**. A context name is S
 
 ### 2. Add the aggregate
 
-Click **Add aggregate**. Fill in:
+Choose **Add ▸ Aggregate** (the Add menu groups what a context holds: Domain, Vocabulary, Application). Fill in:
 
 - **Name:** `Crate`;
 - **Child entities, separated by commas:** `Lid`;
@@ -50,7 +50,7 @@ The card appears with the status **ready**. Click it. The side panel shows the e
 
 ### 3. Add a status
 
-Click **Add enum**:
+Choose **Add ▸ Enum**:
 
 - **Name:** `CrateStatus`;
 - **Aggregate:** `Crate`;
@@ -66,7 +66,7 @@ An enum named `*Status` that lists its moves is a status (see [states.md](../res
 
 ### 4. Add a value object
 
-Click **Add value object**. Set **Name** to `CrateLabel` and **Aggregate** to `Crate`. Then add two fields in **Fields, in constructor order**: `code` of type `string`, and `note` of type `?string`. The type box suggests builtins and the classes this context designs.
+Choose **Add ▸ Value object**. Set **Name** to `CrateLabel` and **Aggregate** to `Crate`. Then add two fields in **Fields, in constructor order**: `code` of type `string`, and `note` of type `?string`. The type box suggests builtins and the classes this context designs.
 
 ![Adding a value object](images/structure-add-value-object.png)
 
@@ -76,7 +76,7 @@ Saving an enum or a value object turns on **Vocabulary**, which draws them besid
 
 ### 5. Design the exception
 
-The method you add next refuses with an exception. Design it first: the method then picks it from a list, and `kit:apply` builds it in its home. Click **Add exception**:
+The method you add next refuses with an exception. Design it first: the method then picks it from a list, and `kit:apply` builds it in its home. Choose **Add ▸ Exception**:
 
 - **Name:** `CrateSealedException`;
 - **Kind:** `Refusal of an aggregate`;
@@ -95,7 +95,7 @@ Saving an exception turns on the **Exceptions** switch, which draws each excepti
 
 ### 6. Add a method to the entity
 
-Click **Add method**:
+Choose **Add ▸ Entity method** (or the **+** beside **Methods** in an entity's panel):
 
 - **Entity:** `Crate`;
 - **Name:** `seal` (a name that starts with `assert` makes an assertion instead of a behaviour);
@@ -114,7 +114,7 @@ With **Exceptions** on as well, the exception's card is tied to `Crate`, which r
 
 ### 6b. Give the entity its state
 
-Select the `Crate` entity card (under **Behaviour**) and click **Add state**:
+Select the `Crate` entity card (under **Behaviour**) and click the **+** beside **State**:
 
 - **Name:** `status`;
 - **Type:** `CrateStatus`. The field offers builtins, then the enums, value objects and entities of `Crate`, then those elsewhere with their prefix.
@@ -131,7 +131,7 @@ It leaves `create()` for you, because what a new crate starts with (`CrateStatus
 
 ### 7. Add the use cases
 
-Click **Add use case** for `CreateCrate`:
+Choose **Add ▸ Use case** for `CreateCrate`:
 
 - **Shape of __invoke():** `command`;
 - **Returns:** `string`, the id it creates;
@@ -150,16 +150,16 @@ A list use case takes a Command and returns a Result, so set **Shape of __invoke
 
 ### 8. Create the HTTP resource
 
-Go back to the overview (the **Structure** breadcrumb) and click **New HTTP resource**. The name is the controller's name without `Controller`: `Crate`. It stands for the model `Crate`. Tick **It stands for no model** only for a page that has none, like a report.
+Go back to the overview (the **Structure** breadcrumb) and choose **New ▸ HTTP resource**. The name is the controller's name without `Controller`: `Crate`. It stands for the model `Crate`. Tick **It stands for no model** only for a page that has none, like a report.
 
 ![The New HTTP resource form](images/structure-new-resource.png)
 
 In the resource:
 
-1. **Add method** `index`. The use cases offered depend on the method's name. `index` offers only the `command-result` ones, so tick `ListCrates`.
-2. **Add method** `store`, calling `CreateCrate`.
+1. **Add ▸ Controller method** `index`. The use cases offered depend on the method's name. `index` offers only the `command-result` ones, so tick `ListCrates`.
+2. **Add ▸ Controller method** `store`, calling `CreateCrate`.
 3. **Add page** `crates/index`, kind `table`. A list page sits at `{list}/index`, named after the index's `List…` use case.
-4. Under **Model and policy**, untick **No policy** and type the abilities `create, viewAny`.
+4. Under **Model and policy** (the gear beside **Add**), untick **No policy** and type the abilities `create, viewAny`.
 
 ![Adding a controller method](images/structure-add-controller-method.png)
 
@@ -201,7 +201,7 @@ $ php artisan kit:apply
    INFO  Done: 13 of 14 steps.
 ```
 
-`kit:apply` runs every ready step, plans again, and repeats until nothing is ready. It stops at steps that wait for code only a person writes. Reload the screen: built cards read **done**. A built piece is locked, and its panel offers **Replace** instead of Edit (see [Replacing what is built](#replacing-what-is-built)).
+`kit:apply` runs every ready step, plans again, and repeats until nothing is ready. It stops at steps that wait for code only a person writes. Reload the screen, which reads the code again: built cards read **done**. A built piece is locked, and its panel offers **Replace** instead of Edit (see [Replacing what is built](#replacing-what-is-built)).
 
 ![Built cards](images/structure-after-apply.png)
 
@@ -243,7 +243,7 @@ Finish with `php artisan test --testsuite=Architecture`. The `structure` check h
 | View | How to open it | What it shows |
 |---|---|---|
 | Overview | `/kit/structure`, or the **Structure** breadcrumb | One card per context and per HTTP resource, with their status counts. Edges show which context uses which, and how many use cases a resource calls. |
-| Context | Double-click a context, or `#context/{Name}` | Its aggregates, domain services, ports and use cases, with the repositories each one injects. **Vocabulary** adds enums and value objects. **Behaviour** adds every root and child entity, with its state and its methods, or `nothing designed yet`. **Exceptions** adds the exceptions. The browser remembers the three switches across reloads. |
+| Context | Double-click a context, or `#context/{Name}` | Its aggregates, domain services, ports and use cases, with the repositories each one injects. **Vocabulary** adds enums and value objects. **Behaviour** adds every root and child entity, with its state and its methods, or `nothing designed yet`. **Exceptions** adds the exceptions. The three are switches in the **View** menu, and the browser remembers them across reloads. |
 | Shared kernel | `#context/Shared` | Only the enums, value objects and invalid values every context may use. |
 | HTTP resource | Double-click a resource, or `#resource/{Name}` | Its model, policy, controller, actions and pages, and the use cases they call. |
 
@@ -293,18 +293,25 @@ Elsewhere cards carry no status; their own context shows it.
 
 ### The side panel
 
-For the selected card the panel shows its kind and name, the status and its reason or command, every item in full (an enum's backing, cases and moves, a method's parameters and exceptions), and the buttons that apply to it: **Open …**, **Edit**, **Remove**, **Replace**, **Cancel replacement**.
+For the selected card the panel shows its kind and name, the status and its reason or command (with a copy button), then its contents as small tables: an enum's cases and moves, a value object's fields, an entity's state and methods, an aggregate's children, a controller's methods, the methods that throw an exception.
+
+What applies to the card sits as icons under its name, each named in a tooltip: **Open** (↗), **Edit** (pencil), **Remove** (bin), **Sync from code** (circling arrows), **Replace**, **Cancel replacement**. A table row carries the same icons for its own row, and a table's **+** adds a row. A built row shows a green tick instead; hover it for what is built (a property's getter, for one).
+
+A change applies where you stand: the cards keep their places, the selected card stays selected with its panel open, and a short message at the bottom says what happened. A card a form from the **Add** menu adds is selected and brought into view.
 
 At the bottom, **By hand (N)** lists every difference between the code and the manifests that has no card. A typical one is a class the code holds that no manifest lists. It names the check, the subject and what to do, often `php artisan kit:import --context=X --force`.
 
 ## Changing the design
 
-The header offers the forms of the current view:
+The header's menus offer the forms of the current view:
 
-- **Overview:** New context, New HTTP resource.
-- **Context:** Add aggregate, Add domain service, Add port, Add use case, Add enum, Add value object, Add exception, Add method, plus the Vocabulary, Behaviour and Exceptions switches.
-- **Shared kernel:** Add enum, Add value object, Add exception.
-- **HTTP resource:** Add method, Add action, Add page, Model and policy.
+- **Overview:** **New ▸** Context, HTTP resource.
+- **Context:** **Add ▸** Domain (Aggregate, Entity method, Exception), Vocabulary (Enum, Value object), Application (Use case, Domain service, Port); **View ▸** the Vocabulary, Behaviour and Exceptions switches.
+- **Shared kernel:** **Add ▸** Enum, Value object, Invalid value.
+- **HTTP resource:** **Add ▸** Controller method, Action, Page; the gear opens Model and policy.
+- **Every view:** **?** opens the Guide and the Docs.
+
+![The Add menu of a context](images/structure-add-menu.png)
 
 **Add** saves at once, in canonical form, and redraws the diagram. **Cancel** closes the form and writes nothing. When the server refuses, each reason appears under the field it concerns and nothing is written.
 
@@ -313,7 +320,7 @@ The header offers the forms of the current view:
 | Form | Fields | Refused when |
 |---|---|---|
 | Aggregate | Name; Child entities, separated by commas; Repository | A child repeats the root. A child that still has methods is removed. Repository is unticked while something injects it. |
-| Child entities (in the panel of any aggregate card) | A new child's name, then **Add child**; **Remove** beside a child not built yet | The name is not StudlyCase or is the root's. The aggregate already lists it, or the code already has it (sync it instead). A child that has methods, or that the code has, cannot be removed. |
+| Child entities (in the panel of any aggregate card) | A new child's name under the table, then its **+**; the bin icon in the row of a child not built yet | The name is not StudlyCase or is the root's. The aggregate already lists it, or the code already has it (sync it instead). A child that has methods, or that the code has, cannot be removed. |
 | Domain service | Name; Shape of handle(): `creates`, `data` or `plain`; Builds the aggregate (for `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | A repository, or the aggregate it builds, is in another context ([layers.md](../resources/boost/guidelines/layers.md)). |
 | Port | Name; Layer: `domain` or `application`; Adapter, as `Infra/{Folder}/{Prefix}{Port}` (optional) | The adapter is not in that form. |
 | Use case | Name; Shape of __invoke(): `command-result`, `command` or `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (from any context) | A Command shape returns something other than `void`, `string`, `int` or `result` ([handlers.md](../resources/boost/guidelines/handlers.md)). A list is not `List{Name}` with `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)). A repository does not exist. |
@@ -339,19 +346,19 @@ In the enum and value object forms, rows move up with the arrow and go with the 
 
 ### Editing and removing
 
-Select a card, then **Edit** or **Remove**. Remove asks first: *Remove X? It leaves the manifest of Y. Git keeps the file as it was.*
+Select a card, then its **Edit** (pencil) or **Remove** (bin) icon. Remove asks first: *Remove X? It leaves the manifest of Y. Git keeps the file as it was.*
 
 Only what the code does not have yet can change:
 
 - A built card shows *The code already has it. Change the code and sync it, or replace it.* in place of Edit and Remove.
-- An entity and a controller lock one method at a time: a built method reads **built**, and the others stay editable. An entity's state locks the same way, one property at a time: a built property reads **built, read by status()**.
-- A child entity has a card of its own under **Behaviour**, as the root does. Its panel takes state and methods the same way (**Add state**, **Add method**), and offers **Remove** while the code does not have the child and it lists nothing. A child's name in the aggregate's panel opens its card.
-- A built aggregate locks its name and repository, but its panel still takes new child entities. `kit:apply` builds each one with `make:entity --child`. A built child reads **built**. The child's table, model and the repository's `syncChildren()` are still yours to write.
+- An entity and a controller lock one method at a time: a built method shows a green tick, and the others keep their Edit and Remove icons. An entity's state locks the same way, one property at a time: a built property's tick reads *Built: read by status()*.
+- A child entity has a card of its own under **Behaviour**, as the root does. Its panel takes state and methods the same way (the **+** beside **State** and **Methods**), and offers **Remove** while the code does not have the child and it lists nothing. A child's name in the aggregate's panel opens its card.
+- A built aggregate locks its name and repository, but its panel still takes new child entities. `kit:apply` builds each one with `make:entity --child`. A built child shows a green tick. The child's table, model and the repository's `syncChildren()` are still yours to write.
 - A piece that others use cannot be renamed or removed until nothing uses it. Examples: an aggregate a use case injects or that holds an exception, an enum a value object's field names, an exception a method throws, a use case with a refusal of its own, `index` while a list page needs it.
 
 ### Syncing what is built from the code
 
-A built piece changes in the code: rename a parameter, add one, add an enum case, inject another repository. The card then reads **differs**, and its panel offers **Sync from code**, which takes that one piece from the code into the manifest. A built method of an entity or a controller, and a built property of an entity's state, has its own **Sync from code** beside **built**.
+A built piece changes in the code: rename a parameter, add one, add an enum case, inject another repository. The card then reads **differs**, and its panel offers **Sync from code** (the circling arrows), which takes that one piece from the code into the manifest. A built method of an entity or a controller, and a built property of an entity's state, has its own **Sync from code** icon in its row.
 
 ![Sync from code on a card that differs](images/structure-sync.png)
 
@@ -374,7 +381,7 @@ If the manifest changed on disk since the page loaded (another tab, `kit:import`
 
 A built port (one with an adapter), use case or domain service changes by replacement: the new one is built beside the old one, the code is pointed at it, and the old one goes once the tests pass. Aggregates, enums and value objects cannot be replaced this way.
 
-1. Select the built card and click **Replace**. Give the new adapter (`Infra/{Folder}/{Prefix}{Port}`), or the new name. A list use case is replaced by another `List…` that names what it lists another way, such as `ListOwnCrates`.
+1. Select the built card and click its **Replace** icon. Give the new adapter (`Infra/{Folder}/{Prefix}{Port}`), or the new name. A list use case is replaced by another `List…` that names what it lists another way, such as `ListOwnCrates`.
 
    ![The Replace form](images/structure-replace.png)
 
@@ -416,4 +423,4 @@ The Architecture suite's `structure` check compares the code with the manifests 
 | A card reads **differs** | The code is built another way. If the code is right, click **Sync from code**. Otherwise change the code (or, for something not yet built, the manifest). |
 | A name is refused as already in the code | The manifest is behind the code. Run `php artisan kit:import --context=X --sync`, which adds what the code has and keeps the designs not yet built. |
 | *The manifest changed since this page loaded* | Reload the page and make the change again. |
-| No **Edit** button | The piece is built. Change the code and sync it, or replace it. |
+| No **Edit** icon | The piece is built. Change the code and sync it, or replace it. |
