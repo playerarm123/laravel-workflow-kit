@@ -31,6 +31,7 @@ These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship i
 - `app/Providers/KitServiceProvider.php`, listed in `bootstrap/providers.php`, with `resources/views/kit/structure.blade.php` and the Vite entry `resources/js/kit/structure.tsx`, listed in `vite.config.ts`, and the screen it draws, in the rest of `resources/js/kit/`
 - *package:* `src/Console/Commands/MakeEnumCommand.php`, which takes over Laravel's `make:enum`, and `src/Console/Commands/MakeValueObjectCommand.php` (`make:value-object`), with `stubs/value-object.stub` and `stubs/value-object-test.stub`
 - *package:* `src/Console/Commands/MakeEntityMethodCommand.php` (`make:entity-method`), which adds a behaviour or an assertion to an entity, and `src/Console/Commands/MakeEntityStateCommand.php` (`make:entity-state`), which adds a property and its getter, sharing `src/Console/Commands/Concerns/EditsEntityClass.php` and, with `make:value-object`, `src/Console/Commands/Concerns/ResolvesManifestTypes.php`
+- *package:* `src/Console/Commands/Structure/StructureCommands.php`, the commands the screen's Run menu runs
 - *package:* `src/Console/Commands/Structure/KitDocs.php`, with the project's `resources/views/kit/docs.blade.php`, the kit's docs screen at `/kit/docs`: every guideline read from the workflow kit as it stands, and the `make:*` and `kit:*` commands the console has
 
 ## The manifest
@@ -179,6 +180,8 @@ Design a piece in the manifest first, then let the kit build it:
 php artisan kit:plan     the steps, each done, ready or waiting with its reason; writes nothing
 php artisan kit:apply    runs every ready step, plans again, and repeats until none is ready
 ```
+
+The structure screen's **Run** menu runs the same commands, and `kit:import --sync`, `kit:retire` and Wayfinder's route generator, as `php artisan …` in a process of their own (`StructureCommands`), narrowed to the context or HTTP resource open or on everything. It shows what they print, then draws the graph again from a fresh request, because a run that writes classes leaves the process it ran in holding them as they were.
 
 Each step is a `make:*` generator or one line written into a project file. They run in this order, because each one reads what the ones before it wrote:
 

@@ -88,7 +88,7 @@ php artisan kit:apply         # รันทุกขั้นที่พร้
 
 `kit:apply` จะหยุดตรงที่ต้องให้คนเขียนต่อ เช่น fields ของ Command, keys ของ Row หรือเนื้อของ method เขียนส่วนนั้นแล้วรันใหม่ มันจะทำต่อจากจุดที่หยุดไว้
 
-คู่มือหน้าจอออกแบบแบบทำตามทีละขั้นพร้อมภาพหน้าจอ: [docs/structure-screen.th.md](docs/structure-screen.th.md) (เปิดในแอปได้ที่ `/kit/docs/guides/structure-screen?lang=th`)
+คู่มือหน้าจอออกแบบแบบทำตามทีละขั้นพร้อมภาพหน้าจอ: [docs/structure-screen.th.md](docs/structure-screen.th.md) (เปิดในแอปได้ที่ `/kit/docs/guides/structure-screen?lang=th`) ส่วน domain service ตั้งแต่เลือกว่าจะใช้หรือไม่ไปจนถึงเทสต์ มีคู่มือแยกที่ [docs/domain-services.th.md](docs/domain-services.th.md) (`/kit/docs/guides/domain-services?lang=th`)
 
 ถ้าจะเปลี่ยนชิ้นที่สร้างไปแล้ว ให้ทำเครื่องหมายชิ้นใหม่ด้วย `replaces` บนหน้าจอหรือใน manifest แล้ว `kit:apply` จะสร้างชิ้นใหม่และสลับเข้าไปแทน จากนั้น `php artisan kit:retire` จะลบชิ้นเก่าออกเมื่อ suite ผ่านหมด ([structure.md](resources/boost/guidelines/structure.md))
 
@@ -129,7 +129,7 @@ generator ทุกตัวเขียน test ไว้ข้างไฟล�
 | `make:enum {name} --domain= --string --case= [--transition=]` | domain enum พร้อม transitions ถ้าเป็น status |
 | `make:value-object {name} --domain= [--field=]` | value object พร้อม test |
 | `make:domain-exception {name} --domain= --kind=refusal\|value\|application` | exception บน base class ที่ถูกต้อง |
-| `make:domain-service {name} --domain= --creates=\|--data\|--plain` | domain service ในหนึ่งในสามรูปแบบ |
+| `make:domain-service {name} --domain= (--creates=\|--data\|--plain) [--repo=] [--exception] [--force]` | domain service ในหนึ่งในสามรูปแบบ พร้อม repository ที่ inject, exception ของตัวเอง และเทสต์ ดูตัวอย่างเต็มที่ [docs/domain-services.th.md](docs/domain-services.th.md) |
 | `make:port {name} --domain=\|--application= [--adapter= --infra=]` | port และภายหลังคือ adapter พร้อม test ของ adapter |
 | `make:eloquent-repository {name} --domain=` | repository, exceptions, log payload และ contract test |
 | `make:use-case {name} --domain= [--command] [--result] [--repo=] [--creates] [--query]` | use case: handler, Command, Result และสำหรับ list คือ query port กับ adapter |

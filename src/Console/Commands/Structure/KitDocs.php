@@ -93,7 +93,7 @@ final class KitDocs
         $markdown = $this->withoutLanguageLink($name, StructureFiles::text($file));
         ['html' => $html, 'sections' => $sections] = $this->render($markdown);
 
-        $html = (string) preg_replace_callback('/(src|href)="([^"]*)"/', function (array $match) use ($name): string {
+        $html = (string) preg_replace_callback('/(src|href)="([^"]*)"/', function (array $match): string {
             [, $attribute, $target] = $match;
 
             if ($attribute === 'src' && preg_match('#^images/([^/]+)$#', $target, $image) === 1 && $this->imageUrl !== null) {
@@ -104,8 +104,9 @@ final class KitDocs
                 return sprintf('href="%s%s"', e(($this->linkTo)($rule[1])), $rule[2] ?? '');
             }
 
-            if (preg_match('#^('.preg_quote($name, '#').')((?:\.th)?)\.md$#', $target, $sibling) === 1 && $this->guideLinkTo !== null) {
-                return sprintf('href="%s"', e(($this->guideLinkTo)($name, $sibling[2] === '' ? 'en' : 'th')));
+            // The guide in its other language, or another guide, as `{name}.md` or `{name}.th.md`.
+            if (preg_match('#^([a-z][a-z0-9-]*?)((?:\.th)?)\.md(\#[\w-]*)?$#', $target, $guide) === 1 && $this->guideLinkTo !== null && is_file($this->guidesDirectory.'/'.$guide[1].'.md')) {
+                return sprintf('href="%s%s"', e(($this->guideLinkTo)($guide[1], $guide[2] === '' ? 'en' : 'th')), $guide[3] ?? '');
             }
 
             return $match[0];

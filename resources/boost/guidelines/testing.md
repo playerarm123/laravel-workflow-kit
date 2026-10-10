@@ -115,7 +115,7 @@ Feature tests run on the engine production runs (stack.md), through the real rep
 The generators write each test at its mirrored path, with a `->todo()` for every case:
 - `make:entity`
 - `make:value-object`
-- `make:domain-service`: Unit, or Feature when it is given `--repo`
+- `make:domain-service`: Unit, or Feature when it is given `--repo`. The generator decides once, from `--repo` alone. When a service starts reaching a repository later, directly or through another service, move its test from `tests/Unit/...` to the same path under `tests/Feature/...` and resolve the service from the container (`app({Name}Service::class)`). *Check `mirror` names the move.*
 - `make:use-case`
 - `make:eloquent-repository`
 - `make:policy`

@@ -167,6 +167,40 @@ it('builds an entity\'s methods after the entity, the enums they take and the ex
     }
 });
 
+const SAMPLING_REGISTER_CONTEXT = 'SamplingRegister';
+
+function forgetSamplingRegister(): void
+{
+    File::deleteDirectory(app_path('Domain/'.SAMPLING_REGISTER_CONTEXT));
+    File::deleteDirectory(base_path('tests/Unit/Domain/'.SAMPLING_REGISTER_CONTEXT));
+    File::deleteDirectory(base_path('tests/Feature/Domain/'.SAMPLING_REGISTER_CONTEXT));
+    File::delete(base_path('.kit/structure/'.SAMPLING_REGISTER_CONTEXT.'.json'));
+}
+
+it('builds a service that creates an aggregate with the repository it injects, and its test in Feature', function () {
+    forgetSamplingRegister();
+    $context = SAMPLING_REGISTER_CONTEXT;
+    (new StructureFiles(base_path()))->write([
+        'context' => $context,
+        'aggregates' => ['Member' => ['children' => [], 'repository' => false]],
+        'services' => ['RegisterMember' => ['shape' => 'creates', 'creates' => 'Member', 'repositories' => ['Member'], 'exception' => true]],
+    ]);
+
+    try {
+        $this->artisan('kit:apply', ['--context' => [$context]])
+            ->expectsOutputToContain('make:domain-service RegisterMember --domain='.$context.' --creates=Member --repo=Member --exception')
+            ->assertSuccessful();
+
+        expect(File::get(app_path("Domain/{$context}/Services/RegisterMember/RegisterMemberService.php")))
+            ->toContain('protected MemberRepository $repo,')
+            ->toContain('public function handle(string $id, RegisterMemberData $data): MemberEntity')
+            ->and(File::exists(base_path("tests/Feature/Domain/{$context}/Services/RegisterMember/RegisterMemberServiceTest.php")))->toBeTrue()
+            ->and(File::exists(base_path("tests/Unit/Domain/{$context}/Services/RegisterMember/RegisterMemberServiceTest.php")))->toBeFalse();
+    } finally {
+        forgetSamplingRegister();
+    }
+});
+
 it('builds each exception the manifest designs, in the home its kind gives it', function () {
     $context = 'SamplingRaise';
     $forget = function () use ($context): void {

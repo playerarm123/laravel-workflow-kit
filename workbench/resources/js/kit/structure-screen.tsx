@@ -1,3 +1,4 @@
+import { useHttp } from '@inertiajs/react';
 import {
     Background,
     Controls,
@@ -9,6 +10,8 @@ import { ArrowUpRight, Copy, Pencil, Replace, Settings2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
+import { CommandDialog } from '@/kit/command-runner';
+import type { CommandRequest } from '@/kit/command-runner';
 import { ContextForm } from '@/kit/context-form';
 import { ExceptionForm } from '@/kit/exception-form';
 import { layoutView, NODE_WIDTH, withoutKinds } from '@/kit/layout';
@@ -270,6 +273,26 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
     const saved = (next: StructureGraph, name?: string) =>
         changed(next, name === undefined ? 'Saved' : `Saved ${name}`, true);
 
+    const [running, setRunning] = useState<CommandRequest | null>(null);
+    const reload = useHttp<Record<string, never>, { graph: StructureGraph }>(
+        {},
+    );
+
+    /**
+     * Draws the graph again after a command ran. The command ran in a request of its own, which
+     * may hold classes as they were before it wrote; this request reads the code as it is now.
+     */
+    const commandFinished = (label: string) => {
+        reload.get(endpoints.graph, {
+            onSuccess: (response) =>
+                changed(
+                    response.graph,
+                    `${label} finished: graph refreshed`,
+                    false,
+                ),
+        });
+    };
+
     const switches =
         context === null || shared
             ? []
@@ -301,7 +324,9 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                 shared={shared}
                 endpoints={endpoints}
                 switches={switches}
+                commands={payload.commands}
                 onEdit={setEditing}
+                onRun={setRunning}
             />
             <div className="flex min-h-0 flex-1">
                 <main className="min-w-0 flex-1">
@@ -489,6 +514,15 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                     <ByHand graph={graph} />
                 </aside>
             </div>
+            {running !== null && (
+                <CommandDialog
+                    key={`${running.command.key}:${running.scope?.name ?? ''}`}
+                    request={running}
+                    endpoints={endpoints}
+                    onClose={() => setRunning(null)}
+                    onFinished={() => commandFinished(running.command.label)}
+                />
+            )}
         </div>
     );
 }

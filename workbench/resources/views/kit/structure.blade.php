@@ -19,6 +19,6 @@
     <body class="font-sans antialiased">
         <div id="kit-structure-root"></div>
 
-        <script type="application/json" id="kit-structure">@json(['graph' => $graph, 'endpoints' => $endpoints])</script>
+        <script type="application/json" id="kit-structure">@json(['graph' => $graph, 'endpoints' => $endpoints, 'commands' => $commands])</script>
     </body>
 </html>

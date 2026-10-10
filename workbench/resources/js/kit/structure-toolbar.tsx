@@ -27,11 +27,14 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { RunMenu } from '@/kit/command-runner';
+import type { CommandRequest } from '@/kit/command-runner';
 import { styleOf } from '@/kit/node-styles';
 import type { Editing } from '@/kit/panel-sections';
 import { IconAction } from '@/kit/panel-table';
 import type {
     ResourceSection,
+    StructureCommand,
     StructureEndpoints,
     StructureNodeKind,
     StructureSection,
@@ -103,6 +106,7 @@ function contextGroups(
                         previous: null,
                     },
                 },
+                piece('services', 'Domain service', 'service'),
                 piece('exceptions', 'Exception', 'exception'),
             ],
         },
@@ -117,7 +121,6 @@ function contextGroups(
             label: 'Application',
             items: [
                 piece('useCases', 'Use case', 'useCase'),
-                piece('services', 'Domain service', 'service'),
                 piece('ports', 'Port', 'port'),
             ],
         },
@@ -177,13 +180,17 @@ export function StructureToolbar({
     shared,
     endpoints,
     switches,
+    commands,
     onEdit,
+    onRun,
 }: {
     place: StructureTarget | null;
     shared: boolean;
     endpoints: StructureEndpoints;
     switches: ViewSwitch[];
+    commands: StructureCommand[];
     onEdit: (editing: Editing) => void;
+    onRun: (request: CommandRequest) => void;
 }) {
     const context = place?.view === 'context' ? place.name : null;
     const resource = place?.view === 'resource' ? place.name : null;
@@ -297,6 +304,7 @@ export function StructureToolbar({
                         />
                     </>
                 )}
+                <RunMenu commands={commands} place={place} onRun={onRun} />
                 {switches.length > 0 && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>

@@ -177,7 +177,7 @@ The overview now shows both, with the number of use cases the resource calls:
 
 ### 9. Plan and build
 
-The screen's statuses are a live `kit:plan`. Run it in a terminal to see the same steps in order:
+The screen's statuses are a live `kit:plan`. Choose **Run ▸ Plan** (or run it in a terminal) to see the same steps in order:
 
 ```
 $ php artisan kit:plan
@@ -191,7 +191,7 @@ $ php artisan kit:plan
    INFO  Done: 0 of 15 steps.
 ```
 
-Then build:
+Then build with **Run ▸ Apply**, or in a terminal:
 
 ```
 $ php artisan kit:apply
@@ -201,9 +201,22 @@ $ php artisan kit:apply
    INFO  Done: 13 of 14 steps.
 ```
 
-`kit:apply` runs every ready step, plans again, and repeats until nothing is ready. It stops at steps that wait for code only a person writes. Reload the screen, which reads the code again: built cards read **done**. A built piece is locked, and its panel offers **Replace** instead of Edit (see [Replacing what is built](#replacing-what-is-built)).
+`kit:apply` runs every ready step, plans again, and repeats until nothing is ready. It stops at steps that wait for code only a person writes. Run from the menu, the screen draws itself again once the command ends; after a terminal run, reload it. Built cards read **done**. A built piece is locked, and its panel offers **Replace** instead of Edit (see [Replacing what is built](#replacing-what-is-built)).
 
 ![Built cards](images/structure-after-apply.png)
+
+The **Run** menu runs the kit's commands as `php artisan …` and shows what they print. Its first group narrows each one to the context or HTTP resource open now (`--context=…`, `--resource=…`); **Everything** runs it on the whole project. A command that only reads runs as soon as you pick it; one that writes files asks first. When it ends, the screen reads the graph again, keeping your cards and selection.
+
+| Menu item | Runs | Writes files |
+|---|---|---|
+| Plan | `kit:plan` | no |
+| Apply | `kit:apply` | yes |
+| Preview sync from code | `kit:import --sync --dry-run` | no |
+| Sync from code | `kit:import --sync` | yes |
+| Retire replaced pieces | `kit:retire`, which runs the Architecture, Unit and Feature suites first, so it takes a while | yes |
+| Regenerate routes | `wayfinder:generate --with-form`, offered when the project has Wayfinder | yes |
+
+![Running kit:apply from the Run menu](images/structure-run.png)
 
 ### 10. Finish by hand, then build again
 
@@ -306,7 +319,7 @@ At the bottom, **By hand (N)** lists every difference between the code and the m
 The header's menus offer the forms of the current view:
 
 - **Overview:** **New ▸** Context, HTTP resource.
-- **Context:** **Add ▸** Domain (Aggregate, Entity method, Exception), Vocabulary (Enum, Value object), Application (Use case, Domain service, Port); **View ▸** the Vocabulary, Behaviour and Exceptions switches.
+- **Context:** **Add ▸** Domain (Aggregate, Entity method, Domain service, Exception), Vocabulary (Enum, Value object), Application (Use case, Port); **View ▸** the Vocabulary, Behaviour and Exceptions switches.
 - **Shared kernel:** **Add ▸** Enum, Value object, Invalid value.
 - **HTTP resource:** **Add ▸** Controller method, Action, Page; the gear opens Model and policy.
 - **Every view:** **?** opens the Guide and the Docs.
@@ -321,7 +334,7 @@ The header's menus offer the forms of the current view:
 |---|---|---|
 | Aggregate | Name; Child entities, separated by commas; Repository | A child repeats the root. A child that still has methods is removed. Repository is unticked while something injects it. |
 | Child entities (in the panel of any aggregate card) | A new child's name under the table, then its **+**; the bin icon in the row of a child not built yet | The name is not StudlyCase or is the root's. The aggregate already lists it, or the code already has it (sync it instead). A child that has methods, or that the code has, cannot be removed. |
-| Domain service | Name; Shape of handle(): `creates`, `data` or `plain`; Builds the aggregate (for `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | A repository, or the aggregate it builds, is in another context ([layers.md](../resources/boost/guidelines/layers.md)). |
+| Domain service | Name; Shape of handle(): `creates`, `data` or `plain`; Builds the aggregate (for `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | A repository, or the aggregate it builds, is in another context ([layers.md](../resources/boost/guidelines/layers.md)). When to design one, and the code it becomes: [domain-services.md](domain-services.md). |
 | Port | Name; Layer: `domain` or `application`; Adapter, as `Infra/{Folder}/{Prefix}{Port}` (optional) | The adapter is not in that form. |
 | Use case | Name; Shape of __invoke(): `command-result`, `command` or `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (from any context) | A Command shape returns something other than `void`, `string`, `int` or `result` ([handlers.md](../resources/boost/guidelines/handlers.md)). A list is not `List{Name}` with `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)). A repository does not exist. |
 | Enum | Name; Aggregate; Backing: `string`, `int` or `pure`; A status: each case lists the cases it may become; Cases, in order | Cases are not TitleCase, or two share a value. A status is not named `*Status`, or no case may become another ([states.md](../resources/boost/guidelines/states.md)). |

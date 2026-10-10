@@ -66,11 +66,27 @@ describe('KitDocs', function () {
         it('lists each guide once, by its English title, apart from the guidelines', function () {
             $guides = collect(kitDocs()->guides())->keyBy('name');
 
-            expect($guides->keys()->all())->toBe(['structure-screen'])
+            expect($guides->keys()->all())->toBe(['domain-services', 'structure-screen'])
+                ->and($guides['domain-services']['title'])->toBe('Domain services')
                 ->and($guides['structure-screen']['title'])->toBe('The structure screen')
                 ->and($guides['structure-screen']['summary'])->toStartWith('/kit/structure is where you design')
                 ->and(array_column(kitDocs()->guidelines(), 'name'))->not->toContain('structure-screen');
         });
+
+        it('links one guide to another in the same language, and every rule it names to its page', function (string $locale, string $title) {
+            $services = kitDocs()->guide('domain-services', $locale);
+            $screen = kitDocs()->guide('structure-screen', $locale);
+
+            expect($services['title'])->toBe($title)
+                ->and($services['locales'])->toBe(['en', 'th'])
+                ->and($services['html'])->toContain(sprintf('href="%s"', e("/guides/structure-screen?lang={$locale}")))
+                ->and($services['html'])->toContain('href="/docs/layers"')
+                ->and($services['html'])->not->toContain('.md"')
+                ->and($screen['html'])->toContain(sprintf('href="%s"', e("/guides/domain-services?lang={$locale}")));
+        })->with([
+            'English' => ['en', 'Domain services'],
+            'Thai' => ['th', 'Domain service'],
+        ]);
 
         it('renders a guide in each language, with its screenshots, its rules and the other language linked here', function (string $locale, string $title, string $other) {
             $guide = kitDocs()->guide('structure-screen', $locale);

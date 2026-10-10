@@ -223,11 +223,36 @@ export type StructureEndpoints = {
     saveResourcePiece: string;
     removeResourcePiece: string;
     syncResourcePiece: string;
+    graph: string;
+    runCommand: string;
     docs: string;
     guide: string;
+};
+
+/**
+ * A kit command the Run menu offers: what it is called, whether it writes files, and the views it
+ * narrows to.
+ *
+ * @see Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureCommands
+ */
+export type StructureCommand = {
+    key: string;
+    label: string;
+    writes: boolean;
+    scopes: ('context' | 'resource')[];
+};
+
+/**
+ * What a command answered with: the line it stands for, its exit code and what it printed.
+ */
+export type StructureCommandRun = {
+    command: string;
+    exitCode: number;
+    output: string;
 };
 
 export type StructurePayload = {
     graph: StructureGraph;
     endpoints: StructureEndpoints;
+    commands: StructureCommand[];
 };

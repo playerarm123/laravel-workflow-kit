@@ -67,7 +67,25 @@ Put a rule in the first place that can own it:
 - Lives at the context level only, never inside an aggregate folder (*check `service-location`*). Its Data, Result and Exception classes, and any other type it speaks in, sit in its folder.
 - Holds no interface. An interface the infrastructure implements is a port and lives in `{Context}/Ports/` or `Shared/Ports/` (*check `ports`*). A repository interface is the one port that stays at the aggregate root.
 
-**The shape of a domain service.** Scaffold it with `php artisan make:domain-service {Name} --domain={Context}` and one of `--creates={Aggregate}`, `--data` or `--plain`.
+**The shape of a domain service.** Scaffold it, never hand-write it:
+
+```
+php artisan make:domain-service {Name} --domain={Context} (--creates={Aggregate}|--data|--plain) [--repo={Aggregate}] [--exception] [--force]
+```
+
+| Flag | Writes |
+|---|---|
+| `--creates={Aggregate}` | the Creates shape: `handle(string $id, {Name}Data $data): {Aggregate}Entity`, with `{Name}Data` beside it |
+| `--data` | the Data in, Result out shape: `handle({Name}Data $data): {Name}Result`, with `{Name}Data` and `{Name}Result` beside it |
+| `--plain` | the Plain shape: `handle(): void`, with no Data and no Result. Change the parameters and the return to what the service needs |
+| `--repo={Aggregate}` | the constructor injection of `{Aggregate}Repository`, which must be of the service's own context, and the test in `tests/Feature` (resolved from the container) instead of `tests/Unit` (testing.md) |
+| `--exception` | `{Name}Exception` beside the service, extending `DomainException` (exceptions.md) |
+| `--force` | the service again over one that exists |
+
+`--repo` takes one repository. Add a second one of the same context to the constructor by hand. `kit:apply` passes the first repository of the service's own context that `services.{Name}.repositories` lists, whatever the shape, so `matches` names any other repository the manifest lists and the constructor lacks until it is added (structure.md).
+
+Until a person writes `handle()`, its body is `throw new LogicException('{Name}Service::handle() is not implemented yet.');`. That one throw is allowed in the domain (exceptions.md, *check `domain-throws`*), and `kit:apply` waits on the same text before it swaps in a service that replaces another (structure.md). Its test starts as one todo. *Review only.*
+
 - `Services/{Name}/` holds exactly one `{Name}Service`, and its only public method is `handle()`. *Check `service-shape`.*
 - `handle()` takes one of three shapes. Use one of them, never a fourth. *Check `service-shape`.*
 
@@ -78,11 +96,15 @@ Put a rule in the first place that can own it:
 | Plain | any parameters and return, with no `*Data` and no `*Result` | the service needs an id or two and returns an entity, a list or nothing. |
 
 - A `*Data` or `*Result` that `handle()` names lives in the service's own folder. A Data may carry a name of its own (`UserCredentialData`) when several callers build it. A Result is always `{Name}Result`.
+- A service's Data and Result are `final readonly` plain classes holding domain types (entities, value objects, enums, scalars). Unlike a handler's Command and Result, they never extend `Spatie\LaravelData\Data`, because the domain uses no framework and no package. *Check `domain-framework`.*
 
 **Why:** a service's input differs with its job, so one fixed signature would force empty Data and Result classes around a single id. Three named shapes still let a reader tell from the signature alone what a service does, and an agent has three patterns to copy instead of eleven.
 
 **Application service (handler)**. Its shape, actor, ids and transaction are in handlers.md.
-- It is the only way in. Controllers, commands, jobs and listeners call handlers. Domain services are called only by handlers or by other domain services of the same context.
+- It is the only way in. Controllers, commands, jobs and listeners call handlers. Domain services are called only by handlers or by other domain services of the same context:
+  - an entry point cannot reach one, because it may use from the domain only enums, value objects and exceptions (*check `entry-points`*);
+  - another context cannot reach one (*check `domain-context`*);
+  - nothing stops the infrastructure from calling one, so a reviewer does. *Review only.*
 - Every class named `*Handler` lives in `app/Application/{Context}/UseCases/`. *Check `handlers`.*
 
 **Why:** each layer then has one reason to change. A rule moves into the entity, a cross-aggregate rule into a domain service, and orchestration into a handler. A reader always knows where to look.
