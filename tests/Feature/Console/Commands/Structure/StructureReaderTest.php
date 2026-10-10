@@ -246,7 +246,7 @@ describe('StructureReader', function () {
 
             expect($shared['enums']['SamplingReaderTone'])->toBe(['aggregate' => null, 'backing' => 'string', 'cases' => ['Loud' => 'loud'], 'transitions' => null])
                 ->and($shared['valueObjects']['SamplingReaderSpan'])->toBe(['aggregate' => null, 'fields' => ['tone' => 'SamplingReaderTone', 'price' => 'Money']])
-                ->and($shared['valueObjects'])->not->toHaveKeys(['Money', 'Percent'])
+                ->and($shared['valueObjects'])->not->toHaveKeys(StructureReader::KIT_SHARED)
                 ->and([$shared['aggregates'], $shared['services'], $shared['ports'], $shared['useCases']])->toBe([[], [], [], []]);
         });
     });

@@ -154,7 +154,7 @@ The starter kit's controllers (`App\Http\Controllers\Settings`) and the kit's ow
 
 ## The shared kernel
 
-`.kit/structure/Shared.json` lists the enums and value objects of `app/Domain/Shared/{Enums,ValueObjects}`, which every context may use (layers.md), and the invalid values of `app/Domain/Shared/Exceptions` that guard them. Its other sections stay empty, because the rest of the shared kernel is the kit's own: its base classes and `IdGenerator`. The kit's `Money` and `Percent` are left out too (numbers.md), with their exceptions and the kit's own `DomainValueException`, `EntityNotFoundException` and `RepositoryException`. An entry of the shared kernel has `"aggregate": null`; an entry of any other context names its aggregate.
+`.kit/structure/Shared.json` lists the enums and value objects of `app/Domain/Shared/{Enums,ValueObjects}`, which every context may use (layers.md), and the invalid values of `app/Domain/Shared/Exceptions` that guard them. Its other sections stay empty, because the rest of the shared kernel is the kit's own: its base classes and `IdGenerator`. The kit's `Money` and `Percent` (numbers.md) and `CalendarDate`, `TimeOfDay` and `TimeRange` (dates.md) are left out too, with their exceptions and the kit's own `DomainValueException`, `EntityNotFoundException` and `RepositoryException`. An entry of the shared kernel has `"aggregate": null`; an entry of any other context names its aggregate.
 
 **Do**
 - Keep one manifest for every context under `app/Domain` or `app/Application`, and one for the shared kernel. The kit's other folders (`Audit`, `Auth`, `Concerns`) have none. *Check `in-json`.*

@@ -7,7 +7,7 @@ require_once __DIR__.'/Support/rules.php';
  *
  * The in-file rules (no Intl.DateTimeFormat, no toLocale*String() outside the kit file) are
  * ESLint's, in tests/ESLint/dates.js, proven by DatesEslintTest. This file checks that the kit
- * ships and that its ESLint rules are spread into the project's config.
+ * ships, its value objects for a calendar day and a time of day included, and that its ESLint rules are spread into the project's config.
  *
  * @return array{
  *     kit_files: list<string>,
@@ -19,6 +19,14 @@ function datesSpec(): array
 {
     return [
         'kit_files' => [
+            'app/Domain/Shared/ValueObjects/CalendarDate.php',
+            'app/Domain/Shared/ValueObjects/TimeOfDay.php',
+            'app/Domain/Shared/ValueObjects/TimeRange.php',
+            'app/Domain/Shared/Exceptions/InvalidCalendarDateException.php',
+            'app/Domain/Shared/Exceptions/InvalidTimeOfDayException.php',
+            'tests/Unit/Domain/Shared/ValueObjects/CalendarDateTest.php',
+            'tests/Unit/Domain/Shared/ValueObjects/TimeOfDayTest.php',
+            'tests/Unit/Domain/Shared/ValueObjects/TimeRangeTest.php',
             'resources/js/lib/dates.ts',
             'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/dates.js',
             'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/Support/rules.js',
