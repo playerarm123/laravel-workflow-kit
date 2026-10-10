@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\EditsEntityClass;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\ResolvesDomain;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\ResolvesManifestTypes;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\WritesDomainMethod;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureReader;
 
 /**
@@ -29,7 +30,7 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureReader;
 #[Description('Add a behaviour or an assertion to a domain entity, and its test todos')]
 class MakeEntityMethodCommand extends Command
 {
-    use EditsEntityClass, ResolvesDomain, ResolvesManifestTypes;
+    use EditsEntityClass, ResolvesDomain, ResolvesManifestTypes, WritesDomainMethod;
 
     public function __construct(
         protected Filesystem $files,
@@ -89,7 +90,7 @@ class MakeEntityMethodCommand extends Command
 
         $this->components->info(sprintf('%s [%s] added to %sEntity.', $assertion ? 'Assertion' : 'Behaviour', $method, $entity));
 
-        $this->addTest($namespace, $entity, $method, array_keys($exceptions));
+        $this->addTest(base_path('tests/Unit/'.str_replace('\\', '/', Str::after($namespace, 'App\\')))."/{$entity}EntityTest.php", $method, array_keys($exceptions));
 
         return self::SUCCESS;
     }
@@ -105,78 +106,6 @@ class MakeEntityMethodCommand extends Command
     }
 
     /**
-     * Each `--param` as the code it declares, or what is wrong with one.
-     *
-     * @param  array<string, string>  $imports
-     * @return list<string>|string
-     */
-    private function parameters(string $context, string $aggregate, string $namespace, array &$imports): array|string
-    {
-        $parameters = [];
-        $names = [];
-
-        foreach ((array) $this->option('param') as $param) {
-            [$name, $type] = array_map(trim(...), explode(':', (string) $param, 2) + [1 => '']);
-
-            if (preg_match('/^[a-z][A-Za-z0-9]*$/', $name) !== 1 || $type === '') {
-                return "The parameter {$param} is not name:Type with a camelCase name.";
-            }
-
-            if (in_array($name, $names, true)) {
-                return "The parameter {$name} is given twice.";
-            }
-
-            $variadic = str_starts_with($type, '...');
-            $resolved = $this->manifestTypeCode($variadic ? substr($type, 3) : $type, $context, $aggregate, $namespace, $imports, "the parameter {$name}");
-
-            if (is_string($resolved)) {
-                return $resolved;
-            }
-
-            $names[] = $name;
-            $parameters[] = $resolved['code'].' '.($variadic ? '...' : '').'$'.$name;
-        }
-
-        return $parameters;
-    }
-
-    /**
-     * Each `--throws` by the name the code uses, or what is wrong with one.
-     *
-     * @param  array<string, string>  $imports
-     * @return array<string, string>|string
-     */
-    private function exceptions(string $context, string $aggregate, string $namespace, array &$imports): array|string
-    {
-        $reader = new StructureReader(base_path());
-        $exceptions = [];
-
-        foreach ((array) $this->option('throws') as $throws) {
-            $class = $reader->exceptionClass((string) $throws, $context, $aggregate);
-
-            if ($class === null) {
-                return "The exception {$throws} is not built yet — build it first.";
-            }
-
-            $alias = class_basename($class);
-
-            if (isset($imports[$alias]) && $imports[$alias] !== $class) {
-                return "The method names {$alias} from two places — write one of them by hand.";
-            }
-
-            if (Str::beforeLast($class, '\\') !== $namespace) {
-                $imports[$alias] = $class;
-            }
-
-            $exceptions[$alias] = $class;
-        }
-
-        ksort($exceptions);
-
-        return $exceptions;
-    }
-
-    /**
      * @param  list<string>  $parameters
      * @param  list<string>  $exceptions
      */
@@ -185,41 +114,5 @@ class MakeEntityMethodCommand extends Command
         $docblock = $exceptions === [] ? '' : "    /**\n".implode('', array_map(fn (string $exception): string => "     * @throws {$exception}\n", $exceptions))."     */\n";
 
         return $docblock."    public function {$method}(".implode(', ', $parameters)."): void\n    {\n        //\n    }\n";
-    }
-
-    /**
-     * Adds the method's `describe()` to the entity's Unit test, at the end of its outer block.
-     *
-     * @param  list<string>  $exceptions
-     */
-    private function addTest(string $namespace, string $entity, string $method, array $exceptions): void
-    {
-        $path = base_path('tests/Unit/'.str_replace('\\', '/', Str::after($namespace, 'App\\'))."/{$entity}EntityTest.php");
-        $relative = Str::after($path, base_path().DIRECTORY_SEPARATOR);
-
-        if (! $this->files->exists($path)) {
-            $this->components->warn("Test [{$relative}] does not exist — write the cases of {$method}() by hand.");
-
-            return;
-        }
-
-        $code = rtrim($this->files->get($path), "\n");
-        $close = strrpos($code, "\n});");
-
-        if ($close === false) {
-            $this->components->warn("Test [{$relative}] has no outer describe() to add {$method}() to — write its cases by hand.");
-
-            return;
-        }
-
-        $cases = [
-            "        it('succeeds when its rules hold')->todo();",
-            ...array_map(fn (string $exception): string => "        it('throws {$exception}')->todo();", $exceptions),
-        ];
-        $describe = "\n\n    describe('{$method}()', function () {\n".implode("\n\n", $cases)."\n    });";
-
-        $this->files->put($path, substr($code, 0, $close).$describe.substr($code, $close)."\n");
-
-        $this->components->info("Test [{$relative}] gained the cases of {$method}().");
     }
 }

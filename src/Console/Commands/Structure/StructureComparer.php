@@ -159,6 +159,11 @@ final class StructureComparer
     {
         $differences = [];
 
+        if ($section === 'valueObjects') {
+            $keys = array_diff($keys, ['behaviours', 'assertions']);
+            $differences = $this->methodDifferences($context, $section, $name, $inCode, $inJson, self::contextNode($context, $section, $name));
+        }
+
         foreach (array_diff($keys, StructureFiles::INTENT_KEYS) as $key) {
             $json = $inJson[$key] ?? null;
 
@@ -218,6 +223,22 @@ final class StructureComparer
 
         $differences = [...$differences, ...$this->stateDifferences($context, $name, $inCode, $inJson, $node)];
 
+        return [...$differences, ...$this->methodDifferences($context, 'entities', $name, $inCode, $inJson, $node)];
+    }
+
+    /**
+     * The methods of one entity or value object that only the code has, only the manifest has, or
+     * that the two describe differently, each told apart.
+     *
+     * @param  array<string, mixed>|null  $inCode
+     * @param  array<string, mixed>|null  $inJson
+     * @return list<array{check: string, subject: string, message: string, node: string|null}>
+     */
+    private function methodDifferences(string $context, string $section, string $name, ?array $inCode, ?array $inJson, ?string $node): array
+    {
+        $differences = [];
+        $file = $this->files->relativePath($context);
+
         foreach (['behaviours', 'assertions'] as $group) {
             /** @var array<string, array{params: array<string, string>, throws: list<string>}> $code */
             $code = is_array($inCode[$group] ?? null) ? $inCode[$group] : [];
@@ -226,9 +247,10 @@ final class StructureComparer
 
             foreach ($code as $method => $entry) {
                 if (! array_key_exists($method, $json)) {
-                    $differences[] = $this->difference('in-json', $this->reader->classOf($context, 'entities', $name).'::'.$method, sprintf(
-                        'is not in %s — add it under "entities.%s.%s" (`%s --context=%s --sync` adds it, keeping what is not built yet)',
+                    $differences[] = $this->difference('in-json', $this->reader->classOf($context, $section, $name).'::'.$method, sprintf(
+                        'is not in %s — add it under "%s.%s.%s" (`%s --context=%s --sync` adds it, keeping what is not built yet)',
                         $file,
+                        $section,
                         $name,
                         $group,
                         self::IMPORT,
@@ -244,7 +266,8 @@ final class StructureComparer
                 foreach (['params' => $json[$method]['params'], 'throws' => $throws] as $key => $value) {
                     if ($entry[$key] !== $value) {
                         $differences[] = $this->difference('matches', $file, sprintf(
-                            'entities.%s.%s.%s is %s in the code but %s in the manifest',
+                            '%s.%s.%s.%s is %s in the code but %s in the manifest',
+                            $section,
                             $name,
                             $method,
                             $key,
@@ -256,7 +279,7 @@ final class StructureComparer
             }
 
             foreach (array_diff_key($json, $code) as $method => $entry) {
-                $differences[] = $this->difference('in-code', $file, sprintf('lists entities.%s.%s, which the code does not have yet — build it, or take it out of the manifest', $name, $method), $node);
+                $differences[] = $this->difference('in-code', $file, sprintf('lists %s.%s.%s, which the code does not have yet — build it, or take it out of the manifest', $section, $name, $method), $node);
             }
         }
 

@@ -75,9 +75,15 @@ export type EnumEntry = {
     transitions: Record<string, string[]> | null;
 };
 
+/**
+ * A value object never changes, so a behaviour returns a new one (`self`), and an assertion's
+ * name starts with `assert`.
+ */
 export type ValueObjectEntry = {
     aggregate: string | null;
     fields: Record<string, string>;
+    behaviours: Partial<Record<string, EntityMethod>>;
+    assertions: Partial<Record<string, EntityMethod>>;
 };
 
 /**
@@ -96,6 +102,9 @@ export type ExceptionEntry = {
  * One method of an entity: its parameters in order, each to its type, and the exceptions it throws.
  */
 export type EntityMethod = { params: Record<string, string>; throws: string[] };
+
+/** The sections whose entries hold methods: an entity's, or a value object's. */
+export type MethodHolder = 'entities' | 'valueObjects';
 
 /**
  * An entity's state is each property its constructor promotes, but for its id, to its type, in
@@ -193,6 +202,7 @@ export type StructureGraph = {
     resourceVersions: Partial<Record<string, string>>;
     resourceBuilt: Partial<Record<string, string[]>>;
     entityMethodsBuilt: Partial<Record<string, string[]>>;
+    valueObjectMethodsBuilt: Partial<Record<string, string[]>>;
     entityStateBuilt: Partial<Record<string, string[]>>;
     childrenBuilt: Partial<Record<string, string[]>>;
     outOfStep: Partial<Record<string, string[]>>;

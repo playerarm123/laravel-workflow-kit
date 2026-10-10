@@ -113,7 +113,7 @@ final class StructureReader
      * The shared kernel holds the kit's base classes and ports, so only its enums and value objects
      * are read.
      *
-     * @return array{context: string, aggregates: array<string, array{children: list<string>, repository: bool}>, services: array<string, array{shape: string, creates: string|null, repositories: list<string>, exception: bool}>, ports: array<string, array{layer: string, adapter: string|null}>, useCases: array<string, array{shape: string, returns: string, creates: bool, query: bool, repositories: list<string>}>, enums: array<string, array{aggregate: string|null, backing: string|null, cases: array<string, string|int|null>, transitions: array<string, list<string>>|null}>, valueObjects: array<string, array{aggregate: string|null, fields: array<string, string>}>, exceptions: array<string, array{kind: string, aggregate: string|null, useCase: string|null}>, entities: array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>}
+     * @return array{context: string, aggregates: array<string, array{children: list<string>, repository: bool}>, services: array<string, array{shape: string, creates: string|null, repositories: list<string>, exception: bool}>, ports: array<string, array{layer: string, adapter: string|null}>, useCases: array<string, array{shape: string, returns: string, creates: bool, query: bool, repositories: list<string>}>, enums: array<string, array{aggregate: string|null, backing: string|null, cases: array<string, string|int|null>, transitions: array<string, list<string>>|null}>, valueObjects: array<string, array{aggregate: string|null, fields: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>, exceptions: array<string, array{kind: string, aggregate: string|null, useCase: string|null}>, entities: array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>}
      */
     public function read(string $context): array
     {
@@ -412,7 +412,7 @@ final class StructureReader
         foreach ($this->entityClasses($context) as $aggregate => $classes) {
             foreach ($classes as $name => $class) {
                 $state = $this->entityState($class, $context, $aggregate);
-                $methods = $this->entityMethods($class, $context, $aggregate);
+                $methods = $this->methodsOf($class, $context, $aggregate, valueObject: false);
 
                 if ($state !== [] || $methods['behaviours'] !== [] || $methods['assertions'] !== []) {
                     $entities[$name] ??= ['aggregate' => $aggregate, 'state' => $state, ...$methods];
@@ -477,15 +477,16 @@ final class StructureReader
     }
 
     /**
-     * The public methods an entity declares itself, sorted into behaviours (they change it and
-     * return void) and assertions (`assert*`), each with its parameters in order and the
-     * exceptions it throws. Getters, static builders and what a base class or an interface
-     * declares are left out.
+     * The public methods an entity or a value object declares itself, sorted into behaviours and
+     * assertions (`assert*`), each with its parameters in order and the exceptions it throws. An
+     * entity's behaviour changes it and returns void. A value object never changes, so its
+     * behaviour returns a new one (`self` or `static`). Getters, static builders and what a base
+     * class or an interface declares are left out.
      *
      * @param  class-string  $class
      * @return array{behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}
      */
-    private function entityMethods(string $class, string $context, string $aggregate): array
+    private function methodsOf(string $class, string $context, ?string $aggregate, bool $valueObject): array
     {
         $reflection = new ReflectionClass($class);
         $inherited = [];
@@ -508,7 +509,7 @@ final class StructureReader
             $assertion = self::isAssertion($name);
             $returns = $method->getReturnType();
 
-            if (! $assertion && ! ($returns instanceof ReflectionNamedType && $returns->getName() === 'void')) {
+            if (! $assertion && ! ($returns instanceof ReflectionNamedType && in_array($returns->getName(), $valueObject ? ['self', 'static', $class] : ['void'], true))) {
                 continue;
             }
 
@@ -531,7 +532,8 @@ final class StructureReader
     }
 
     /**
-     * Whether a method of an entity is an assertion: `assert` followed by what it asserts.
+     * Whether a method of an entity or a value object is an assertion: `assert` followed by what it
+     * asserts.
      */
     public static function isAssertion(string $method): bool
     {
@@ -547,7 +549,7 @@ final class StructureReader
      * @param  array<string, true>  $visited
      * @return list<string>
      */
-    private function throwsOf(ReflectionClass $class, string $method, string $context, string $aggregate, array &$visited = []): array
+    private function throwsOf(ReflectionClass $class, string $method, string $context, ?string $aggregate, array &$visited = []): array
     {
         $visited[$method] = true;
         $reflection = $class->getMethod($method);
@@ -680,9 +682,10 @@ final class StructureReader
     }
 
     /**
-     * Each concrete class in a ValueObjects folder, with its constructor's parameters in order.
+     * Each concrete class in a ValueObjects folder, with its constructor's parameters in order and
+     * the behaviours and assertions it declares.
      *
-     * @return array<string, array{aggregate: string|null, fields: array<string, string>}>
+     * @return array<string, array{aggregate: string|null, fields: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>
      */
     private function valueObjects(string $context): array
     {
@@ -699,7 +702,7 @@ final class StructureReader
                 $fields[$parameter->getName()] = $this->fieldType($parameter->getType(), $context, $aggregate);
             }
 
-            $valueObjects[$this->basename($class)] ??= ['aggregate' => $aggregate, 'fields' => $fields];
+            $valueObjects[$this->basename($class)] ??= ['aggregate' => $aggregate, 'fields' => $fields, ...$this->methodsOf($class, $context, $aggregate, valueObject: true)];
         }
 
         ksort($valueObjects);

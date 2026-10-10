@@ -51,6 +51,19 @@ function samplingCompareStatus(?array $transitions): array
     return ['aggregate' => 'Crate', 'backing' => 'string', 'cases' => ['Open' => 'open', 'Sealed' => 'sealed', 'Shipped' => 'shipped'], 'transitions' => $transitions];
 }
 
+/**
+ * A value object with two behaviours (one throws), an assertion and a getter, in a context with
+ * nothing else.
+ */
+function samplingCompareTubSize(): void
+{
+    $context = SAMPLING_COMPARE_CONTEXT;
+    File::deleteDirectory(app_path("Domain/{$context}/Crate"));
+    File::deleteDirectory(app_path("Domain/{$context}/Pallet"));
+    File::ensureDirectoryExists(app_path("Domain/{$context}/Tub/ValueObjects"));
+    File::put(app_path("Domain/{$context}/Tub/ValueObjects/TubSize.php"), "<?php\n\nnamespace App\\Domain\\{$context}\\Tub\\ValueObjects;\n\nfinal class TubSize\n{\n    public function __construct(private int \$value) {}\n\n    public function value(): int { return \$this->value; }\n\n    public function grow(int \$by): self { throw new \\RuntimeException; }\n\n    public function shrink(): static { return \$this; }\n\n    public function assertSmall(): void {}\n}\n");
+}
+
 function forgetSamplingCompare(): void
 {
     File::deleteDirectory(app_path('Domain/'.SAMPLING_COMPARE_CONTEXT));
@@ -184,6 +197,37 @@ describe('StructureComparer', function () {
                 ['matches', 'entities.Bin.fill.throws is ["RuntimeException"] in the code but [] in the manifest', "entity:{$context}/Bin"],
                 ['in-code', 'lists entities.Bin.tip, which the code does not have yet — build it, or take it out of the manifest', "entity:{$context}/Bin"],
             ]);
+        });
+
+        it('tells each method of a value object apart: one only the code has, one only the manifest has, and one that throws something else', function () {
+            $context = SAMPLING_COMPARE_CONTEXT;
+            samplingCompareTubSize();
+            (new StructureFiles(base_path()))->write([
+                'context' => $context,
+                'valueObjects' => ['TubSize' => ['aggregate' => 'Tub', 'fields' => ['value' => 'int'], 'behaviours' => [
+                    'grow' => ['params' => ['by' => 'int'], 'throws' => []],
+                    'widen' => ['params' => [], 'throws' => []],
+                ], 'assertions' => []]],
+            ]);
+
+            expect(samplingCompareDifferences(withNode: true))->toBe([
+                ['matches', 'valueObjects.TubSize.grow.throws is ["RuntimeException"] in the code but [] in the manifest', "valueObject:{$context}/TubSize"],
+                ['in-json', 'is not in .kit/structure/'.$context.'.json — add it under "valueObjects.TubSize.behaviours" (`php artisan kit:import --context='.$context.' --sync` adds it, keeping what is not built yet)', null],
+                ['in-code', 'lists valueObjects.TubSize.widen, which the code does not have yet — build it, or take it out of the manifest', "valueObject:{$context}/TubSize"],
+                ['in-json', 'is not in .kit/structure/'.$context.'.json — add it under "valueObjects.TubSize.assertions" (`php artisan kit:import --context='.$context.' --sync` adds it, keeping what is not built yet)', null],
+            ]);
+        });
+
+        it('reads the methods of a value object a manifest lists from before methods existed off the code, so nothing differs', function () {
+            $context = SAMPLING_COMPARE_CONTEXT;
+            samplingCompareTubSize();
+            File::put(base_path(".kit/structure/{$context}.json"), (string) json_encode([
+                'context' => $context,
+                ...array_fill_keys(array_keys(StructureFiles::SECTIONS), []),
+                'valueObjects' => ['TubSize' => ['aggregate' => 'Tub', 'fields' => ['value' => 'int']]],
+            ]));
+
+            expect(samplingCompareDifferences())->toBe([]);
         });
 
         it('tells the state of an entity apart: a property only one side has, another type, another order, and one no getter returns', function () {

@@ -28,7 +28,7 @@ function samplingStructureManifest(): array
         'services' => [],
         'ports' => [],
         'valueObjects' => [
-            'Weight' => ['fields' => ['unit' => 'WeightUnit', 'amount' => 'int'], 'aggregate' => 'Crate'],
+            'Weight' => ['fields' => ['unit' => 'WeightUnit', 'amount' => 'int'], 'aggregate' => 'Crate', 'assertions' => ['assertPositive' => ['throws' => ['WeightNegativeException', 'Shared/InvalidMoneyException'], 'params' => []]]],
         ],
         'enums' => [
             'WeightUnit' => ['aggregate' => 'Crate', 'backing' => 'string', 'cases' => ['Kilogram' => 'kg', 'Gram' => 'g']],
@@ -131,6 +131,16 @@ describe('StructureFiles', function () {
             "fields": {
                 "unit": "WeightUnit",
                 "amount": "int"
+            },
+            "behaviours": {},
+            "assertions": {
+                "assertPositive": {
+                    "params": {},
+                    "throws": [
+                        "Shared/InvalidMoneyException",
+                        "WeightNegativeException"
+                    ]
+                }
             }
         }
     },
@@ -404,6 +414,33 @@ JSON);
                 'entities.Weight: "behaviours" holds assertHeavy, which is named like an assertion — list it under "assertions"',
                 'entities.Weight: "assertions" holds heavy, whose name must start with assert',
             ]);
+        });
+
+        it('refuses a value object\'s methods of the wrong shape, or in the wrong group', function () {
+            $document = samplingStructureManifest();
+            $document['valueObjects'] = [
+                'Weight' => ['aggregate' => 'Crate', 'fields' => ['amount' => 'int'], 'behaviours' => ['assertHeavy' => ['params' => [], 'throws' => []]], 'assertions' => ['heavy' => ['params' => [], 'throws' => []]]],
+                'Height' => ['aggregate' => 'Crate', 'fields' => [], 'behaviours' => ['Grow' => ['params' => [], 'throws' => []]], 'assertions' => []],
+            ];
+
+            expect($this->files->problems('Shipping', $document))->toBe([
+                'valueObjects.Weight: "behaviours" holds assertHeavy, which is named like an assertion — list it under "assertions"',
+                'valueObjects.Weight: "assertions" holds heavy, whose name must start with assert',
+                'valueObjects.Height: "behaviours" must be an object of camelCase method names, each with "params" (names to a type) and "throws" (a list of exceptions)',
+            ]);
+        });
+
+        it('reads a value object written before its methods existed as one with none, when the code has none', function () {
+            $document = samplingStructureManifest();
+            $document['valueObjects'] = ['Weight' => ['aggregate' => 'Crate', 'fields' => ['amount' => 'int']]];
+            File::ensureDirectoryExists(samplingStructureFilesRoot().'/.kit/structure');
+            File::put(samplingStructureFilesRoot().'/.kit/structure/Shipping.json', (string) json_encode($document));
+
+            $read = $this->files->read('Shipping');
+
+            expect($this->files->problems('Shipping', $document))->toBe([])
+                ->and([$read['valueObjects']['Weight']['behaviours'], $read['valueObjects']['Weight']['assertions']])->toBe([[], []])
+                ->and($this->files->encode($document))->toContain('"behaviours": {}', '"assertions": {}');
         });
 
         it('reads an entity written before state existed as one with none, and keeps an entity that lists only state', function () {

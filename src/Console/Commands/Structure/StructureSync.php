@@ -66,6 +66,24 @@ final class StructureSync
                     }
                 }
 
+                if ($section === 'valueObjects') {
+                    $methods = $this->syncMethods("valueObjects.{$name}", is_array($entries[$name] ?? null) ? $entries[$name] : [], $merged, $prune);
+                    // A value object the manifest lacks is added whole, so its methods need no line of their own.
+                    $changes = isset($entries[$name]) ? [...$changes, ...$methods['changes']] : $changes;
+                    $kept = [...$kept, ...$methods['kept']];
+                    $designed = isset($entries[$name]) ? array_diff_key($entries[$name], $methods['groups']) : null;
+                    $change = $this->change("{$section}.{$name}", $designed, array_diff_key($merged, $methods['groups']));
+                    $merged = [...$merged, ...$methods['groups']];
+
+                    if ($change !== null) {
+                        $changes[] = $change;
+                    }
+
+                    $entries[$name] = $merged;
+
+                    continue;
+                }
+
                 $change = $this->change("{$section}.{$name}", $entries[$name] ?? null, $merged);
 
                 if ($change !== null) {
@@ -164,7 +182,8 @@ final class StructureSync
 
     /**
      * The built pieces of a context whose manifest entry the code describes another way, as the
-     * paths a sync would change: `{section}.{name}`, `entities.{Entity}.{method}` for a method, or
+     * paths a sync would change: `{section}.{name}`, `entities.{Entity}.{method}` or
+     * `valueObjects.{ValueObject}.{method}` for a method, or
      * `entities.{Entity}.state.{property}` for a property of an entity's state.
      *
      * @return list<string>
@@ -215,26 +234,30 @@ final class StructureSync
     }
 
     /**
-     * The manifest with one method of an entity taken from the code, or why it cannot be.
+     * The manifest with one method of an entity, or of a value object when `$holder` is
+     * `valueObjects`, taken from the code, or why it cannot be.
      *
      * @return array{manifest: array<string, mixed>}|array{error: string}
      */
-    public function syncMethod(string $context, string $entity, string $method): array
+    public function syncMethod(string $context, string $entity, string $method, string $holder = 'entities'): array
     {
         $manifest = $this->contextManifest($context);
-        $built = $this->reader->read($context)['entities'][$entity] ?? null;
+        /** @var array{aggregate: string|null, behaviours: array<string, mixed>, assertions: array<string, mixed>}|null $built */
+        $built = $this->reader->read($context)[$holder][$entity] ?? null;
 
         foreach (['behaviours', 'assertions'] as $group) {
             if (! is_array($built[$group][$method] ?? null)) {
                 continue;
             }
 
-            $entry = $manifest['entities'][$entity] ?? ['aggregate' => $built['aggregate'], 'state' => [], 'behaviours' => [], 'assertions' => []];
+            $entry = $manifest[$holder][$entity] ?? ($holder === 'entities'
+                ? ['aggregate' => $built['aggregate'], 'state' => [], 'behaviours' => [], 'assertions' => []]
+                : [...$built, 'behaviours' => [], 'assertions' => []]);
             $other = $group === 'behaviours' ? 'assertions' : 'behaviours';
             unset($entry[$other][$method]);
             $entry['aggregate'] = $built['aggregate'];
             $entry[$group][$method] = $built[$group][$method];
-            $manifest['entities'][$entity] = $entry;
+            $manifest[$holder][$entity] = $entry;
 
             return ['manifest' => $manifest];
         }
@@ -365,6 +388,52 @@ final class StructureSync
     }
 
     /**
+     * The behaviours and assertions of an entity or a value object merged with the code's: every
+     * method the code has, then those only the manifest lists, which are kept unless `$prune` takes
+     * them out. Each change names its method (`{prefix}.{method}`).
+     *
+     * @param  array<array-key, mixed>  $designed
+     * @param  array<array-key, mixed>  $built
+     * @return array{groups: array{behaviours: array<string, mixed>, assertions: array<string, mixed>}, changes: list<string>, kept: list<string>}
+     */
+    private function syncMethods(string $prefix, array $designed, array $built, bool $prune): array
+    {
+        $changes = [];
+        $kept = [];
+        $groups = ['behaviours' => [], 'assertions' => []];
+
+        foreach (array_keys($groups) as $group) {
+            /** @var array<string, mixed> $methods */
+            $methods = is_array($designed[$group] ?? null) ? $designed[$group] : [];
+            /** @var array<string, mixed> $code */
+            $code = is_array($built[$group] ?? null) ? $built[$group] : [];
+
+            foreach ($code as $method => $definition) {
+                $change = $this->change("{$prefix}.{$method}", $methods[$method] ?? null, $definition);
+
+                if ($change !== null) {
+                    $changes[] = $change;
+                }
+
+                $methods[$method] = $definition;
+            }
+
+            foreach (array_keys(array_diff_key($methods, $code)) as $method) {
+                if ($prune) {
+                    unset($methods[$method]);
+                    $changes[] = "{$prefix}.{$method}: removed";
+                } else {
+                    $kept[] = "{$prefix}.{$method}";
+                }
+            }
+
+            $groups[$group] = $methods;
+        }
+
+        return ['groups' => $groups, 'changes' => $changes, 'kept' => $kept];
+    }
+
+    /**
      * @param  array<string, mixed>  $designed
      * @param  array<string, mixed>  $built
      * @return array{entities: array<string, mixed>, changes: list<string>, kept: list<string>}
@@ -385,33 +454,10 @@ final class StructureSync
             $state = $this->syncState($entity, is_array($current['state'] ?? null) ? $current['state'] : [], $entry['state'], $prune);
             $changes = [...$changes, ...$state['changes']];
             $kept = [...$kept, ...$state['kept']];
-            $merged = ['aggregate' => $entry['aggregate'], 'state' => $state['state'], 'behaviours' => [], 'assertions' => []];
-
-            foreach (['behaviours', 'assertions'] as $group) {
-                /** @var array<string, mixed> $methods */
-                $methods = is_array($current[$group] ?? null) ? $current[$group] : [];
-
-                foreach ($entry[$group] as $method => $definition) {
-                    $change = $this->change("entities.{$entity}.{$method}", $methods[$method] ?? null, $definition);
-
-                    if ($change !== null) {
-                        $changes[] = $change;
-                    }
-
-                    $methods[$method] = $definition;
-                }
-
-                foreach (array_keys(array_diff_key($methods, $entry[$group])) as $method) {
-                    if ($prune) {
-                        unset($methods[$method]);
-                        $changes[] = "entities.{$entity}.{$method}: removed";
-                    } else {
-                        $kept[] = "entities.{$entity}.{$method}";
-                    }
-                }
-
-                $merged[$group] = $methods;
-            }
+            $methods = $this->syncMethods("entities.{$entity}", is_array($current) ? $current : [], $entry, $prune);
+            $changes = [...$changes, ...$methods['changes']];
+            $kept = [...$kept, ...$methods['kept']];
+            $merged = ['aggregate' => $entry['aggregate'], 'state' => $state['state'], ...$methods['groups']];
 
             $designed[$entity] = $merged;
         }

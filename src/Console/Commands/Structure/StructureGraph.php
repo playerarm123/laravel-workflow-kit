@@ -58,12 +58,13 @@ final class StructureGraph
      * `resourceVersions` the same for HTTP resources (StructureResourceEditor). `resourceBuilt`
      * names each resource entry the code already has, so the screen offers to change only the rest,
      * and `entityMethodsBuilt` names each entity method the code already has, as `{Entity}.{method}`,
+     * `valueObjectMethodsBuilt` each value object method, as `{ValueObject}.{method}`,
      * `entityStateBuilt` each property of an entity's state the code already has, as
      * `{Entity}.{property}`, and `childrenBuilt` each child entity, as `{Aggregate}.{Child}`.
      * `outOfStep` and `resourceOutOfStep` name each built entry the code describes another way, by
      * the path StructureSync takes it back from the code with.
      *
-     * @return array{overview: View, contexts: array<string, View>, resources: array<string, View>, byHand: list<Difference>, manifests: array<string, array<string, mixed>>, versions: array<string, string>, resourceManifests: array<string, array<string, mixed>>, resourceVersions: array<string, string>, resourceBuilt: array<string, list<string>>, entityMethodsBuilt: array<string, list<string>>, entityStateBuilt: array<string, list<string>>, childrenBuilt: array<string, list<string>>, outOfStep: array<string, list<string>>, resourceOutOfStep: array<string, list<string>>}
+     * @return array{overview: View, contexts: array<string, View>, resources: array<string, View>, byHand: list<Difference>, manifests: array<string, array<string, mixed>>, versions: array<string, string>, resourceManifests: array<string, array<string, mixed>>, resourceVersions: array<string, string>, resourceBuilt: array<string, list<string>>, entityMethodsBuilt: array<string, list<string>>, valueObjectMethodsBuilt: array<string, list<string>>, entityStateBuilt: array<string, list<string>>, childrenBuilt: array<string, list<string>>, outOfStep: array<string, list<string>>, resourceOutOfStep: array<string, list<string>>}
      */
     public function graph(): array
     {
@@ -74,6 +75,7 @@ final class StructureGraph
         $contextManifests = [];
         $versions = [];
         $methodsBuilt = [];
+        $valueObjectMethodsBuilt = [];
         $stateBuilt = [];
         $childrenBuilt = [];
         $outOfStep = [];
@@ -86,7 +88,8 @@ final class StructureGraph
                 $contexts[$context] = $this->contextView($context, $manifest);
                 $contextManifests[$context] = $manifest;
                 $versions[$context] = $this->files->version($context);
-                $methodsBuilt[$context] = $this->builtMethods($context);
+                $methodsBuilt[$context] = $this->builtMethods($context, 'entities');
+                $valueObjectMethodsBuilt[$context] = $this->builtMethods($context, 'valueObjects');
                 $stateBuilt[$context] = $this->builtState($context);
                 $childrenBuilt[$context] = $this->builtChildren($context);
                 $outOfStep[$context] = $sync->contextOutOfStep($context);
@@ -122,6 +125,7 @@ final class StructureGraph
             'resourceVersions' => $resourceVersions,
             'resourceBuilt' => $resourceBuilt,
             'entityMethodsBuilt' => $methodsBuilt,
+            'valueObjectMethodsBuilt' => $valueObjectMethodsBuilt,
             'entityStateBuilt' => $stateBuilt,
             'childrenBuilt' => $childrenBuilt,
             'outOfStep' => $outOfStep,
@@ -346,7 +350,7 @@ final class StructureGraph
         $aggregates = $manifest['aggregates'];
         /** @var array<string, array{aggregate: string|null, backing: string|null, cases: array<string, string|int|null>, transitions?: array<string, list<string>>|null}> $enums */
         $enums = $manifest['enums'];
-        /** @var array<string, array{aggregate: string|null, fields: array<string, string>}> $valueObjects */
+        /** @var array<string, array{aggregate: string|null, fields: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}> $valueObjects */
         $valueObjects = $manifest['valueObjects'];
         /** @var array<string, mixed> $builtEnums */
         $builtEnums = $built['enums'] ?? [];
@@ -397,7 +401,11 @@ final class StructureGraph
                 }
             }
 
-            $nodes[] = $this->node($id, 'valueObject', $valueObject, $this->capped($fields), editable: ! isset($builtValueObjects[$valueObject]));
+            [$methodLines, $methodEdges, $methodExternal] = $this->methodLines($context, $id, $entry['aggregate'], [...$entry['behaviours'], ...$entry['assertions']], $manifest);
+            $edges = [...$edges, ...$methodEdges];
+            $external = [...$external, ...$methodExternal];
+
+            $nodes[] = $this->node($id, 'valueObject', $valueObject, $this->capped([...$fields, ...$methodLines]), editable: ! isset($builtValueObjects[$valueObject]));
             $holder($id, $entry['aggregate']);
         }
 
@@ -501,41 +509,10 @@ final class StructureGraph
                 }
             }
 
-            foreach ([...$entry['behaviours'], ...$entry['assertions']] as $method => $definition) {
-                $lines[] = $method.'('.implode(', ', $definition['params']).')';
-
-                foreach ($definition['throws'] as $exception) {
-                    $target = $this->exceptionTarget($context, $entry['aggregate'], $exception, $manifest);
-
-                    if ($target === null) {
-                        continue;
-                    }
-
-                    if (str_starts_with($target, 'external:')) {
-                        $owner = explode('/', substr($target, strlen('external:')))[0];
-                        $external[$target] = $this->node($target, 'external', str_replace('/', ' / ', substr($target, strlen('external:'))), [], ['view' => 'context', 'name' => $owner]);
-                    }
-
-                    $edges[] = $this->edge($id, $target, (string) $method);
-                }
-
-                foreach ($definition['params'] as $type) {
-                    foreach (preg_split('/[|&]/', ltrim((string) preg_replace('/^\.\.\./', '', $type), '?')) ?: [] as $part) {
-                        $target = $this->typeTarget($context, $part, $enums, $valueObjects, $aggregates);
-
-                        if ($target === null || $target === $id) {
-                            continue;
-                        }
-
-                        if (str_starts_with($target, 'external:')) {
-                            $owner = explode('/', substr($target, strlen('external:')))[0];
-                            $external[$target] = $this->node($target, 'external', str_replace('/', ' / ', substr($target, strlen('external:'))), [], ['view' => 'context', 'name' => $owner]);
-                        }
-
-                        $edges[] = $this->edge($id, $target, (string) $method);
-                    }
-                }
-            }
+            [$methodLines, $methodEdges, $methodExternal] = $this->methodLines($context, $id, $entry['aggregate'], [...$entry['behaviours'], ...$entry['assertions']], $manifest);
+            $lines = [...$lines, ...$methodLines];
+            $edges = [...$edges, ...$methodEdges];
+            $external = [...$external, ...$methodExternal];
 
             $child = $entity !== $entry['aggregate'] && in_array($entity, $aggregates[$entry['aggregate']]['children'] ?? [], true);
             $nodes[] = $this->node(
@@ -555,12 +532,71 @@ final class StructureGraph
     }
 
     /**
+     * The lines a card lists for the methods of an entity or a value object, each labelled with
+     * the method, and the edges to the exceptions it throws and the classes its parameters name.
+     *
+     * @param  array<array-key, array{params: array<string, string>, throws: list<string>}>  $methods
+     * @param  array<string, mixed>  $manifest
+     * @return array{0: list<string>, 1: list<Edge>, 2: array<string, Node>}
+     */
+    private function methodLines(string $context, string $id, ?string $aggregate, array $methods, array $manifest): array
+    {
+        $lines = [];
+        $edges = [];
+        $external = [];
+        /** @var array<string, array{children: list<string>, repository: bool}> $aggregates */
+        $aggregates = $manifest['aggregates'];
+        /** @var array<string, mixed> $enums */
+        $enums = $manifest['enums'];
+        /** @var array<string, mixed> $valueObjects */
+        $valueObjects = $manifest['valueObjects'];
+
+        foreach ($methods as $method => $definition) {
+            $lines[] = $method.'('.implode(', ', $definition['params']).')';
+
+            foreach ($definition['throws'] as $exception) {
+                $target = $this->exceptionTarget($context, $aggregate, $exception, $manifest);
+
+                if ($target === null) {
+                    continue;
+                }
+
+                if (str_starts_with($target, 'external:')) {
+                    $owner = explode('/', substr($target, strlen('external:')))[0];
+                    $external[$target] = $this->node($target, 'external', str_replace('/', ' / ', substr($target, strlen('external:'))), [], ['view' => 'context', 'name' => $owner]);
+                }
+
+                $edges[] = $this->edge($id, $target, (string) $method);
+            }
+
+            foreach ($definition['params'] as $type) {
+                foreach (preg_split('/[|&]/', ltrim((string) preg_replace('/^\.\.\./', '', $type), '?')) ?: [] as $part) {
+                    $target = $this->typeTarget($context, $part, $enums, $valueObjects, $aggregates);
+
+                    if ($target === null || $target === $id) {
+                        continue;
+                    }
+
+                    if (str_starts_with($target, 'external:')) {
+                        $owner = explode('/', substr($target, strlen('external:')))[0];
+                        $external[$target] = $this->node($target, 'external', str_replace('/', ' / ', substr($target, strlen('external:'))), [], ['view' => 'context', 'name' => $owner]);
+                    }
+
+                    $edges[] = $this->edge($id, $target, (string) $method);
+                }
+            }
+        }
+
+        return [$lines, $edges, $external];
+    }
+
+    /**
      * The card a method's exception points at: a designed exception of this context, a card that
      * opens the context of one designed elsewhere, or null for one no manifest designs.
      *
      * @param  array<string, mixed>  $manifest
      */
-    private function exceptionTarget(string $context, string $aggregate, string $exception, array $manifest): ?string
+    private function exceptionTarget(string $context, ?string $aggregate, string $exception, array $manifest): ?string
     {
         $segments = explode('/', $exception);
         $name = (string) array_pop($segments);
@@ -748,15 +784,19 @@ final class StructureGraph
     }
 
     /**
-     * The entity methods of a context the code already has, as `{Entity}.{method}`.
+     * The methods of a context's entities or value objects the code already has, as
+     * `{Entity}.{method}`.
      *
      * @return list<string>
      */
-    private function builtMethods(string $context): array
+    private function builtMethods(string $context, string $section): array
     {
         $built = [];
 
-        foreach ($this->reader->read($context)['entities'] as $entity => $entry) {
+        /** @var array<string, array{behaviours: array<string, mixed>, assertions: array<string, mixed>}> $holders */
+        $holders = $this->reader->read($context)[$section];
+
+        foreach ($holders as $entity => $entry) {
             foreach (array_keys([...$entry['behaviours'], ...$entry['assertions']]) as $method) {
                 $built[] = "{$entity}.{$method}";
             }

@@ -230,6 +230,13 @@ final class StructurePlanner
                 ],
                 [StructureComparer::contextNode($context, 'valueObjects', $valueObject)],
             );
+
+            foreach ($this->valueObjectMethodSteps($context, $valueObject, $entry) as $step) {
+                if (! isset($planned[$step['key']])) {
+                    $planned[$step['key']] = true;
+                    $steps[] = $step;
+                }
+            }
         }
 
         foreach ($manifest['ports'] as $port => $entry) {
@@ -905,6 +912,78 @@ final class StructurePlanner
         $item = Str::singular($subjects);
 
         return ['item' => $item, 'sort' => "{$item}ListSort", 'row' => "{$item}Row", 'filters' => "{$item}Filters", 'query' => "{$subjects}Query"];
+    }
+
+    /**
+     * The steps that build a value object's methods: first each invalid value of its own aggregate
+     * (or of the shared kernel) that is not built yet, then each method the value object's file does
+     * not declare. A method waits for its value object, the types of its parameters and every
+     * exception it throws.
+     *
+     * @param  array{aggregate: string|null, fields: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}  $entry
+     * @return list<PlannedStep>
+     */
+    private function valueObjectMethodSteps(string $context, string $valueObject, array $entry): array
+    {
+        $aggregate = $entry['aggregate'];
+        $domain = $aggregate === null ? $context : "{$context}/{$aggregate}";
+        $nodes = [StructureComparer::contextNode($context, 'valueObjects', $valueObject)];
+        $file = $this->rootOf()."/app/Domain/{$domain}/ValueObjects/{$valueObject}.php";
+        $code = is_file($file) ? StructureFiles::text($file) : null;
+        $steps = [];
+
+        foreach ([...$entry['behaviours'], ...$entry['assertions']] as $method => $definition) {
+            $missing = $this->missingTypes(array_map(fn (string $type): string => (string) preg_replace('/^\.\.\./', '', $type), $definition['params']), $context, $aggregate);
+
+            foreach ($definition['throws'] as $exception) {
+                if ($this->reader->exceptionClass($exception, $context, $aggregate) !== null) {
+                    continue;
+                }
+
+                $missing[] = $exception;
+
+                if (! str_contains($exception, '/')) {
+                    $name = (string) preg_replace('/Exception$/', '', $exception);
+
+                    $steps[$exception] = $this->generator(
+                        $aggregate === null ? 1 : 2,
+                        "exception {$domain}/{$exception}",
+                        false,
+                        $name === $exception ? "{$exception} must end with Exception, the name make:domain-exception writes" : null,
+                        'make:domain-exception',
+                        ['name' => $name, '--domain' => $domain, '--kind' => 'value'],
+                        $nodes,
+                    );
+                }
+            }
+
+            $missing = array_values(array_unique($missing));
+            $arguments = ['valueObject' => $valueObject, 'method' => (string) $method, '--domain' => $domain];
+
+            if ($definition['params'] !== []) {
+                $arguments['--param'] = array_map(fn (string $name, string $type): string => "{$name}:{$type}", array_keys($definition['params']), $definition['params']);
+            }
+
+            if ($definition['throws'] !== []) {
+                $arguments['--throws'] = $definition['throws'];
+            }
+
+            $steps[] = $this->generator(
+                3,
+                "method {$context}/{$valueObject}::{$method}",
+                $code !== null && preg_match('/function\s+'.preg_quote((string) $method, '/').'\s*\(/', $code) === 1,
+                match (true) {
+                    $code === null => "{$valueObject} is not built yet",
+                    $missing !== [] => implode(', ', $missing).(count($missing) === 1 ? ' is' : ' are').' not built yet',
+                    default => null,
+                },
+                'make:value-object-method',
+                $arguments,
+                $nodes,
+            );
+        }
+
+        return array_values($steps);
     }
 
     private function swapper(): StructureSwapper

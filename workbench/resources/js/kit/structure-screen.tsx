@@ -399,10 +399,11 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                         )}
                     {panel?.kind === 'method' && (
                         <MethodForm
-                            key={`${panel.entity ?? ''}:${panel.previous ?? ''}`}
+                            key={`${panel.holder ?? 'entities'}:${panel.entity ?? ''}:${panel.previous ?? ''}`}
                             graph={graph}
                             endpoints={endpoints}
                             context={panel.context}
+                            holder={panel.holder}
                             entity={panel.entity}
                             previous={panel.previous}
                             onSaved={(next) => {
@@ -494,8 +495,9 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
 }
 
 /**
- * The entity methods, in any context, that throw an exception this context designs: by its bare
- * name inside its own aggregate, or as `Shared/Name` or `Context/Aggregate/Name` from elsewhere.
+ * The entity and value object methods, in any context, that throw an exception this context
+ * designs: by its bare name inside its own aggregate, or as `Shared/Name` or
+ * `Context/Aggregate/Name` from elsewhere.
  */
 function throwersOf(
     graph: StructureGraph,
@@ -511,9 +513,10 @@ function throwersOf(
     const throwers: string[] = [];
 
     for (const [owner, manifest] of Object.entries(graph.manifests)) {
-        for (const [entity, entry] of Object.entries(
-            manifest?.entities ?? {},
-        )) {
+        for (const [entity, entry] of Object.entries({
+            ...manifest?.entities,
+            ...manifest?.valueObjects,
+        })) {
             if (entry === undefined) {
                 continue;
             }
@@ -978,6 +981,17 @@ function Details({
                         onChanged={onChanged}
                     />
                 </>
+            )}
+            {node.kind === 'valueObject' && context !== null && (
+                <EntityMethods
+                    graph={graph}
+                    endpoints={endpoints}
+                    context={context}
+                    holder="valueObjects"
+                    entity={name}
+                    onEdit={onEdit}
+                    onChanged={onChanged}
+                />
             )}
             {node.kind === 'controller' && resource !== null && (
                 <ControllerMethods

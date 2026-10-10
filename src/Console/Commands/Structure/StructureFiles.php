@@ -27,7 +27,7 @@ final class StructureFiles
      * Each section of a manifest and the keys and allowed values of one entry in it. A `map` keeps
      * the order it is written in, because the order of an enum's cases and of a value object's
      * constructor means something; `map` holds scalars or null, `map:string` type names.
-     * `methods` holds an entity's methods by name, each with its `params` (a `map:string`, in
+     * `methods` holds an entity's or a value object's methods by name, each with its `params` (a `map:string`, in
      * order) and the exceptions it `throws` (a list). `transitions` is null for an enum that is no
      * status, or each case with the cases it may become (states.md).
      *
@@ -39,7 +39,7 @@ final class StructureFiles
         'ports' => ['layer' => ['domain', 'application'], 'adapter' => 'string|null', 'replaces' => 'string|null'],
         'useCases' => ['shape' => ['command-result', 'command', 'plain'], 'returns' => 'string', 'creates' => 'bool', 'query' => 'bool', 'repositories' => 'list', 'replaces' => 'string|null'],
         'enums' => ['aggregate' => 'string|null', 'backing' => ['string', 'int', null], 'cases' => 'map', 'transitions' => 'transitions'],
-        'valueObjects' => ['aggregate' => 'string|null', 'fields' => 'map:string'],
+        'valueObjects' => ['aggregate' => 'string|null', 'fields' => 'map:string', 'behaviours' => 'methods', 'assertions' => 'methods'],
         'exceptions' => ['kind' => ['refusal', 'value', 'application'], 'aggregate' => 'string|null', 'useCase' => 'string|null'],
         'entities' => ['aggregate' => 'string', 'state' => 'map:string', 'behaviours' => 'methods', 'assertions' => 'methods'],
     ];
@@ -52,12 +52,13 @@ final class StructureFiles
 
     /**
      * What a manifest written before a section or a key existed holds when nothing else says: no
-     * exceptions designed (exceptions.md), no domain service with an exception of its own, and no
-     * state on an entity. The
-     * canonical form writes them, so the next save or `kit:import` adds them to the file. `read()`
-     * takes them from the code instead, so a project that already has exceptions stays green.
+     * exceptions designed (exceptions.md), no domain service with an exception of its own, no
+     * state on an entity, and no method on a value object. The canonical form writes them, so the
+     * next save or `kit:import` adds them to the file. `read()` takes the exceptions, a service's
+     * exception and a value object's methods from the code instead, so a project that already has
+     * them stays green.
      */
-    public const array DEFAULTS = ['exceptions' => [], 'services.exception' => false, 'entities.state' => []];
+    public const array DEFAULTS = ['exceptions' => [], 'services.exception' => false, 'entities.state' => [], 'valueObjects.methods' => []];
 
     /**
      * Keys only a manifest holds: what the design intends while the code catches up. The reader
@@ -132,9 +133,14 @@ final class StructureFiles
     {
         $predates = ! array_key_exists('exceptions', $document);
         $services = is_array($document['services'] ?? null) ? $document['services'] : [];
+        $valueObjects = is_array($document['valueObjects'] ?? null) ? $document['valueObjects'] : [];
 
         foreach ($services as $service) {
             $predates = $predates || (is_array($service) && ! array_key_exists('exception', $service));
+        }
+
+        foreach ($valueObjects as $valueObject) {
+            $predates = $predates || (is_array($valueObject) && ! array_key_exists('behaviours', $valueObject) && ! array_key_exists('assertions', $valueObject));
         }
 
         if (! $predates) {
@@ -150,6 +156,14 @@ final class StructureFiles
         foreach ($services as $name => $service) {
             if (is_array($service) && ! array_key_exists('exception', $service)) {
                 $document['services'][$name]['exception'] = $built['services'][$name]['exception'] ?? false;
+            }
+        }
+
+        foreach ($valueObjects as $name => $valueObject) {
+            if (is_array($valueObject) && ! array_key_exists('behaviours', $valueObject) && ! array_key_exists('assertions', $valueObject)) {
+                foreach (['behaviours', 'assertions'] as $group) {
+                    $document['valueObjects'][$name][$group] = $built['valueObjects'][$name][$group] ?? self::DEFAULTS['valueObjects.methods'];
+                }
             }
         }
 
@@ -172,6 +186,16 @@ final class StructureFiles
             foreach ($document['services'] as $name => $service) {
                 if (is_array($service) && ! array_key_exists('exception', $service)) {
                     $document['services'][$name]['exception'] = self::DEFAULTS['services.exception'];
+                }
+            }
+        }
+
+        if (is_array($document['valueObjects'] ?? null)) {
+            foreach ($document['valueObjects'] as $name => $valueObject) {
+                foreach (['behaviours', 'assertions'] as $group) {
+                    if (is_array($valueObject) && ! array_key_exists($group, $valueObject)) {
+                        $document['valueObjects'][$name][$group] = self::DEFAULTS['valueObjects.methods'];
+                    }
                 }
             }
         }
@@ -285,7 +309,7 @@ final class StructureFiles
     }
 
     /**
-     * An entity's methods in canonical form: sorted by name, each with its parameters in the order
+     * An entity's or a value object's methods in canonical form: sorted by name, each with its parameters in the order
      * the method declares them and its exceptions sorted.
      *
      * @param  array<array-key, mixed>  $methods
@@ -405,6 +429,10 @@ final class StructureFiles
             if (is_array($entry['transitions'] ?? null)) {
                 $problems = [...$problems, ...$this->transitionProblems($name, array_map(strval(...), array_keys($cases)), $entry['transitions'])];
             }
+        }
+
+        if ($section === 'valueObjects') {
+            $problems = [...$problems, ...$this->methodGroupProblems($section, $name, $entry)];
         }
 
         return $problems;
@@ -540,6 +568,19 @@ final class StructureFiles
             }
         }
 
+        return [...$problems, ...$this->methodGroupProblems('entities', $name, $entry)];
+    }
+
+    /**
+     * Methods listed in the wrong group: an assertion's name starts with assert, a behaviour's never.
+     *
+     * @param  array<string, mixed>  $entry
+     * @return list<string>
+     */
+    private function methodGroupProblems(string $section, string $name, array $entry): array
+    {
+        $problems = [];
+
         foreach (['behaviours' => false, 'assertions' => true] as $group => $assertion) {
             /** @var array<string, mixed> $methods */
             $methods = $entry[$group];
@@ -547,8 +588,8 @@ final class StructureFiles
             foreach (array_keys($methods) as $method) {
                 if (StructureReader::isAssertion((string) $method) !== $assertion) {
                     $problems[] = sprintf($assertion
-                        ? 'entities.%s: "assertions" holds %s, whose name must start with assert'
-                        : 'entities.%s: "behaviours" holds %s, which is named like an assertion — list it under "assertions"', $name, $method);
+                        ? '%s.%s: "assertions" holds %s, whose name must start with assert'
+                        : '%s.%s: "behaviours" holds %s, which is named like an assertion — list it under "assertions"', $section, $name, $method);
                 }
             }
         }
@@ -834,7 +875,7 @@ final class StructureFiles
     }
 
     /**
-     * Whether a value is an entity's methods: camelCase names, each holding only its `params` and
+     * Whether a value is an entity's or a value object's methods: camelCase names, each holding only its `params` and
      * its `throws`.
      */
     private function isMethods(mixed $value): bool

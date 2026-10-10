@@ -15,6 +15,7 @@ import {
 import type {
     ContextManifest,
     EntityMethod,
+    MethodHolder,
     StructureEndpoints,
     StructureGraph,
 } from '@/kit/types';
@@ -28,6 +29,7 @@ type Param = { name: string; type: string };
 type MethodFormData = {
     context: string;
     version: string;
+    holder: MethodHolder;
     entity: string;
     previous: string | null;
     name: string;
@@ -55,16 +57,43 @@ export function entitiesOf(
 }
 
 /**
- * A method of an entity as the manifest holds it, whichever group it sits in.
+ * Every value object of a context, with the aggregate that holds it (none in the shared kernel).
+ */
+export function valueObjectsOf(
+    manifest: ContextManifest | undefined,
+): { entity: string; aggregate: string | null }[] {
+    return Object.entries(manifest?.valueObjects ?? {}).map(
+        ([valueObject, entry]) => ({
+            entity: valueObject,
+            aggregate: entry?.aggregate ?? null,
+        }),
+    );
+}
+
+/**
+ * A method of an entity or a value object as the manifest holds it, whichever group it sits in.
  */
 export function methodOf(
     manifest: ContextManifest | undefined,
     entity: string,
     method: string,
+    holder: MethodHolder = 'entities',
 ): EntityMethod | undefined {
-    const entry = manifest?.entities[entity];
+    const entry = manifest?.[holder][entity];
 
     return entry?.behaviours[method] ?? entry?.assertions[method];
+}
+
+/**
+ * What may hold the method: the entities of a context, or its value objects.
+ */
+function holdersOf(
+    manifest: ContextManifest | undefined,
+    holder: MethodHolder,
+): { entity: string; aggregate: string | null }[] {
+    return holder === 'entities'
+        ? entitiesOf(manifest)
+        : valueObjectsOf(manifest);
 }
 
 /**
@@ -89,13 +118,14 @@ function posted(
 function startingValues(
     graph: StructureGraph,
     context: string,
+    holder: MethodHolder,
     entity: string | null,
     previous: string | null,
 ): MethodFormData {
     const manifest = graph.manifests[context];
     const method =
         entity !== null && previous !== null
-            ? methodOf(manifest, entity, previous)
+            ? methodOf(manifest, entity, previous, holder)
             : undefined;
     const rows = Object.entries(method?.params ?? {}).map(([name, type]) => ({
         name,
@@ -106,7 +136,8 @@ function startingValues(
     return {
         context,
         version: graph.versions[context] ?? '',
-        entity: entity ?? entitiesOf(manifest)[0]?.entity ?? '',
+        holder,
+        entity: entity ?? holdersOf(manifest, holder)[0]?.entity ?? '',
         previous,
         name: previous ?? '',
         rows,
@@ -149,9 +180,10 @@ function exceptionChoices(
         }
     }
 
-    for (const entry of Object.values(
-        graph.manifests[context]?.entities ?? {},
-    )) {
+    for (const entry of [
+        ...Object.values(graph.manifests[context]?.entities ?? {}),
+        ...Object.values(graph.manifests[context]?.valueObjects ?? {}),
+    ]) {
         if (entry === undefined || entry.aggregate !== aggregate) {
             continue;
         }
@@ -170,8 +202,9 @@ function exceptionChoices(
 }
 
 /**
- * Adds a method to an entity, or changes one the code does not have yet. A name that starts with
- * `assert` makes it an assertion, any other a behaviour. Its parameters are rows in the order the
+ * Adds a method to an entity or a value object, or changes one the code does not have yet. A name
+ * that starts with `assert` makes it an assertion, any other a behaviour: an entity's changes it
+ * and returns void, a value object's returns a new one (`self`). Its parameters are rows in the order the
  * method declares them. An exception of the entity's own aggregate is named bare, and kit:apply
  * builds it when it is missing; one of the shared kernel or of another aggregate is named with its
  * prefix and must exist already. The server checks it all and answers with the graph drawn again.
@@ -180,6 +213,7 @@ export function MethodForm({
     graph,
     endpoints,
     context,
+    holder = 'entities',
     entity,
     previous,
     onSaved,
@@ -188,19 +222,21 @@ export function MethodForm({
     graph: StructureGraph;
     endpoints: StructureEndpoints;
     context: string;
+    holder?: MethodHolder;
     entity: string | null;
     previous: string | null;
     onSaved: (graph: StructureGraph) => void;
     onCancel: () => void;
 }) {
     const form = useHttp<MethodFormData, { graph: StructureGraph }>(
-        startingValues(graph, context, entity, previous),
+        startingValues(graph, context, holder, entity, previous),
     );
     const { data, setData, errors, processing } = form;
     const typesId = useId();
     const exceptionsId = useId();
     const manifest = graph.manifests[context];
-    const entities = entitiesOf(manifest);
+    const entities = holdersOf(manifest, holder);
+    const valueObject = holder === 'valueObjects';
     const aggregate =
         entities.find((candidate) => candidate.entity === data.entity)
             ?.aggregate ?? null;
@@ -249,14 +285,23 @@ export function MethodForm({
             </h2>
             <InputError message={errors.version ?? errors.context} />
 
-            <Field label="Entity" error={errors.entity}>
+            <Field
+                label={valueObject ? 'Value object' : 'Entity'}
+                error={errors.entity}
+            >
                 <Select
                     value={data.entity}
                     disabled={entity !== null}
                     onValueChange={(next) => change({ entity: next })}
                 >
                     <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Pick its entity" />
+                        <SelectValue
+                            placeholder={
+                                valueObject
+                                    ? 'Pick its value object'
+                                    : 'Pick its entity'
+                            }
+                        />
                     </SelectTrigger>
                     <SelectContent>
                         {entities.map((candidate) => (
@@ -264,7 +309,8 @@ export function MethodForm({
                                 key={candidate.entity}
                                 value={candidate.entity}
                             >
-                                {candidate.entity === candidate.aggregate
+                                {candidate.aggregate === null ||
+                                candidate.entity === candidate.aggregate
                                     ? candidate.entity
                                     : `${candidate.aggregate} / ${candidate.entity}`}
                             </SelectItem>
@@ -276,10 +322,20 @@ export function MethodForm({
             <Field label="Name" error={errors.name}>
                 <Input
                     value={data.name}
-                    placeholder="suspend, or assertIsOpen for an assertion"
+                    placeholder={
+                        valueObject
+                            ? 'withDays, or assertIsPositive for an assertion'
+                            : 'suspend, or assertIsOpen for an assertion'
+                    }
                     onChange={(event) => change({ name: event.target.value })}
                     autoFocus
                 />
+                {valueObject && (
+                    <p className="text-xs text-muted-foreground">
+                        A behaviour returns a new {data.entity || 'value'}{' '}
+                        (self). An assertion returns nothing.
+                    </p>
+                )}
             </Field>
 
             <Field label="Parameters, in order" error={errors.params}>

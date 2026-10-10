@@ -161,6 +161,7 @@ class KitServiceProvider extends ServiceProvider
                     $request->string('name')->toString(),
                     is_array($request->input('params')) ? $request->input('params') : [],
                     is_array($request->input('throws')) ? $request->input('throws') : [],
+                    $request->input('holder') === 'valueObjects' ? 'valueObjects' : 'entities',
                 ),
             ))->name('.methods.store');
 
@@ -170,6 +171,7 @@ class KitServiceProvider extends ServiceProvider
                     $request->string('version')->toString(),
                     $request->string('entity')->toString(),
                     $request->string('name')->toString(),
+                    $request->input('holder') === 'valueObjects' ? 'valueObjects' : 'entities',
                 ),
             ))->name('.methods.remove');
 

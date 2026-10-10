@@ -65,6 +65,8 @@ function structureManifestSpec(): array
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/MakeEntityStateCommand.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Concerns/EditsEntityClass.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Concerns/ResolvesManifestTypes.php',
+            'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/MakeValueObjectMethodCommand.php',
+            'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Concerns/WritesDomainMethod.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/KitDocs.php',
             'resources/views/kit/docs.blade.php',
         ],

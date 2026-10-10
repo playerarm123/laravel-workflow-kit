@@ -44,6 +44,7 @@ function writeSamplingEditFixtures(): void
         "Application/{$context}/UseCases/ShipCrateHandler.php" => "<?php\n\nnamespace App\\Application\\{$context}\\UseCases;\n\nfinal class ShipCrateHandler\n{\n    public function __invoke(string \$crateId): void {}\n}\n",
         "Application/{$context}/UseCases/ListCrates/ListCratesHandler.php" => "<?php\n\nnamespace App\\Application\\{$context}\\UseCases\\ListCrates;\n\nfinal class ListCratesHandler\n{\n    public function __invoke(): void {}\n}\n",
         "Application/{$context}/UseCases/ListCrates/ListCratesQuery.php" => "<?php\n\nnamespace App\\Application\\{$context}\\UseCases\\ListCrates;\n\ninterface ListCratesQuery {}\n",
+        "Domain/{$context}/Crate/ValueObjects/CrateTag.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\ValueObjects;\n\nfinal class CrateTag\n{\n    public function __construct(private string \$code) {}\n\n    public function retag(string \$code): self { return new self(\$code); }\n}\n",
         "Domain/{$context}/Ports/Scale.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Ports;\n\ninterface Scale {}\n",
     ];
 
@@ -99,6 +100,19 @@ function forgetSamplingEdit(): void
 /**
  * Designs Lorry, an aggregate the code does not have, with the child Wheel, and methods for both.
  */
+/**
+ * A built value object with a built behaviour, and one only designed with a behaviour of its own.
+ */
+function samplingEditTags(): void
+{
+    $method = ['params' => [], 'throws' => []];
+
+    (new StructureFiles(base_path()))->write([...samplingEditManifest(), 'valueObjects' => [
+        'CrateTag' => ['aggregate' => 'Crate', 'fields' => ['code' => 'string'], 'behaviours' => ['retag' => ['params' => ['code' => 'string'], 'throws' => []]], 'assertions' => []],
+        'CrateNote' => ['aggregate' => 'Crate', 'fields' => ['text' => 'string'], 'behaviours' => ['shout' => $method], 'assertions' => []],
+    ]]);
+}
+
 function samplingEditLorry(): void
 {
     $method = ['params' => [], 'throws' => []];
@@ -156,7 +170,7 @@ describe('StructureEditor', function () {
         it('keeps the enums and value objects, in their order, when it saves another piece', function () {
             $vocabulary = [
                 'enums' => ['CrateGrade' => ['aggregate' => 'Crate', 'backing' => 'string', 'cases' => ['Top' => 'top', 'Low' => 'low'], 'transitions' => null]],
-                'valueObjects' => ['CrateLabel' => ['aggregate' => 'Crate', 'fields' => ['grade' => 'CrateGrade', 'note' => '?string']]],
+                'valueObjects' => ['CrateLabel' => ['aggregate' => 'Crate', 'fields' => ['grade' => 'CrateGrade', 'note' => '?string'], 'behaviours' => [], 'assertions' => []]],
             ];
             (new StructureFiles(base_path()))->write([...samplingEditManifest(), ...$vocabulary]);
 
@@ -410,6 +424,57 @@ describe('StructureEditor', function () {
             expect($editor->removeMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'seal'))->toBe(['name' => ['The code already has Crate::seal, so the screen leaves it alone.']])
                 ->and($editor->removeMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'open'))->toBe(['name' => ['The manifest has no Crate::open.']])
                 ->and(samplingEditManifest()['entities'])->toHaveKey('Crate');
+        });
+    });
+
+    describe('value object methods', function () {
+        it('adds a behaviour and an assertion to a built value object, and keeps its fields', function () {
+            samplingEditTags();
+            $editor = samplingEditor();
+
+            expect($editor->saveMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'CrateTag', null, 'upper', [], ['CrateTagInvalidException'], 'valueObjects'))->toBe([])
+                ->and($editor->saveMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'CrateTag', null, 'assertShort', ['limit' => 'int'], [], 'valueObjects'))->toBe([])
+                ->and(samplingEditManifest()['valueObjects']['CrateTag'])->toBe([
+                    'aggregate' => 'Crate',
+                    'fields' => ['code' => 'string'],
+                    'behaviours' => [
+                        'retag' => ['params' => ['code' => 'string'], 'throws' => []],
+                        'upper' => ['params' => [], 'throws' => ['CrateTagInvalidException']],
+                    ],
+                    'assertions' => ['assertShort' => ['params' => ['limit' => 'int'], 'throws' => []]],
+                ]);
+        });
+
+        it('leaves a method the code already has alone, and removes a designed one but not the value object', function () {
+            samplingEditTags();
+            $editor = samplingEditor();
+
+            expect($editor->saveMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'CrateTag', 'retag', 'retag', [], [], 'valueObjects'))
+                ->toBe(['name' => ['The code already has CrateTag::retag, so the screen leaves it alone.']])
+                ->and($editor->removeMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'CrateTag', 'retag', 'valueObjects'))
+                ->toBe(['name' => ['The code already has CrateTag::retag, so the screen leaves it alone.']])
+                ->and($editor->removeMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'CrateNote', 'shout', 'valueObjects'))->toBe([])
+                ->and(samplingEditManifest()['valueObjects']['CrateNote'])->toBe(['aggregate' => 'Crate', 'fields' => ['text' => 'string'], 'behaviours' => [], 'assertions' => []]);
+        });
+
+        it('keeps a designed value object\'s methods when its fields change, and refuses one the manifest lacks', function () {
+            samplingEditTags();
+            $editor = samplingEditor();
+
+            expect($editor->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'valueObjects', 'CrateNote', 'CrateRemark', ['aggregate' => 'Crate', 'fields' => ['text' => 'string', 'loud' => 'bool']]))->toBe([])
+                ->and(samplingEditManifest()['valueObjects']['CrateRemark']['behaviours'])->toBe(['shout' => ['params' => [], 'throws' => []]])
+                ->and($editor->saveMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'CrateLabel', null, 'shout', [], [], 'valueObjects'))
+                ->toBe(['entity' => ['SamplingEdit has no value object CrateLabel.']]);
+        });
+
+        it('keeps an exception a value object\'s method throws', function () {
+            samplingEditTags();
+            $editor = samplingEditor();
+            $editor->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'exceptions', null, 'CrateTagInvalidException', ['kind' => 'value', 'aggregate' => 'Crate', 'useCase' => null]);
+            $editor->saveMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'CrateNote', null, 'whisper', [], ['CrateTagInvalidException'], 'valueObjects');
+
+            expect($editor->removePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'exceptions', 'CrateTagInvalidException'))
+                ->toBe(['name' => ['CrateTagInvalidException is used by SamplingEdit/CrateNote::whisper.']]);
         });
     });
 

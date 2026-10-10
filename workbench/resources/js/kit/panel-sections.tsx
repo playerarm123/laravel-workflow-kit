@@ -27,6 +27,7 @@ import {
     PanelTable,
 } from '@/kit/panel-table';
 import type {
+    MethodHolder,
     ReplaceableSection,
     ResourceSection,
     StructureEndpoints,
@@ -63,6 +64,7 @@ export type Editing =
     | {
           kind: 'method';
           context: string;
+          holder?: MethodHolder;
           entity: string | null;
           previous: string | null;
       }
@@ -83,6 +85,7 @@ type Posted = {
     section: string;
     name: string;
     entity: string;
+    holder?: string;
 };
 
 /**
@@ -155,10 +158,18 @@ export function RemoveButton({
         section,
         name,
         entity,
+        holder: section,
     });
 
     const remove = () => {
-        form.transform((data) => ({ ...data, version, section, name, entity }));
+        form.transform((data) => ({
+            ...data,
+            version,
+            section,
+            name,
+            entity,
+            holder: section,
+        }));
         form.post(url, {
             onSuccess: (response) => {
                 setConfirming(false);
@@ -649,13 +660,15 @@ export function EntityState({
 }
 
 /**
- * An entity's methods, behaviours first, each with its parameters and the exceptions it throws. A
- * method the code does not have yet can be changed or removed, and a new one added.
+ * An entity's or a value object's methods, behaviours first, each with its parameters and the
+ * exceptions it throws. A method the code does not have yet can be changed or removed, and a new
+ * one added, though the entity or the value object is built.
  */
 export function EntityMethods({
     graph,
     endpoints,
     context,
+    holder = 'entities',
     entity,
     onEdit,
     onChanged,
@@ -663,13 +676,17 @@ export function EntityMethods({
     graph: StructureGraph;
     endpoints: StructureEndpoints;
     context: string;
+    holder?: MethodHolder;
     entity: string;
     onEdit: (editing: Editing) => void;
     onChanged: Changed;
 }) {
     const manifest = graph.manifests[context];
-    const entry = manifest?.entities[entity];
-    const built = graph.entityMethodsBuilt[context] ?? [];
+    const entry = manifest?.[holder][entity];
+    const built =
+        (holder === 'entities'
+            ? graph.entityMethodsBuilt[context]
+            : graph.valueObjectMethodsBuilt[context]) ?? [];
     const outOfStep = graph.outOfStep[context] ?? [];
     const version = graph.versions[context] ?? '';
     const methods = [
@@ -688,6 +705,7 @@ export function EntityMethods({
                         onEdit({
                             kind: 'method',
                             context,
+                            holder,
                             entity,
                             previous: null,
                         })
@@ -697,7 +715,12 @@ export function EntityMethods({
         >
             <PanelTable head={['Method', 'Throws', '']} empty="No methods yet.">
                 {methods.map((method) => {
-                    const definition = methodOf(manifest, entity, method);
+                    const definition = methodOf(
+                        manifest,
+                        entity,
+                        method,
+                        holder,
+                    );
                     const params = Object.entries(definition?.params ?? {})
                         .map(([param, type]) => `${type} $${param}`)
                         .join(', ');
@@ -719,7 +742,7 @@ export function EntityMethods({
                                 built.includes(`${entity}.${method}`) ? (
                                     <>
                                         {outOfStep.includes(
-                                            `entities.${entity}.${method}`,
+                                            `${holder}.${entity}.${method}`,
                                         ) && (
                                             <SyncButton
                                                 url={endpointFor(
@@ -727,7 +750,7 @@ export function EntityMethods({
                                                     context,
                                                 )}
                                                 version={version}
-                                                section="entities"
+                                                section={holder}
                                                 name={method}
                                                 entity={entity}
                                                 label={`Sync ${method}() from code`}
@@ -745,6 +768,7 @@ export function EntityMethods({
                                                 onEdit({
                                                     kind: 'method',
                                                     context,
+                                                    holder,
                                                     entity,
                                                     previous: method,
                                                 })
@@ -756,7 +780,7 @@ export function EntityMethods({
                                                 context,
                                             )}
                                             version={version}
-                                            section="entities"
+                                            section={holder}
                                             name={method}
                                             owner={context}
                                             entity={entity}

@@ -30,6 +30,7 @@ function writeSamplingPlanFixtures(): void
     $context = SAMPLING_PLAN_CONTEXT;
     $useCases = "App\\Application\\{$context}\\UseCases";
     $fixtures = [
+        "Domain/{$context}/Sack/ValueObjects/SackKnot.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Sack\\ValueObjects;\n\nfinal class SackKnot\n{\n    public function __construct(private string \$kind) {}\n\n    public function tighten(): self { return \$this; }\n}\n",
         "Domain/{$context}/Sack/SackEntity.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Sack;\n\nfinal class SackEntity\n{\n    public function __construct(\n        private string \$id,\n        private Enums\\SackColour \$colour,\n    ) {}\n\n    public function stitch(): void {}\n}\n",
         "Domain/{$context}/Sack/Exceptions/SackTornException.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Sack\\Exceptions;\n\nfinal class SackTornException extends \\RuntimeException {}\n",
         "Domain/{$context}/Sack/Enums/SackColour.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Sack\\Enums;\n\nenum SackColour: string\n{\n    case Red = 'red';\n}\n",
@@ -75,7 +76,12 @@ function writeSamplingPlanFixtures(): void
             ]],
         ],
         'valueObjects' => [
-            'SackSeal' => ['aggregate' => 'Sack', 'fields' => ['colour' => 'SackColour', 'code' => 'string|int', 'price' => 'Shared/Money']],
+            'SackSeal' => ['aggregate' => 'Sack', 'fields' => ['colour' => 'SackColour', 'code' => 'string|int', 'price' => 'Shared/Money'], 'behaviours' => ['reseal' => ['params' => [], 'throws' => []]], 'assertions' => []],
+            'SackKnot' => ['aggregate' => 'Sack', 'fields' => ['kind' => 'string'], 'behaviours' => [
+                'tighten' => ['params' => [], 'throws' => []],
+                'loosen' => ['params' => ['by' => 'int', 'tags' => '...string'], 'throws' => []],
+                'split' => ['params' => [], 'throws' => ['SackFrayedException']],
+            ], 'assertions' => ['assertTight' => ['params' => [], 'throws' => ['Shared/InvalidMoneyException']]]],
             'SackTag' => ['aggregate' => 'Sack', 'fields' => ['grade' => 'SackGrade', 'note' => '?string', 'bin' => 'Elsewhere/Bin/BinKind']],
         ],
         'exceptions' => [
@@ -207,6 +213,18 @@ describe('StructurePlanner', function () {
                 ->and($steps["method {$domain}/Thread::snap"])->toBe([StructurePlanner::WAITING, 'ThreadEntity is not built yet'])
                 ->and($steps)->not->toHaveKey("exception {$domain}/Sack/SackTornException")
                 ->and($steps)->not->toHaveKey("exception {$domain}/Shared/SamplingPlanScaleException");
+        });
+
+        it('builds the invalid values of a value object\'s own aggregate, then each method its file does not declare', function () {
+            $steps = samplingPlanSteps();
+            $domain = SAMPLING_PLAN_CONTEXT;
+
+            expect($steps["method {$domain}/SackKnot::tighten"][0])->toBe(StructurePlanner::DONE)
+                ->and($steps["method {$domain}/SackKnot::loosen"])->toBe([StructurePlanner::READY, "php artisan make:value-object-method SackKnot loosen --domain={$domain}/Sack --param=by:int --param=tags:...string"])
+                ->and($steps["exception {$domain}/Sack/SackFrayedException"])->toBe([StructurePlanner::READY, "php artisan make:domain-exception SackFrayed --domain={$domain}/Sack --kind=value"])
+                ->and($steps["method {$domain}/SackKnot::split"])->toBe([StructurePlanner::WAITING, 'SackFrayedException is not built yet'])
+                ->and($steps["method {$domain}/SackKnot::assertTight"])->toBe([StructurePlanner::READY, "php artisan make:value-object-method SackKnot assertTight --domain={$domain}/Sack --throws=Shared/InvalidMoneyException"])
+                ->and($steps["method {$domain}/SackSeal::reseal"])->toBe([StructurePlanner::WAITING, 'SackSeal is not built yet']);
         });
 
         it('builds the state of an entity one property at a time, in the order the manifest lists it', function () {

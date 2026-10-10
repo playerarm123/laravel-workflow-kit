@@ -80,6 +80,13 @@ final class StructureEditor
             $errors['name'][] = "The code already has {$name}. Run `php artisan kit:import --context={$context} --sync` to read it into the manifest.";
         }
 
+        if ($section === 'valueObjects') {
+            // The form changes a value object's fields; its methods change one at a time (saveMethod).
+            $current = $previous === null ? [] : ($manifest[$section][$previous] ?? []);
+            $entry['behaviours'] = $current['behaviours'] ?? [];
+            $entry['assertions'] = $current['assertions'] ?? [];
+        }
+
         $entry = $this->normalised($section, $entry);
 
         if (array_key_exists('replaces', $entry)) {
@@ -141,20 +148,21 @@ final class StructureEditor
     }
 
     /**
-     * Adds a method to an entity, or changes or renames the one named `$previous`. Its group follows
-     * from its name: an `assert…` method is an assertion, any other a behaviour. A method the code
-     * already has stays as it is, though its entity is built.
+     * Adds a method to an entity, or to a value object when `$holder` is `valueObjects`, or changes
+     * or renames the one named `$previous`. Its group follows from its name: an `assert…` method is
+     * an assertion, any other a behaviour. A method the code already has stays as it is, though
+     * its entity or value object is built.
      *
      * @param  array<array-key, mixed>  $params  each parameter's name to its type, in order
      * @param  array<array-key, mixed>  $throws  the exceptions it throws
      * @return array<string, list<string>> what is wrong, by field; empty when it was written
      */
-    public function saveMethod(string $context, string $version, string $entity, ?string $previous, string $name, array $params, array $throws): array
+    public function saveMethod(string $context, string $version, string $entity, ?string $previous, string $name, array $params, array $throws, string $holder = 'entities'): array
     {
         $manifest = $this->manifest($context);
-        $refused = $this->refusal($context, $manifest, $version, 'entities', byMethod: true)
-            ?? $this->entityRefusal($context, $manifest, $entity)
-            ?? ($previous === null ? null : $this->methodLockedRefusal($context, $manifest, $entity, $previous));
+        $refused = $this->refusal($context, $manifest, $version, $holder, byMethod: true)
+            ?? $this->holderRefusal($context, $manifest, $holder, $entity)
+            ?? ($previous === null ? null : $this->methodLockedRefusal($context, $manifest, $entity, $previous, $holder));
 
         if ($refused !== null || $manifest === null) {
             return $refused ?? [];
@@ -164,14 +172,14 @@ final class StructureEditor
             return ['name' => ['A method name is camelCase.']];
         }
 
-        $aggregate = (string) $this->holderOf($manifest, $entity);
-        /** @var array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
-        $entry = $manifest['entities'][$entity] ?? self::emptyEntity($aggregate);
+        $aggregate = $holder === 'entities' ? (string) $this->holderOf($manifest, $entity) : $manifest['valueObjects'][$entity]['aggregate'];
+        /** @var array{behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
+        $entry = $manifest[$holder][$entity] ?? self::emptyEntity((string) $aggregate);
         $errors = [];
 
         if ($name !== $previous && (isset($entry['behaviours'][$name]) || isset($entry['assertions'][$name]))) {
             $errors['name'][] = "The manifest already has {$entity}::{$name}.";
-        } elseif ($name !== $previous && in_array($name, $this->builtMethods($context, $entity), true)) {
+        } elseif ($name !== $previous && in_array($name, $this->builtMethods($context, $entity, $holder), true)) {
             $errors['name'][] = "The code already has {$entity}::{$name}. Run `php artisan kit:import --context={$context} --sync` to read it into the manifest.";
         }
 
@@ -191,25 +199,35 @@ final class StructureEditor
         }
 
         $entry[StructureReader::isAssertion($name) ? 'assertions' : 'behaviours'][$name] = ['params' => $params, 'throws' => $throws];
-        $manifest['entities'][$entity] = $entry;
+        $manifest[$holder][$entity] = $entry;
 
         return $this->writeChecked($context, $manifest);
     }
 
     /**
-     * Removes a method the code does not have yet, and the entity's entry with its last method.
+     * Removes a method the code does not have yet, and the entity's entry with its last method. A
+     * value object (`$holder` is `valueObjects`) keeps its entry, which its fields make.
      *
      * @return array<string, list<string>> what is wrong, by field; empty when it was removed
      */
-    public function removeMethod(string $context, string $version, string $entity, string $name): array
+    public function removeMethod(string $context, string $version, string $entity, string $name, string $holder = 'entities'): array
     {
         $manifest = $this->manifest($context);
-        $refused = $this->refusal($context, $manifest, $version, 'entities', byMethod: true)
-            ?? $this->entityRefusal($context, $manifest, $entity)
-            ?? $this->methodLockedRefusal($context, $manifest, $entity, $name);
+        $refused = $this->refusal($context, $manifest, $version, $holder, byMethod: true)
+            ?? $this->holderRefusal($context, $manifest, $holder, $entity)
+            ?? $this->methodLockedRefusal($context, $manifest, $entity, $name, $holder);
 
         if ($refused !== null || $manifest === null) {
             return $refused ?? [];
+        }
+
+        if ($holder === 'valueObjects') {
+            /** @var array<string, mixed> $valueObject */
+            $valueObject = $manifest['valueObjects'][$entity];
+            unset($valueObject['behaviours'][$name], $valueObject['assertions'][$name]);
+            $manifest['valueObjects'][$entity] = $valueObject;
+
+            return $this->writeChecked($context, $manifest);
         }
 
         /** @var array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
@@ -407,7 +425,8 @@ final class StructureEditor
 
     /**
      * Takes one built piece back from the code once the code has changed, or one method of an
-     * entity when `$entity` names it. What only the manifest says (`replaces`) stays.
+     * entity when `$entity` names it, or of a value object when `$section` is `valueObjects` too.
+     * What only the manifest says (`replaces`) stays.
      *
      * @return array<string, list<string>> what is wrong, by field; empty when it was written
      */
@@ -423,7 +442,7 @@ final class StructureEditor
         $sync = new StructureSync($this->files, $this->reader);
         $synced = match (true) {
             $entity !== null && str_starts_with($name, StructureSync::STATE_PREFIX) => $sync->syncProperty($context, $entity, substr($name, strlen(StructureSync::STATE_PREFIX))),
-            $entity !== null => $sync->syncMethod($context, $entity, $name),
+            $entity !== null => $sync->syncMethod($context, $entity, $name, $section === 'valueObjects' ? 'valueObjects' : 'entities'),
             default => $sync->syncPiece($context, $section, $name),
         };
 
@@ -729,20 +748,36 @@ final class StructureEditor
     }
 
     /**
+     * Why the methods of this entity or value object cannot change here: it is no root or child of
+     * an aggregate the manifest lists, or no value object the manifest lists.
+     *
+     * @param  array<string, mixed>|null  $manifest
+     * @return array<string, list<string>>|null
+     */
+    private function holderRefusal(string $context, ?array $manifest, string $holder, string $name): ?array
+    {
+        return match ($holder) {
+            'entities' => $this->entityRefusal($context, $manifest, $name),
+            'valueObjects' => is_array($manifest['valueObjects'][$name] ?? null) ? null : ['entity' => ["{$context} has no value object {$name}."]],
+            default => ['entity' => ["{$holder} holds no methods."]],
+        };
+    }
+
+    /**
      * Why the named method may not change: the manifest does not list it, or the code already has it.
      *
      * @param  array<string, mixed>|null  $manifest
      * @return array<string, list<string>>|null
      */
-    private function methodLockedRefusal(string $context, ?array $manifest, string $entity, string $method): ?array
+    private function methodLockedRefusal(string $context, ?array $manifest, string $entity, string $method, string $holder = 'entities'): ?array
     {
-        $entry = $manifest['entities'][$entity] ?? null;
+        $entry = $manifest[$holder][$entity] ?? null;
 
         if (! is_array($entry) || ! (isset($entry['behaviours'][$method]) || isset($entry['assertions'][$method]))) {
             return ['name' => ["The manifest has no {$entity}::{$method}."]];
         }
 
-        if (in_array($method, $this->builtMethods($context, $entity), true)) {
+        if (in_array($method, $this->builtMethods($context, $entity, $holder), true)) {
             return ['name' => ["The code already has {$entity}::{$method}, so the screen leaves it alone."]];
         }
 
@@ -801,13 +836,14 @@ final class StructureEditor
     }
 
     /**
-     * The methods of an entity the code already has.
+     * The methods of an entity, or of a value object, the code already has.
      *
      * @return list<string>
      */
-    private function builtMethods(string $context, string $entity): array
+    private function builtMethods(string $context, string $entity, string $holder = 'entities'): array
     {
-        $entry = $this->reader->read($context)['entities'][$entity] ?? null;
+        /** @var array{behaviours: array<string, mixed>, assertions: array<string, mixed>}|null $entry */
+        $entry = $this->reader->read($context)[$holder][$entity] ?? null;
 
         return $entry === null ? [] : array_map(strval(...), array_keys([...$entry['behaviours'], ...$entry['assertions']]));
     }
@@ -819,7 +855,7 @@ final class StructureEditor
      * @param  array<array-key, mixed>  $params
      * @return array<string, list<string>>
      */
-    private function paramErrors(string $context, string $aggregate, array $params): array
+    private function paramErrors(string $context, ?string $aggregate, array $params): array
     {
         $errors = [];
         $last = array_key_last($params);
@@ -857,7 +893,7 @@ final class StructureEditor
      * @param  array<array-key, mixed>  $throws
      * @return array<string, list<string>>
      */
-    private function throwErrors(string $context, string $aggregate, array $throws): array
+    private function throwErrors(string $context, ?string $aggregate, array $throws): array
     {
         $errors = [];
 
@@ -1212,7 +1248,7 @@ final class StructureEditor
     }
 
     /**
-     * The entity methods, in any context, whose `throws` name this exception: bare inside its own
+     * The entity and value object methods, in any context, whose `throws` name this exception: bare inside its own
      * aggregate, `Shared/Name` from the shared kernel, `Context/Aggregate/Name` anywhere else.
      *
      * @return list<string>
@@ -1224,15 +1260,19 @@ final class StructureEditor
         $users = [];
 
         foreach ($this->files->contexts() as $owner) {
-            /** @var array<string, array{aggregate: string, behaviours: array<string, array{throws: list<string>}>, assertions: array<string, array{throws: list<string>}>}> $entities */
-            $entities = $this->manifest($owner)['entities'] ?? [];
+            $manifest = $this->manifest($owner);
 
-            foreach ($entities as $entity => $entry) {
-                $bare = $owner === $context && $entry['aggregate'] === $holder ? [$name] : [];
+            foreach (['entities', 'valueObjects'] as $section) {
+                /** @var array<string, array{aggregate: string|null, behaviours: array<string, array{throws: list<string>}>, assertions: array<string, array{throws: list<string>}>}> $holders */
+                $holders = $manifest[$section] ?? [];
 
-                foreach ([...$entry['behaviours'], ...$entry['assertions']] as $method => $definition) {
-                    if (array_intersect($definition['throws'], [...$names, ...$bare]) !== []) {
-                        $users[] = "{$owner}/{$entity}::{$method}";
+                foreach ($holders as $entity => $entry) {
+                    $bare = $owner === $context && $entry['aggregate'] === $holder ? [$name] : [];
+
+                    foreach ([...$entry['behaviours'], ...$entry['assertions']] as $method => $definition) {
+                        if (array_intersect($definition['throws'], [...$names, ...$bare]) !== []) {
+                            $users[] = "{$owner}/{$entity}::{$method}";
+                        }
                     }
                 }
             }

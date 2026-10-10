@@ -51,7 +51,7 @@ function writeSamplingReaderFixtures(): void
         "Domain/{$context}/Pallet/Enums/PalletSize.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Pallet\\Enums;\n\nenum PalletSize: int\n{\n    case Half = 50;\n    case Full = 100;\n}\n",
         "Domain/{$context}/Pallet/Enums/CrateGrade.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Pallet\\Enums;\n\nenum CrateGrade: string\n{\n    case Any = 'any';\n}\n",
         "Domain/{$other}/Shelf/Enums/ShelfKind.php" => "<?php\n\nnamespace App\\Domain\\{$other}\\Shelf\\Enums;\n\nenum ShelfKind: string\n{\n    case Wall = 'wall';\n}\n",
-        "Domain/{$context}/Crate/ValueObjects/CrateLabel.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\ValueObjects;\n\nuse App\\Domain\\{$context}\\Crate\\Enums\\CrateGrade;\nuse App\\Domain\\{$other}\\Shelf\\Enums\\ShelfKind;\nuse App\\Domain\\Shared\\ValueObjects\\Money;\nuse DateTimeImmutable;\n\nfinal class CrateLabel\n{\n    private string \$note;\n\n    private function __construct(private CrateGrade \$grade, ?string \$note, private Money \$price, private ShelfKind \$kind, private DateTimeImmutable \$at, private int|string \$size)\n    {\n        \$this->note = (string) \$note;\n    }\n}\n",
+        "Domain/{$context}/Crate/ValueObjects/CrateLabel.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\ValueObjects;\n\nuse App\\Domain\\{$context}\\Crate\\Enums\\CrateGrade;\nuse App\\Domain\\{$other}\\Shelf\\Enums\\ShelfKind;\nuse App\\Domain\\Shared\\ValueObjects\\Money;\nuse App\\Domain\\{$context}\\Crate\\Exceptions\\CrateWeightException;\nuse DateTimeImmutable;\n\nfinal class CrateLabel\n{\n    private string \$note;\n\n    private function __construct(private CrateGrade \$grade, ?string \$note, private Money \$price, private ShelfKind \$kind, private DateTimeImmutable \$at, private int|string \$size)\n    {\n        \$this->note = (string) \$note;\n    }\n\n    public static function blank(): self { throw new CrateWeightException; }\n\n    public function regrade(CrateGrade \$grade, string ...\$tags): self { \$this->assertPriced(); return \$this; }\n\n    public function stamp(): static { return \$this; }\n\n    public function grade(): CrateGrade { return \$this->grade; }\n\n    public function assertPriced(): void { throw new CrateWeightException; }\n}\n",
         "Domain/{$context}/Crate/ValueObjects/CrateMark.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\ValueObjects;\n\nabstract class CrateMark {}\n",
         "Domain/{$context}/Crate/ValueObjects/Concerns/ReadsCrateMarks.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Crate\\ValueObjects\\Concerns;\n\ntrait ReadsCrateMarks {}\n",
         "Domain/{$context}/Pallet/ValueObjects/PalletSpot.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Pallet\\ValueObjects;\n\nfinal class PalletSpot {}\n",
@@ -227,7 +227,7 @@ describe('StructureReader', function () {
             ]);
         });
 
-        it('reads each value object with its constructor in order, naming each type from where it lives', function () {
+        it('reads each value object with its constructor in order, naming each type from where it lives, and its behaviours (returning a new one) and assertions', function () {
             expect($this->reader->read(SAMPLING_READER_CONTEXT)['valueObjects'])->toBe([
                 'CrateLabel' => ['aggregate' => 'Crate', 'fields' => [
                     'grade' => 'CrateGrade',
@@ -236,8 +236,13 @@ describe('StructureReader', function () {
                     'kind' => SAMPLING_READER_OTHER.'/Shelf/ShelfKind',
                     'at' => 'DateTimeImmutable',
                     'size' => 'string|int',
+                ], 'behaviours' => [
+                    'regrade' => ['params' => ['grade' => 'CrateGrade', 'tags' => '...string'], 'throws' => ['CrateWeightException']],
+                    'stamp' => ['params' => [], 'throws' => []],
+                ], 'assertions' => [
+                    'assertPriced' => ['params' => [], 'throws' => ['CrateWeightException']],
                 ]],
-                'PalletSpot' => ['aggregate' => 'Pallet', 'fields' => []],
+                'PalletSpot' => ['aggregate' => 'Pallet', 'fields' => [], 'behaviours' => [], 'assertions' => []],
             ]);
         });
 
@@ -245,7 +250,7 @@ describe('StructureReader', function () {
             $shared = $this->reader->read('Shared');
 
             expect($shared['enums']['SamplingReaderTone'])->toBe(['aggregate' => null, 'backing' => 'string', 'cases' => ['Loud' => 'loud'], 'transitions' => null])
-                ->and($shared['valueObjects']['SamplingReaderSpan'])->toBe(['aggregate' => null, 'fields' => ['tone' => 'SamplingReaderTone', 'price' => 'Money']])
+                ->and($shared['valueObjects']['SamplingReaderSpan'])->toBe(['aggregate' => null, 'fields' => ['tone' => 'SamplingReaderTone', 'price' => 'Money'], 'behaviours' => [], 'assertions' => []])
                 ->and($shared['valueObjects'])->not->toHaveKeys(['Money', 'Percent'])
                 ->and([$shared['aggregates'], $shared['services'], $shared['ports'], $shared['useCases']])->toBe([[], [], [], []]);
         });

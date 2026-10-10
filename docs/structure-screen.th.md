@@ -74,6 +74,8 @@ enum ชื่อ `*Status` ที่ระบุการเปลี่ยน�
 
 ![มุมมอง Vocabulary](images/structure-vocabulary.png)
 
+value object มี method ได้เช่นกัน เลือกการ์ดของมันแล้วกด **+** ข้างหัวข้อ **Methods** ใน panel ฟอร์มเป็นแบบเดียวกับฟอร์ม method ของ entity ด้านล่าง behaviour ของ value object คืน value object ตัวใหม่ (`self`) `kit:apply` จึงเขียนให้คืนสำเนาที่สร้างจาก field เดิมไว้ก่อน ให้คุณแก้ต่อ ส่วนชื่อที่ขึ้นต้นด้วย `assert` เป็น assertion การ์ดแสดง method ไว้ใต้ field เมื่อสร้าง value object แล้ว field จะถูกล็อก แต่ยังเพิ่ม method ใหม่ได้
+
 ### 5. ออกแบบ exception
 
 method ที่จะเพิ่มต่อไปปฏิเสธด้วย exception ให้ออกแบบ exception ก่อน แล้ว method จะเลือกจากรายการได้ และ `kit:apply` จะสร้างให้ในที่ของมัน กด **Add exception**:
@@ -274,7 +276,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | Page | แผ่นกระดาษพับมุม ไอคอนตามชนิด (table, grid, form, page) | เทา |
 | Elsewhere | เส้นประ | เทาจาง |
 
-การ์ดแสดงได้สูงสุดหกบรรทัด เกินนั้นขึ้นว่า `… N more` status แสดงการเปลี่ยนสถานะ (`Open → Sealed`, `Sealed · final`) แทนค่า enum แสดง case, value object แสดง field และ entity แสดง state (`status: CrateStatus`) แล้วตามด้วย method
+การ์ดแสดงได้สูงสุดหกบรรทัด เกินนั้นขึ้นว่า `… N more` status แสดงการเปลี่ยนสถานะ (`Open → Sealed`, `Sealed · final`) แทนค่า enum แสดง case, value object แสดง field แล้วตามด้วย method และ entity แสดง state (`status: CrateStatus`) แล้วตามด้วย method
 
 คลิกการ์ดเพื่อเลือก คลิกพื้นที่ว่างเพื่อยกเลิก ดับเบิลคลิกการ์ดที่เปิดต่อได้ (context, resource หรือการ์ด Elsewhere) เพื่อไปยังมุมมองนั้น หรือกดปุ่ม **Open …** ใน panel ก็ได้
 
@@ -293,7 +295,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 
 ### side panel
 
-สำหรับการ์ดที่เลือก panel แสดงชนิดและชื่อ สถานะพร้อมเหตุผลหรือคำสั่ง (มีปุ่มคัดลอก) แล้วตามด้วยรายละเอียดเป็นตารางขนาดเล็ก ได้แก่ case และการเปลี่ยนสถานะของ enum, field ของ value object, state และ method ของ entity, child ของ aggregate, method ของ controller และ method ที่ throw exception นั้น
+สำหรับการ์ดที่เลือก panel แสดงชนิดและชื่อ สถานะพร้อมเหตุผลหรือคำสั่ง (มีปุ่มคัดลอก) แล้วตามด้วยรายละเอียดเป็นตารางขนาดเล็ก ได้แก่ case และการเปลี่ยนสถานะของ enum, field และ method ของ value object, state และ method ของ entity, child ของ aggregate, method ของ controller และ method ที่ throw exception นั้น
 
 action ที่ใช้กับการ์ดได้จะเป็นไอคอนอยู่ใต้ชื่อ เอาเมาส์ชี้เพื่อดูชื่อได้ ได้แก่ **Open** (↗), **Edit** (ดินสอ), **Remove** (ถังขยะ), **Sync from code** (ลูกศรวน), **Replace** และ **Cancel replacement** แต่ละแถวในตารางมีไอคอนแบบเดียวกันสำหรับแถวนั้น และปุ่ม **+** ของตารางใช้เพิ่มแถว แถวที่สร้างแล้วจะเป็นเครื่องหมายถูกสีเขียว ชี้ดูได้ว่าสร้างอะไรไว้ (เช่น getter ของ property)
 
@@ -328,7 +330,7 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 | Value object | Name; Aggregate; Fields, in constructor order (ชื่อและชนิด) | field ไม่เป็น camelCase, ชนิดไม่ใช่ทั้งชนิดพื้นฐาน คลาสที่ manifest ออกแบบไว้ หรือคลาสที่มีในโค้ด |
 | Exception | Name; Kind: Refusal of an aggregate, Invalid value หรือ Refusal of a use case (shared kernel รับเฉพาะ invalid value); Aggregate (สำหรับ refusal และ invalid value); Use case หรือ None (สำหรับ refusal ของ use case) | ชื่อไม่ลงท้ายด้วย `Exception`, aggregate หรือ use case ไม่ได้อยู่ใน context นี้ ([exceptions.md](../resources/boost/guidelines/exceptions.md)) |
 | State | Name; Type | ชื่อไม่เป็น camelCase, เป็น `id` หรือซ้ำกับที่มีอยู่ ชนิดไม่รู้จัก |
-| Method | Entity; Name; Parameters, in order (ชื่อและชนิด ใช้ `...Type` สำหรับตัวสุดท้ายที่เป็น variadic); Throws | ชื่อหรือพารามิเตอร์ไม่เป็น camelCase, ชนิดไม่รู้จัก, exception ไม่ได้ลงท้ายด้วย `Exception`, exception ของ shared kernel หรือ aggregate อื่นไม่ได้ออกแบบไว้ใน manifest ของมันและไม่มีในโค้ด |
+| Method (ของ entity หรือของ value object จาก panel ของมัน) | Entity หรือ Value object; Name; Parameters, in order (ชื่อและชนิด ใช้ `...Type` สำหรับตัวสุดท้ายที่เป็น variadic); Throws | ชื่อหรือพารามิเตอร์ไม่เป็น camelCase, ชนิดไม่รู้จัก, exception ไม่ได้ลงท้ายด้วย `Exception`, exception ของ shared kernel หรือ aggregate อื่นไม่ได้ออกแบบไว้ใน manifest ของมันและไม่มีในโค้ด |
 
 ทุกชื่อเป็น StudlyCase (ยกเว้น method และ field เป็น camelCase) และต้องไม่ซ้ำทั้งใน manifest และในโค้ด ถ้าชื่อนั้นมีในโค้ดแล้ว แปลว่า manifest ตามไม่ทันโค้ด ให้รัน `php artisan kit:import --context=X --force` เพื่ออ่านกลับจากโค้ด
 

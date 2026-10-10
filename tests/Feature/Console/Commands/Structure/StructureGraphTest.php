@@ -344,6 +344,36 @@ describe('StructureGraph', function () {
                 ->and($graph['childrenBuilt'][$context])->toBe(['Box.Hinge']);
         });
 
+        it('draws a value object\'s methods under its fields, tied to the classes its parameters name', function () {
+            $context = SAMPLING_GRAPH_CONTEXT;
+            File::ensureDirectoryExists(app_path("Domain/{$context}/Box/ValueObjects"));
+            File::put(app_path("Domain/{$context}/Box/ValueObjects/BoxTag.php"), "<?php\n\nnamespace App\\Domain\\{$context}\\Box\\ValueObjects;\n\nfinal class BoxTag\n{\n    public function __construct(private string \$code) {}\n\n    public function widen(): self { return \$this; }\n}\n");
+
+            $none = ['params' => [], 'throws' => []];
+            $files = new StructureFiles(base_path());
+            $files->write([...$files->read($context), 'valueObjects' => [
+                'BoxTag' => ['aggregate' => 'Box', 'fields' => ['code' => 'string'], 'behaviours' => [
+                    'widen' => $none,
+                    'grow' => ['params' => ['by' => 'int', 'lid' => 'LidEntity'], 'throws' => []],
+                ], 'assertions' => ['assertNarrow' => $none]],
+            ]]);
+
+            $graph = samplingGraph();
+            $view = $graph['contexts'][$context];
+
+            expect(samplingGraphNode($view, "valueObject:{$context}/BoxTag"))->toMatchArray([
+                'kind' => 'valueObject',
+                'items' => ['code: string', 'grow(int, LidEntity)', 'widen()', 'assertNarrow()'],
+                'status' => StructurePlanner::READY,
+                'editable' => false,
+            ])
+                ->and(samplingGraphEdgesFrom($view, "valueObject:{$context}/BoxTag"))->toBe([
+                    ["valueObject:{$context}/BoxTag", "aggregate:{$context}/Lid", 'grow'],
+                ])
+                ->and($graph['valueObjectMethodsBuilt'][$context])->toBe(['BoxTag.widen'])
+                ->and($graph['entityMethodsBuilt'][$context])->toBe([]);
+        });
+
         it('draws an entity\'s state above its methods, tied to the classes each property names', function () {
             $context = SAMPLING_GRAPH_CONTEXT;
             $files = new StructureFiles(base_path());

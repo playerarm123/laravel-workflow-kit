@@ -167,6 +167,43 @@ it('builds an entity\'s methods after the entity, the enums they take and the ex
     }
 });
 
+const SAMPLING_SPOOL_CONTEXT = 'SamplingSpool';
+
+function forgetSamplingSpool(): void
+{
+    File::deleteDirectory(app_path('Domain/'.SAMPLING_SPOOL_CONTEXT));
+    File::deleteDirectory(base_path('tests/Unit/Domain/'.SAMPLING_SPOOL_CONTEXT));
+    File::delete(base_path('.kit/structure/'.SAMPLING_SPOOL_CONTEXT.'.json'));
+}
+
+it('builds a value object\'s methods after the value object and the invalid values they throw', function () {
+    forgetSamplingSpool();
+    $context = SAMPLING_SPOOL_CONTEXT;
+    $methods = [
+        'behaviours' => ['retie' => ['params' => ['turns' => 'int'], 'throws' => ['SpoolLabelInvalidException']]],
+        'assertions' => ['assertShort' => ['params' => [], 'throws' => ['SpoolLabelInvalidException']]],
+    ];
+    (new StructureFiles(base_path()))->write([
+        'context' => $context,
+        'aggregates' => ['Spool' => ['children' => [], 'repository' => false]],
+        'valueObjects' => ['SpoolLabel' => ['aggregate' => 'Spool', 'fields' => ['code' => 'string'], ...$methods]],
+    ]);
+
+    try {
+        $this->artisan('kit:apply', ['--context' => [$context]])
+            ->expectsOutputToContain('Done: 4 of 4 steps.')
+            ->assertSuccessful();
+
+        expect(File::get(app_path("Domain/{$context}/Spool/ValueObjects/SpoolLabel.php")))
+            ->toContain("     * @throws SpoolLabelInvalidException\n     */\n    public function retie(int \$turns): self\n    {\n        return new self(\$this->code);\n    }")
+            ->toContain('public function assertShort(): void')
+            ->and(File::get(app_path("Domain/{$context}/Spool/Exceptions/SpoolLabelInvalidException.php")))->toContain('extends DomainValueException')
+            ->and(File::get(base_path("tests/Unit/Domain/{$context}/Spool/ValueObjects/SpoolLabelTest.php")))->toContain("describe('retie()'", "describe('assertShort()'");
+    } finally {
+        forgetSamplingSpool();
+    }
+});
+
 it('builds each exception the manifest designs, in the home its kind gives it', function () {
     $context = 'SamplingRaise';
     $forget = function () use ($context): void {

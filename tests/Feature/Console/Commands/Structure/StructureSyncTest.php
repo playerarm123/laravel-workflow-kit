@@ -22,6 +22,7 @@ function writeSamplingSyncFixtures(): void
 
     $fixtures = [
         "app/Domain/{$context}/Bin/BinEntity.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Bin;\n\nuse App\\Domain\\Shared\\AggregateRoot;\n\nfinal class BinEntity extends AggregateRoot\n{\n    private function __construct(private string \$id, private int \$size, private ?string \$label) {}\n\n    public function id(): string { return \$this->id; }\n\n    public static function entityName(): string { return 'Bin'; }\n\n    public function fill(int \$amount, string \$note): void {}\n\n    public function assertOpen(): void {}\n}\n",
+        "app/Domain/{$context}/Bin/ValueObjects/BinLabel.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Bin\\ValueObjects;\n\nfinal class BinLabel\n{\n    public function __construct(private string \$text) {}\n\n    public function rename(string \$text, bool \$loud): self { return new self(\$text); }\n\n    public function assertShort(): void {}\n}\n",
         "app/Domain/{$context}/Bin/Enums/BinStatus.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Bin\\Enums;\n\nenum BinStatus: string\n{\n    case Open = 'open';\n    case Full = 'full';\n}\n",
         "app/Application/{$context}/UseCases/EmptyBinsHandler.php" => "<?php\n\nnamespace App\\Application\\{$context}\\UseCases;\n\nfinal class EmptyBinsHandler\n{\n    public function __invoke(): int { return 0; }\n}\n",
         "app/Models/{$resource}.php" => "<?php\n\nnamespace App\\Models;\n\nuse App\\Policies\\{$resource}Policy;\nuse Illuminate\\Database\\Eloquent\\Attributes\\UsePolicy;\nuse Illuminate\\Database\\Eloquent\\Model;\n\n#[UsePolicy({$resource}Policy::class)]\nclass {$resource} extends Model {}\n",
@@ -185,6 +186,29 @@ describe('StructureSync', function () {
                 ->and($this->sync->syncProperty(SAMPLING_SYNC_CONTEXT, 'Bin', 'label')['manifest']['entities']['Bin']['state'])->toBe(['label' => '?string', 'size' => 'string', 'colour' => 'int']);
         });
 
+        it('takes a value object\'s methods from the code one by one, and keeps a method not built yet unless it prunes', function () {
+            designSamplingSync(function (array $manifest): array {
+                $manifest['valueObjects']['BinLabel']['behaviours']['rename']['params'] = ['text' => 'string'];
+                $manifest['valueObjects']['BinLabel']['behaviours']['shorten'] = ['params' => [], 'throws' => []];
+
+                return $manifest;
+            });
+
+            $synced = $this->sync->syncContext(SAMPLING_SYNC_CONTEXT);
+            $pruned = $this->sync->syncContext(SAMPLING_SYNC_CONTEXT, prune: true);
+
+            expect($synced['manifest']['valueObjects']['BinLabel']['behaviours'])->toBe([
+                'rename' => ['params' => ['text' => 'string', 'loud' => 'bool'], 'throws' => []],
+                'shorten' => ['params' => [], 'throws' => []],
+            ])
+                ->and($synced['manifest']['valueObjects']['BinLabel']['assertions'])->toHaveKey('assertShort')
+                ->and($synced['changes'])->toBe(['valueObjects.BinLabel.rename: params {"text":"string"} → {"text":"string","loud":"bool"}'])
+                ->and($synced['kept'])->toBe(['valueObjects.BinLabel.shorten'])
+                ->and($pruned['manifest']['valueObjects']['BinLabel']['behaviours'])->not->toHaveKey('shorten')
+                ->and($pruned['changes'])->toContain('valueObjects.BinLabel.shorten: removed')
+                ->and($this->sync->contextOutOfStep(SAMPLING_SYNC_CONTEXT))->toBe(['valueObjects.BinLabel.rename']);
+        });
+
         it('names the built pieces the code describes another way, but not the ones it would add', function () {
             designSamplingSync(function (array $manifest): array {
                 $manifest['enums']['BinStatus']['cases'] = ['Open' => 'open'];
@@ -234,6 +258,21 @@ describe('StructureSync', function () {
                 ->and($piece['manifest']['entities']['Bin']['behaviours']['fill']['params'])->toBe([])
                 ->and($method['manifest']['entities']['Bin']['behaviours']['fill']['params'])->toBe(['amount' => 'int', 'note' => 'string'])
                 ->and($method['manifest']['enums']['BinStatus']['cases'])->toBe(['Open' => 'open']);
+        });
+
+        it('takes one method of a value object from the code and nothing else', function () {
+            designSamplingSync(function (array $manifest): array {
+                $manifest['valueObjects']['BinLabel']['behaviours']['rename']['params'] = [];
+                $manifest['valueObjects']['BinLabel']['fields'] = ['title' => 'string'];
+
+                return $manifest;
+            });
+
+            $method = $this->sync->syncMethod(SAMPLING_SYNC_CONTEXT, 'BinLabel', 'rename', 'valueObjects');
+
+            expect($method['manifest']['valueObjects']['BinLabel']['behaviours']['rename']['params'])->toBe(['text' => 'string', 'loud' => 'bool'])
+                ->and($method['manifest']['valueObjects']['BinLabel']['fields'])->toBe(['title' => 'string'])
+                ->and($this->sync->syncMethod(SAMPLING_SYNC_CONTEXT, 'BinLabel', 'shorten', 'valueObjects'))->toBe(['error' => 'The code has no BinLabel::shorten(), so there is nothing to sync from.']);
         });
 
         it('refuses a piece the code does not have', function () {

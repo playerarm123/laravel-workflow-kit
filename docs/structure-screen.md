@@ -74,6 +74,8 @@ Saving an enum or a value object turns on **Vocabulary**, which draws them besid
 
 ![The Vocabulary view](images/structure-vocabulary.png)
 
+A value object takes methods too. Select its card and press the **+** beside **Methods** in its panel. The form is the entity method's form below. A behaviour of a value object returns a new one (`self`), so `kit:apply` writes it to return a copy built from the fields, for you to change; a name that starts with `assert` is an assertion. The card lists the methods under the fields. Once the value object is built its fields are locked, but it still takes new methods.
+
 ### 5. Design the exception
 
 The method you add next refuses with an exception. Design it first: the method then picks it from a list, and `kit:apply` builds it in its home. Choose **Add ▸ Exception**:
@@ -274,7 +276,7 @@ Each kind has its own shape, colour and icon. The **Legend** at the top left nam
 | Page | folded sheet, icon by kind (table, grid, form, page) | zinc |
 | Elsewhere | dashed | grey |
 
-A card lists up to six lines, then `… N more`. A status lists its moves (`Open → Sealed`, `Sealed · final`) in place of its values. An enum lists its cases, a value object its fields, and an entity its state (`status: CrateStatus`) then its methods.
+A card lists up to six lines, then `… N more`. A status lists its moves (`Open → Sealed`, `Sealed · final`) in place of its values. An enum lists its cases, a value object its fields then its methods, and an entity its state (`status: CrateStatus`) then its methods.
 
 Click a card to select it. Click empty canvas to clear the selection. Double-click a card that opens something (a context, a resource, or an Elsewhere card) to go there. The panel offers the same as an **Open …** button.
 
@@ -293,7 +295,7 @@ Elsewhere cards carry no status; their own context shows it.
 
 ### The side panel
 
-For the selected card the panel shows its kind and name, the status and its reason or command (with a copy button), then its contents as small tables: an enum's cases and moves, a value object's fields, an entity's state and methods, an aggregate's children, a controller's methods, the methods that throw an exception.
+For the selected card the panel shows its kind and name, the status and its reason or command (with a copy button), then its contents as small tables: an enum's cases and moves, a value object's fields and methods, an entity's state and methods, an aggregate's children, a controller's methods, the methods that throw an exception.
 
 What applies to the card sits as icons under its name, each named in a tooltip: **Open** (↗), **Edit** (pencil), **Remove** (bin), **Sync from code** (circling arrows), **Replace**, **Cancel replacement**. A table row carries the same icons for its own row, and a table's **+** adds a row. A built row shows a green tick instead; hover it for what is built (a property's getter, for one).
 
@@ -328,7 +330,7 @@ The header's menus offer the forms of the current view:
 | Value object | Name; Aggregate; Fields, in constructor order (name and type) | A field is not camelCase. A type is neither a builtin, nor a class a manifest designs, nor a class the code has. |
 | Exception | Name; Kind: Refusal of an aggregate, Invalid value or Refusal of a use case (the shared kernel takes invalid values only); Aggregate (for a refusal or an invalid value); Use case, or None (for a use case's refusal) | The name does not end with `Exception`. The aggregate or the use case is not in this context ([exceptions.md](../resources/boost/guidelines/exceptions.md)). |
 | State | Name; Type | The name is not camelCase, is `id`, or is taken. The type is unknown. |
-| Method | Entity; Name; Parameters, in order (name and type; `...Type` for a variadic last one); Throws | A name or parameter is not camelCase. A type is unknown. An exception does not end with `Exception`. An exception of the shared kernel or another aggregate is neither designed in its manifest nor in the code. |
+| Method (of an entity, or of a value object from its panel) | Entity or Value object; Name; Parameters, in order (name and type; `...Type` for a variadic last one); Throws | A name or parameter is not camelCase. A type is unknown. An exception does not end with `Exception`. An exception of the shared kernel or another aggregate is neither designed in its manifest nor in the code. |
 
 Every name is StudlyCase (methods and fields camelCase), and must not be taken in the manifest or in the code. A name the code already has means the manifest is behind: run `php artisan kit:import --context=X --force` to read it back.
 

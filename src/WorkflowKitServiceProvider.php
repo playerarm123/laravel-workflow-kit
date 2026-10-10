@@ -29,6 +29,7 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\MakePolicyCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakePortCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeUseCaseCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeValueObjectCommand;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeValueObjectMethodCommand;
 
 /**
  * Registers the kit's generators (`make:*`), its structure commands and `kit:install` (`kit:*`).
@@ -73,6 +74,7 @@ final class WorkflowKitServiceProvider extends ServiceProvider
             MakePortCommand::class,
             MakeUseCaseCommand::class,
             MakeValueObjectCommand::class,
+            MakeValueObjectMethodCommand::class,
         ]);
     }
 }
