@@ -10,6 +10,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\KitDocs;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureCommands;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureComparer;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureEditor;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureFiles;
@@ -32,6 +33,9 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  *
  * A change the editor refuses becomes a ValidationException, which ExceptionResponses answers as a
  * 422 with the errors by field. A change it writes is answered with the graph drawn again.
+ *
+ * The Run menu runs the kit's commands (StructureCommands) as `php artisan …` and answers with what
+ * they printed; the screen then reads the graph again from `kit.structure.graph`.
  */
 class KitServiceProvider extends ServiceProvider
 {
@@ -86,6 +90,7 @@ class KitServiceProvider extends ServiceProvider
         Route::middleware('web')->prefix('kit/structure')->name('kit.structure')->group(function (): void {
             Route::get('/', fn (): View => view('kit.structure', [
                 'graph' => $this->structureGraph()->graph(),
+                'commands' => $this->structureCommands()->available(),
                 'endpoints' => [
                     'createContext' => route('kit.structure.contexts.store'),
                     'savePiece' => route('kit.structure.pieces.store', ['context' => '__CONTEXT__']),
@@ -104,10 +109,29 @@ class KitServiceProvider extends ServiceProvider
                     'saveResourcePiece' => route('kit.structure.resource-pieces.store', ['resource' => '__RESOURCE__']),
                     'removeResourcePiece' => route('kit.structure.resource-pieces.remove', ['resource' => '__RESOURCE__']),
                     'syncResourcePiece' => route('kit.structure.resource-pieces.sync', ['resource' => '__RESOURCE__']),
+                    'graph' => route('kit.structure.graph'),
+                    'runCommand' => route('kit.structure.commands.run', ['command' => '__COMMAND__']),
                     'docs' => route('kit.docs'),
                     'guide' => route('kit.docs.guide', ['guide' => 'structure-screen']),
                 ],
             ]))->name('');
+
+            Route::get('graph', fn (): JsonResponse => new JsonResponse(['graph' => $this->structureGraph()->graph()]))->name('.graph');
+
+            Route::post('commands/{command}', function (Request $request, string $command): JsonResponse {
+                $commands = $this->structureCommands();
+                $context = $request->filled('context') ? $request->string('context')->toString() : null;
+                $resource = $request->filled('resource') ? $request->string('resource')->toString() : null;
+                $refusal = $commands->refusal($command, $context, $resource);
+
+                if ($refusal !== null) {
+                    throw ValidationException::withMessages(['command' => [$refusal]]);
+                }
+
+                set_time_limit(0);
+
+                return new JsonResponse($commands->run($command, $context, $resource));
+            })->name('.commands.run');
 
             Route::post('contexts', fn (Request $request): JsonResponse => $this->answer(
                 $this->structureEditor()->createContext($request->string('name')->toString()),
@@ -303,6 +327,11 @@ class KitServiceProvider extends ServiceProvider
             fn (string $name, string $locale): string => route('kit.docs.guide', $locale === 'en' ? ['guide' => $name] : ['guide' => $name, 'lang' => $locale]),
             fn (string $file): string => route('kit.docs.image', ['file' => $file]),
         );
+    }
+
+    private function structureCommands(): StructureCommands
+    {
+        return new StructureCommands(new StructureReader(base_path()), base_path());
     }
 
     private function structureGraph(): StructureGraph

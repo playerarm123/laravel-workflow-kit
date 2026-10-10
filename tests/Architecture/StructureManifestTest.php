@@ -39,6 +39,7 @@ function structureManifestSpec(): array
             'app/Providers/KitServiceProvider.php',
             'resources/views/kit/structure.blade.php',
             'resources/js/kit/structure.tsx',
+            'resources/js/kit/command-runner.tsx',
             'resources/js/kit/context-form.tsx',
             'resources/js/kit/exception-form.tsx',
             'resources/js/kit/layout.ts',
@@ -66,6 +67,7 @@ function structureManifestSpec(): array
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Concerns/EditsEntityClass.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Concerns/ResolvesManifestTypes.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/KitDocs.php',
+            'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureCommands.php',
             'resources/views/kit/docs.blade.php',
         ],
     ];

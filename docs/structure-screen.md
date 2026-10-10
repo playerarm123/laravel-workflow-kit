@@ -177,7 +177,7 @@ The overview now shows both, with the number of use cases the resource calls:
 
 ### 9. Plan and build
 
-The screen's statuses are a live `kit:plan`. Run it in a terminal to see the same steps in order:
+The screen's statuses are a live `kit:plan`. Choose **Run ▸ Plan** (or run it in a terminal) to see the same steps in order:
 
 ```
 $ php artisan kit:plan
@@ -191,7 +191,7 @@ $ php artisan kit:plan
    INFO  Done: 0 of 15 steps.
 ```
 
-Then build:
+Then build with **Run ▸ Apply**, or in a terminal:
 
 ```
 $ php artisan kit:apply
@@ -201,9 +201,22 @@ $ php artisan kit:apply
    INFO  Done: 13 of 14 steps.
 ```
 
-`kit:apply` runs every ready step, plans again, and repeats until nothing is ready. It stops at steps that wait for code only a person writes. Reload the screen, which reads the code again: built cards read **done**. A built piece is locked, and its panel offers **Replace** instead of Edit (see [Replacing what is built](#replacing-what-is-built)).
+`kit:apply` runs every ready step, plans again, and repeats until nothing is ready. It stops at steps that wait for code only a person writes. Run from the menu, the screen draws itself again once the command ends; after a terminal run, reload it. Built cards read **done**. A built piece is locked, and its panel offers **Replace** instead of Edit (see [Replacing what is built](#replacing-what-is-built)).
 
 ![Built cards](images/structure-after-apply.png)
+
+The **Run** menu runs the kit's commands as `php artisan …` and shows what they print. Its first group narrows each one to the context or HTTP resource open now (`--context=…`, `--resource=…`); **Everything** runs it on the whole project. A command that only reads runs as soon as you pick it; one that writes files asks first. When it ends, the screen reads the graph again, keeping your cards and selection.
+
+| Menu item | Runs | Writes files |
+|---|---|---|
+| Plan | `kit:plan` | no |
+| Apply | `kit:apply` | yes |
+| Preview sync from code | `kit:import --sync --dry-run` | no |
+| Sync from code | `kit:import --sync` | yes |
+| Retire replaced pieces | `kit:retire`, which runs the Architecture, Unit and Feature suites first, so it takes a while | yes |
+| Regenerate routes | `wayfinder:generate --with-form`, offered when the project has Wayfinder | yes |
+
+![Running kit:apply from the Run menu](images/structure-run.png)
 
 ### 10. Finish by hand, then build again
 
