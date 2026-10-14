@@ -63,6 +63,20 @@ final class KitInstaller
     }
 
     /**
+     * Where each of the kit's own files (`{kit}/files/`) lands in the project, from the project
+     * root: the files the `kit-files` checks hold to the kit's copy.
+     *
+     * @return list<string>
+     */
+    public function ownedPaths(): array
+    {
+        return array_map(
+            fn (string $relative): string => substr($this->targetOf($relative), strlen($this->projectPath) + 1),
+            array_keys($this->filesIn('files')),
+        );
+    }
+
+    /**
      * Every file under one of the kit's folders, by its path from the project root, in path order.
      *
      * @return array<string, string> project-relative path => the kit's file

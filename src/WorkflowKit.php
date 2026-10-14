@@ -46,6 +46,26 @@ final class WorkflowKit
     }
 
     /**
+     * The stack's spec, `stackSpec()` from the Architecture suite: the packages the stack
+     * requires, allows and forbids, each on its line (stack.md).
+     *
+     * @return array{
+     *     php: string,
+     *     composer: array{required: array<string, string>, optional: array<string, string>, forbidden: list<string>},
+     *     npm: array{required: array<string, string>, optional: array<string, string>, forbidden: list<string>},
+     *     databases: list<string>,
+     *     redis_client: string,
+     *     icon_library: string,
+     * }
+     */
+    public static function stack(): array
+    {
+        require_once dirname(__DIR__).'/tests/Architecture/Support/stack.php';
+
+        return stackSpec();
+    }
+
+    /**
      * A generator's stub: the project's `stubs/{name}` when it publishes one, as Laravel's own
      * generators allow, otherwise the kit's.
      */

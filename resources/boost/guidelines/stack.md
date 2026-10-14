@@ -2,7 +2,7 @@
 
 The stack is fixed so every project reads and is written the same way. Use only what this file names, on the version line it names, and use the installed version's API — confirm with `composer show <package>` or `package.json` before relying on one.
 
-Enforced by the package's `tests/Architecture/StackTest.php` (`php artisan test --testsuite=Architecture`). The spec in `stackSpec()` is the machine-checked copy of this file: change the two together, in the same commit.
+Enforced by the package's `tests/Architecture/StackTest.php` (`php artisan test --testsuite=Architecture`) and by the package's ESLint rules in `tests/ESLint/stack.js`, which `eslint.config.js` imports from `vendor/` and spreads in (*check `eslint`*). The spec in `stackSpec()`, in the package's `tests/Architecture/Support/stack.php`, is the machine-checked copy of this file: change the two together, in the same commit. The package's `tests/Architecture/StackEslintTest.php` proves the ESLint rules against fixtures.
 
 ## Required packages, locked to a major
 **Do** keep every package below declared and installed on its line. `13` means any 13.x; a 0.x line is locked at the minor (`0.1`) because 0.x minors break like majors.
@@ -20,7 +20,7 @@ Enforced by the package's `tests/Architecture/StackTest.php` (`php artisan test 
 | PHP quality | larastan/larastan 3 · laravel/pint 1 |
 | JS quality | eslint 9 · prettier 3 · prettier-plugin-tailwindcss 0.6 |
 | UI | react 19 · react-dom 19 · typescript 5 · vite 8 · tailwindcss 4 · @tailwindcss/vite 4 · laravel-vite-plugin 3 |
-| Components | shadcn 4 · radix-ui 1 (the single package, not `@radix-ui/*`) |
+| Components | shadcn 4 · radix-ui 1 (the single package, not `@radix-ui/*`), added with `php artisan kit:ui-add <name>` (see below) |
 | Icons | lucide-react 1, and `components.json` `"iconLibrary": "lucide"` |
 | Rule kit (dev) | playerarm123/laravel-workflow-kit 0.2, which ships these guidelines and their skills through Boost (`boost.json` `"packages"`) |
 
@@ -33,13 +33,14 @@ Enforced by the package's `tests/Architecture/StackTest.php` (`php artisan test 
 
 | Need | Use | Never |
 |---|---|---|
-| Merging class names | `cn()` from `@/lib/utils` (clsx 2 + tailwind-merge 3), the alias shadcn generates against | the `cn` package, classnames |
+| Merging class names | `cn()` from `@/lib/utils` (clsx 2 + tailwind-merge 3), the alias shadcn generates against. *Check `cn-import`.* | the `cn` package, classnames |
 | Tables | @tanstack/react-table 9 | ag-grid-*, react-data-table-component |
 | Diagrams | @xyflow/react 12 (React Flow), laid out with @dagrejs/dagre 3 | reactflow (its old name), dagre (the unscoped, unmaintained one), elkjs, mermaid, cytoscape, jointjs |
 | Toasts | sonner 2 | react-toastify, react-hot-toast |
 | Dates in JS | date-fns 4 | moment, dayjs, luxon |
 | Icons | lucide-react | @phosphor-icons/react, react-icons, @heroicons/react, @tabler/icons-react |
 | UI primitives | radix-ui through shadcn | @radix-ui/*, @headlessui/react, @mui/*, @chakra-ui/*, antd, @mantine/* |
+| Command menu, combobox | cmdk 1, through shadcn's `command` | |
 | HTTP from the client | Inertia router, `<Form>`, `useHttp` | axios, ky, swr, @tanstack/react-query |
 | Frontend | React on Inertia | livewire/livewire, vue, svelte, alpinejs, jquery |
 | Logs / monitoring / errors | laravel/nightwatch | sentry/sentry-laravel, bugsnag/*, spatie/laravel-flare, opcodesio/log-viewer |
@@ -48,6 +49,20 @@ Enforced by the package's `tests/Architecture/StackTest.php` (`php artisan test 
 | PDF | mpdf/mpdf 8, with the Thai font shipped in the project | barryvdh/laravel-dompdf, dompdf/dompdf, spatie/laravel-pdf, spatie/browsershot, knplabs/knp-snappy, barryvdh/laravel-snappy |
 
 **Why:** a second library for the same need splits the codebase into two idioms, and an agent copies whichever one it read last. PDF tools that drive a headless browser cannot run on the deploy targets (see deployment.md).
+
+## Adding shadcn components
+**Do** add a shadcn component with `php artisan kit:ui-add <name> [<name>…]`. It runs the project's own shadcn CLI (`node_modules/.bin/shadcn`, never `shadcn@latest`) and then:
+- reads each component's packages with `shadcn view` first: it drops a forbidden one (the `cn` package every registry item now lists), installs one this file lists, or one `package.json` already declares, and stops on any other until you pass `--allow=<package>`
+- puts `package.json`, every lockfile, `pnpm-workspace.yaml` and `components.json` back as they were, deletes a lockfile the CLI created, then installs what it settled on with the package manager the project's lockfile names
+- never overwrites a file that exists, unless `--overwrite=<file>` names it, and never a kit file (*check `kit-files`*), and undoes what the CLI wrote outside the components.json aliases, except the Tailwind CSS file a component adds its variables to
+- imports `cn` from the utils alias in every file it wrote, moves `@radix-ui/*` imports to `radix-ui` and runs prettier on them
+- reports the files written and skipped, the packages installed and dropped, and those awaiting `--allow`
+
+`--dry-run` prints the plan and changes nothing.
+
+**Don't** run `npx shadcn add` directly: it adds the `cn` package (*check `forbidden`*), installs with whichever package manager it guesses (it reads `pnpm-workspace.yaml` as pnpm before `package-lock.json`), and asks to overwrite files the project customized.
+
+**Why:** the CLI writes what the registry ships, and the registry does not follow this file.
 
 ## Optional capabilities
 **Do** add these only when a feature needs them, after the user approves. Install exactly what is listed.
@@ -74,7 +89,7 @@ Enforced by the package's `tests/Architecture/StackTest.php` (`php artisan test 
 **Why:** behaviour that differs between engines — constraints, json, collation — is exactly what a different test engine hides.
 
 ## Adding any other dependency
-**Do** ask the user before installing a package this file does not list, and update this file and `stackSpec()` in the same change once it is approved.
+**Do** ask the user before installing a package this file does not list, and update this file and `stackSpec()` in the same change once it is approved. For a package a shadcn component brings, `kit:ui-add` stops and names it; pass `--allow=<package>` once the user approves.
 
 ## Stepping outside this file
 **Do** record an approved exception in `rule-overrides.json` at the project root:

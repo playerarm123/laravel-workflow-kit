@@ -212,3 +212,29 @@ describe('packageManager', function () {
         expect($this->setup->packageManager())->toBe($manager);
     })->with([['package-lock.json', 'npm'], ['pnpm-lock.yaml', 'pnpm'], ['bun.lock', 'bun']]);
 });
+
+describe('pnpm-workspace.yaml', function () {
+    it('leaves a pnpm-workspace.yaml beside another lockfile to the user, since tools read it as pnpm', function () {
+        touch($this->project.'/package-lock.json');
+        file_put_contents($this->project.'/pnpm-workspace.yaml', "packages: []\n");
+
+        $manual = $this->setup->npmDependencies()['manual'];
+
+        expect($manual)->toHaveCount(1)
+            ->and($manual[0])->toContain('pnpm-workspace.yaml', 'locks with npm', '"packageManager"')
+            ->and(file_exists($this->project.'/pnpm-workspace.yaml'))->toBeTrue();
+    });
+
+    it('says nothing when the project locks with pnpm or names its package manager', function (string $setup) {
+        file_put_contents($this->project.'/pnpm-workspace.yaml', "packages: []\n");
+
+        if ($setup === 'pnpm-lock.yaml') {
+            touch($this->project.'/pnpm-lock.yaml');
+        } else {
+            $package = json_decode(($this->read)('package.json'), true);
+            file_put_contents($this->project.'/package.json', json_encode([...$package, 'packageManager' => 'npm@10.9.4']));
+        }
+
+        expect($this->setup->npmDependencies()['manual'])->toBe([]);
+    })->with(['pnpm-lock.yaml', 'packageManager']);
+});
