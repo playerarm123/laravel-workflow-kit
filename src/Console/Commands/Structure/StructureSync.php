@@ -159,6 +159,17 @@ final class StructureSync
             $manifest[$section] = $entries;
         }
 
+        if (array_key_exists('menu', $code)) {
+            $change = $this->change('menu', $manifest['menu'] ?? null, $code['menu']);
+
+            if ($change !== null) {
+                $changes[] = $change;
+                $manifest['menu'] = $code['menu'];
+            }
+        } elseif (is_array($manifest['menu'] ?? null)) {
+            $kept[] = 'menu';
+        }
+
         return ['manifest' => $manifest, 'changes' => $changes, 'kept' => $kept];
     }
 

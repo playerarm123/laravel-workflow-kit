@@ -3,9 +3,10 @@
 namespace Playerarm123\LaravelWorkflowKit\Console\Commands\Structure;
 
 /**
- * The two places `kit:apply` writes into a project's own files (structure.md): the line marked
- * `// kit:bindings`, inside the `$bindings` of one service provider under app/, and the line
- * marked `// kit:routes`, inside the route group under routes/ that the new pages belong in.
+ * The three places `kit:apply` writes into a project's own files (structure.md): the line marked
+ * `// kit:bindings`, inside the `$bindings` of one service provider under app/, the line marked
+ * `// kit:routes`, inside the route group under routes/ that the new pages belong in, and the line
+ * marked `// kit:menu`, inside the main menu's list in app/Http/Navigation.php (list-pages.md).
  *
  * A new line goes right above its marker with the marker's indent, so the marker stays the last
  * line of its list. Class names are written in full with a leading backslash, so no `use` line
@@ -17,6 +18,8 @@ final class StructureMarkers
     public const string BINDINGS = '// kit:bindings';
 
     public const string ROUTES = '// kit:routes';
+
+    public const string MENU = '// kit:menu';
 
     public const string WRITTEN = 'written';
 
@@ -238,7 +241,8 @@ final class StructureMarkers
     }
 
     /**
-     * The files a marker may sit in: providers under app/ for bindings, route files for routes.
+     * The files a marker may sit in: providers under app/ for bindings, route files for routes,
+     * and the classes under app/Http for the menu.
      *
      * @return list<string>
      */
@@ -246,6 +250,10 @@ final class StructureMarkers
     {
         if ($marker === self::ROUTES) {
             return glob($this->root.'/routes/*.php') ?: [];
+        }
+
+        if ($marker === self::MENU) {
+            return is_dir($this->root.'/app/Http') ? StructureSwapper::phpFilesUnder($this->root.'/app/Http') : [];
         }
 
         $directory = $this->root.'/app';

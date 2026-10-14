@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\File;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureFiles;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureReader;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureSync;
 
 /**
  * The scratch contexts of this file. They carry `Sampling` (testing.md), so no Architecture check
@@ -390,6 +391,40 @@ describe('StructureReader', function () {
                 'policy' => null,
                 'pages' => ['sampling-reports/index' => 'grid'],
             ]);
+        });
+
+        it('reads the menu entry of a list page, and no menu when the menu has none', function () {
+            $navigation = base_path('app/Http/Navigation.php');
+            $before = (string) file_get_contents($navigation);
+            file_put_contents($navigation, str_replace('// kit:menu', "\$this->item('sampling-trays.title', 'sampling-trays.index', 'package', \\App\\Models\\SamplingTray::class),\n            // kit:menu", $before));
+
+            try {
+                expect($this->reader->readResource('SamplingTray')['menu'] ?? null)->toBe(['title' => 'sampling-trays.title', 'icon' => 'package'])
+                    ->and($this->reader->readResource('SamplingReport'))->not->toHaveKey('menu');
+            } finally {
+                file_put_contents($navigation, $before);
+            }
+        });
+
+        it('lets sync take the menu entry from the code, and keep one the code does not have yet', function () {
+            $navigation = base_path('app/Http/Navigation.php');
+            $before = (string) file_get_contents($navigation);
+            $files = new StructureFiles(base_path());
+            $sync = new StructureSync($files, $this->reader);
+            $files->writeResource([...$this->reader->readResource('SamplingTray'), 'menu' => ['title' => 'sampling-trays.title', 'icon' => 'box']]);
+
+            try {
+                expect($sync->syncResource('SamplingTray')['kept'])->toContain('menu');
+
+                file_put_contents($navigation, str_replace('// kit:menu', "\$this->item('sampling-trays.list', 'sampling-trays.index', 'package'),\n            // kit:menu", $before));
+                $synced = $sync->syncResource('SamplingTray');
+
+                expect($synced['manifest']['menu'])->toBe(['title' => 'sampling-trays.list', 'icon' => 'package'])
+                    ->and($synced['changes'])->toBe(['menu: title "sampling-trays.title" → "sampling-trays.list", icon "box" → "package"']);
+            } finally {
+                file_put_contents($navigation, $before);
+                File::delete($files->resourcePath('SamplingTray'));
+            }
         });
 
         it('names the class a resource stands for', function () {

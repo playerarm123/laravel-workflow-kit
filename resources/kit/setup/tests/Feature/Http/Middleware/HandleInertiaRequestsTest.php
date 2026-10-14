@@ -12,6 +12,7 @@ test('every page shares what the kit reads on the client', function () {
             ->where('timezone', config('app.timezone'))
             ->where('currency', config('app.currency'))
             ->has('translations')
+            ->where('menu.0.href', route('dashboard', absolute: false))
         );
 });
 

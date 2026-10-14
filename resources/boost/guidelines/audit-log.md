@@ -92,7 +92,7 @@ Every project ships the kit's read-only page at `audit-entries.index`. It reads 
 - `auditLogReader(): User` and `auditLogOutsider(): User` in `tests/Pest.php`: a user the policy allows and a signed-in user it refuses. The kit's controller and Browser tests sign in through them, so they never name a role.
 - Every word the page speaks (`page_lang_keys` in the spec) in every `lang/*.json`.
 
-**Do** add the link to the sidebar behind a shared `can` key that asks `viewAny` of `AuditEntry`, as the other menu entries do. *Review only.*
+**Do** keep the audit log's entry in the main menu, `app/Http/Navigation.php`, with `AuditEntry` as its model, so the menu asks `viewAny` who sees it (list-pages.md, "Menu"). The kit writes the entry; it shows to whom the policy lets read the log. *Check `menu`.*
 
 **Do** show the actor by looking the ids up for the page, in the adapter's `$preparePage`. `actor_id` is a string with no foreign key, because the user table's key differs between projects and removing a user must never rewrite what they did.
 

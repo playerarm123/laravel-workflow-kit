@@ -399,7 +399,8 @@ final class StructureComparer
 
     /**
      * A resource's `model`, `policy` and each entry of its maps by `section.name`, lists sorted, so
-     * the code and the manifest compare entry by entry.
+     * the code and the manifest compare entry by entry. A menu entry is `menu.{list page}`, so a
+     * difference in it shows on the list page; `"menu": null` and no entry at all compare equal.
      *
      * @param  array<string, mixed>  $manifest
      * @return array<string, mixed>
@@ -428,6 +429,13 @@ final class StructureComparer
 
                 $entries[$section.'.'.$name] = $value;
             }
+        }
+
+        $menu = $manifest['menu'] ?? null;
+
+        if (is_array($menu)) {
+            $pages = is_array($manifest['pages'] ?? null) ? $manifest['pages'] : [];
+            $entries['menu.'.(StructureReader::listPageOf($pages) ?? '')] = ['title' => $menu['title'] ?? null, 'icon' => $menu['icon'] ?? null];
         }
 
         return $entries;
@@ -460,7 +468,8 @@ final class StructureComparer
 
     /**
      * The graph node of a resource entry as resourceEntries() names it: `model`, `policy`,
-     * `controller.{method}`, `actions.{Verb}` or `pages.{path}`.
+     * `controller.{method}`, `actions.{Verb}`, `pages.{path}` or `menu.{path}`, which is the
+     * list page's own node.
      */
     public static function resourceNode(string $resource, string $entry): string
     {

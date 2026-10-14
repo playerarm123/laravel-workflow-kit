@@ -45,9 +45,9 @@ It changes only what is not in shape yet, so you can run it again at any time; a
 |---|---|
 | Composer packages | `php` to `^8.4`; PHPUnit out, Pest 5 (with the Laravel and Browser plugins) in; Boost, Nightwatch, spatie/laravel-data and the s3 driver; then `composer update` |
 | JavaScript packages | the `@radix-ui/*` packages for `radix-ui` (every import rewritten); ESLint, Prettier, Playwright, the table, date and diagram libraries; `lint` and `format` scripts; then your package manager's install |
-| Kit files | every file `kit:install` writes, plus files written once and yours from then on: the UUIDv7 `IdGenerator` and its provider, the `InitializeUserContext` middleware, `AuditEntryPolicy`, `tests/Pest.php`, `eslint.config.js`, `.prettierrc`, the `SharedProps` type, the four shadcn components the kit's pages use, tests for the starter kit's middleware, and an empty `rule-overrides.json`. The `ExampleTest`s go. |
+| Kit files | every file `kit:install` writes, plus files written once and yours from then on: the UUIDv7 `IdGenerator` and its provider, the `InitializeUserContext` middleware, `AuditEntryPolicy`, `tests/Pest.php`, `eslint.config.js`, `.prettierrc`, the `SharedProps` type, the main menu `app/Http/Navigation.php`, the four shadcn components the kit's pages use, tests for the starter kit's middleware, and an empty `rule-overrides.json`. The `ExampleTest`s go. |
 | Config | the database in `.env`, `.env.example` and `phpunit.xml`; `NIGHTWATCH_TOKEN`; the Architecture suite; the PHPStan write-path rule; `app.currency`; the structure screen's Vite entry |
-| Wiring | the providers, `ExceptionResponses`, `InitializeUserContext`, the props every page shares (`locale`, `timezone`, `currency`, `translations`) in PHP and TypeScript, and `<FlashToast />` |
+| Wiring | the providers, `ExceptionResponses`, `InitializeUserContext`, the props every page shares (`locale`, `timezone`, `currency`, `translations`, `menu`) in PHP and TypeScript, the sidebar and the header drawing the shared menu through `useMainNavItems()`, and `<FlashToast />` |
 | Users on uuids | the users table, its sessions and passkeys, `User`, `UserFactory` and `CreateNewUser` move to uuid keys. This edits the migrations in place, which is safe only before the first deploy. |
 | Audit log page | its route, the `// kit:routes` marker, and every word the kit's pages speak in every `lang/*.json` |
 
@@ -69,6 +69,7 @@ Every failure reads `[rule:check] subject: message — see rule.md in the workfl
 | `[stack:required] x: is required but not declared` | run `php artisan kit:setup` again, or require the package |
 | `[stack:database] .env.example DB_CONNECTION: is "sqlite"` | `php artisan kit:setup --database=pgsql` |
 | `[stack:forbidden] cn` or `[stack:cn-import] …` after `npx shadcn add` | add components with `php artisan kit:ui-add <name>`, which imports `cn` from `@/lib/utils` and never installs the `cn` package |
+| `[list-pages:menu] resources/js/pages/x/index.tsx: has no entry …` | add `"menu"` to the resource manifest and run `php artisan kit:apply`, or set `"menu": null` ([list-pages.md](resources/boost/guidelines/list-pages.md)) |
 | `[…:kit-files] x: differs from the kit` | `php artisan kit:install --force` takes the kit's copy |
 | `[testing:mirror] X: has no tests/…Test.php` | write that test at that path (testing.md) |
 | `[structure:in-json] .kit/structure/X.json: is missing` | `php artisan kit:import` |

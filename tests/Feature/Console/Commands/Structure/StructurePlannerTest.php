@@ -308,6 +308,47 @@ describe('StructurePlanner', function () {
                 ->and($excepted)->not->toBe(StructurePlanner::DONE);
         });
 
+        it('adds no menu step to a resource whose manifest says nothing about the menu', function () {
+            expect(array_filter(array_keys(samplingPlanSteps()), fn (string $title): bool => str_starts_with($title, 'menu ')))->toBe([]);
+        });
+
+        it('waits to put a list page in the menu until its page and its policy\'s viewAny exist, then writes its line', function () {
+            $files = new StructureFiles(base_path());
+            $files->writeResource([...$files->readResource(SAMPLING_PLAN_MODEL), 'menu' => ['title' => 'sampling-sacks.title', 'icon' => 'package']]);
+            $page = base_path('resources/js/pages/sampling-sacks/index.tsx');
+            $policy = app_path('Policies/'.SAMPLING_PLAN_MODEL.'Policy.php');
+            $navigation = samplingPlanMarkersRoot().'/app/Http/Navigation.php';
+
+            try {
+                $noPage = samplingPlanSteps()['menu sampling-sacks.index'];
+                File::ensureDirectoryExists(dirname($page));
+                File::put($page, "export default function Index() {}\n");
+                $noPolicy = samplingPlanSteps()['menu sampling-sacks.index'];
+                File::put($policy, "<?php\n\nnamespace App\\Policies;\n\nclass ".SAMPLING_PLAN_MODEL."Policy\n{\n    public function viewAny(): bool { return true; }\n}\n");
+                $ready = samplingPlanSteps()['menu sampling-sacks.index'];
+                File::ensureDirectoryExists(dirname($navigation));
+                File::put($navigation, "<?php\n\n\$this->item('sacks.menu', 'sampling-sacks.index', 'box', \\App\\Models\\".SAMPLING_PLAN_MODEL."::class),\n// kit:menu\n");
+                $done = samplingPlanSteps()['menu sampling-sacks.index'][0];
+            } finally {
+                File::deleteDirectory(dirname($page));
+                File::delete($policy);
+                File::deleteDirectory(samplingPlanMarkersRoot().'/app');
+            }
+
+            expect($noPage)->toBe([StructurePlanner::WAITING, 'its list page comes first'])
+                ->and($noPolicy)->toBe([StructurePlanner::WAITING, SAMPLING_PLAN_MODEL.'Policy::viewAny() comes first: the menu asks it who sees the entry'])
+                ->and($ready)->toBe([StructurePlanner::READY, "\$this->item('sampling-sacks.title', 'sampling-sacks.index', 'package', \\App\\Models\\".SAMPLING_PLAN_MODEL.'::class),  (above // kit:menu)'])
+                ->and($done)->toBe(StructurePlanner::DONE);
+        });
+
+        it('waits to put a list page in the menu until its route is registered', function () {
+            $files = new StructureFiles(base_path());
+            $files->writeResource([...$files->readResource(SAMPLING_PLAN_MODEL), 'menu' => ['title' => 'sampling-sacks.title', 'icon' => 'package']]);
+            File::put(samplingPlanMarkersRoot().'/routes/web.php', "<?php\n\n// kit:routes\n");
+
+            expect(samplingPlanSteps()['menu sampling-sacks.index'])->toBe([StructurePlanner::WAITING, 'its route comes first']);
+        });
+
         it('runs the steps in the order they depend on each other', function () {
             $titles = array_keys(samplingPlanSteps());
             $position = fn (string $title): int => (int) array_search($title, $titles, true);

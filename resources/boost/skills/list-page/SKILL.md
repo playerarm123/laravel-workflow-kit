@@ -88,7 +88,7 @@ If the project uses the structure manifest (`.kit/structure/`), design the use c
 6. Bind the port to the adapter in a service provider's `$bindings` (the generator prints the line).
 7. Controller: `php artisan make:controller {Aggregate} --domain={Context} --only=index,destroy --no-interaction`. **Never write the controller yourself.** The generator reads `List{Aggregate}s{Command,Result}` and writes `index` (`Gate::authorize('viewAny')` → every `$request->string('x')->toString()` raw into the Command, **no FormRequest** → render `{aggregates}`/`sort`/`filters`/`can`) and `destroy` (`Gate::authorize('delete')` → `Delete{Aggregate}Handler($model->id)` → toast → `back()`), with the tests `{Aggregate}Controller/IndexTest.php` and `DestroyTest.php` holding `->todo()`. A Grid adds `--grid`: index then sends `Inertia::scroll($result->…)` and no `sort` (if it warns that the Command still takes `sort`/`direction`, remove them from the Command).
    When the controller already exists, the generator adds only the missing methods and leaves the existing ones alone. Fill in yourself: `:name` in the toast `{aggregates}.deleted` (keep the name before deleting), `can` for other models, and a `catch` of the entity's refusal in `destroy`, by name (`exceptions.md`). Read the warnings the generator prints (abilities the policy lacks, missing translation keys, the route line).
-8. Policy `viewAny` / `view` / `deleteAny` / `delete` when missing (`make:policy`), plus the route `Route::resource(…)->only(['index', 'destroy'])`
+8. Policy `viewAny` / `view` / `deleteAny` / `delete` when missing (`make:policy`), plus the route `Route::resource(…)->only(['index', 'destroy'])` and the page's menu entry: `"menu": {"title": "{aggregates}.title", "icon": "{lucide icon}"}` in the resource manifest, then `php artisan kit:apply` writes both lines (`list-pages.md`, "Menu"). A list that only opens from a parent's page gets `"menu": null`.
 
 ### 2. Frontend
 
@@ -160,6 +160,7 @@ Then open the browser (`composer run dev` must be running; if a change does not 
 - [ ] The adapter `extends EloquentListQuery`, ends with `paginateRows()`, eager loads everything, and its test calls `listQueryContract()`
 - [ ] The port's binding is in a provider
 - [ ] Controller index/destroy scaffolded with `make:controller --only=index,destroy`, not written by hand; Policy + route
+- [ ] Menu: `menu` in the resource manifest and `kit:apply` run, so `app/Http/Navigation.php` has the page's entry (or `"menu": null` on purpose)
 
 **Frontend**
 - [ ] Scaffolded with `make:list-page`, not written from scratch

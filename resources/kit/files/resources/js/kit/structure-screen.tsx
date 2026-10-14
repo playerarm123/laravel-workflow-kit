@@ -38,7 +38,11 @@ import {
 } from '@/kit/panel-table';
 import { PieceForm } from '@/kit/piece-form';
 import { CancelReplacementButton, ReplaceForm } from '@/kit/replace-form';
-import { NewResourceForm, ResourceSettingsForm } from '@/kit/resource-form';
+import {
+    NewResourceForm,
+    ResourceMenuForm,
+    ResourceSettingsForm,
+} from '@/kit/resource-form';
 import { ResourcePieceForm } from '@/kit/resource-piece-form';
 import { StateForm } from '@/kit/state-form';
 import { KIND_LABELS, StatusBadge, StructureNode } from '@/kit/structure-node';
@@ -318,7 +322,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
               ];
 
     return (
-        <div className="flex h-screen flex-col bg-background text-foreground">
+        <div className="bg-background text-foreground flex h-screen flex-col">
             <StructureToolbar
                 place={place}
                 shared={shared}
@@ -477,13 +481,22 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                         />
                     )}
                     {panel?.kind === 'resource-settings' && (
-                        <ResourceSettingsForm
-                            graph={graph}
-                            endpoints={endpoints}
-                            resource={panel.resource}
-                            onSaved={(next) => saved(next)}
-                            onCancel={() => setEditing(null)}
-                        />
+                        <div className="space-y-4">
+                            <ResourceSettingsForm
+                                graph={graph}
+                                endpoints={endpoints}
+                                resource={panel.resource}
+                                onSaved={(next) => saved(next)}
+                                onCancel={() => setEditing(null)}
+                            />
+                            <ResourceMenuForm
+                                key={graph.resourceVersions[panel.resource]}
+                                graph={graph}
+                                endpoints={endpoints}
+                                resource={panel.resource}
+                                onSaved={(next) => saved(next)}
+                            />
+                        </div>
                     )}
                     {panel === null &&
                         (selected === null ? (
@@ -621,7 +634,7 @@ function CardContents({
     const name = nameOf(node);
     const lines =
         node.items.length > 0 ? (
-            <div className="space-y-0.5 text-xs text-muted-foreground">
+            <div className="text-muted-foreground space-y-0.5 text-xs">
                 {node.items.map((item) => (
                     <div key={item} className="break-all">
                         {item}
@@ -925,7 +938,7 @@ function Details({
             <div className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
                             <Icon className={`size-3.5 ${look.accent}`} />
                             {KIND_LABELS[node.kind]}
                         </div>
@@ -943,12 +956,12 @@ function Details({
                     </div>
                 )}
                 {node.reason !== null && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-muted-foreground text-xs">
                         {node.reason}
                     </p>
                 )}
                 {command !== null && (
-                    <div className="flex items-start gap-1 rounded-md bg-muted p-2">
+                    <div className="bg-muted flex items-start gap-1 rounded-md p-2">
                         <code className="min-w-0 flex-1 text-xs break-all whitespace-pre-wrap">
                             {command}
                         </code>
@@ -967,7 +980,7 @@ function Details({
                 {(contextSection !== undefined ||
                     resourceSection !== undefined) &&
                     !node.editable && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-muted-foreground text-xs">
                             The code already has it. Change the code and sync
                             it, or replace it.
                         </p>

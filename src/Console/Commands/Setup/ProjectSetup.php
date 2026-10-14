@@ -373,6 +373,17 @@ final class ProjectSetup
         $this->edit('app/Http/Middleware/HandleInertiaRequests.php', fn (string $code): string => SharedProps::share($code),
             need: ["'translations' =>"], hint: "return 'locale', 'timezone', 'currency' and 'translations' from share()");
 
+        $this->edit('app/Http/Middleware/HandleInertiaRequests.php', fn (string $code): string => SharedProps::menu($code),
+            need: ["'menu' =>"], hint: "return 'menu' => fn (): array => \\App\\Http\\Navigation::for(\$request->user()) from share() (list-pages.md, \"Menu\")");
+
+        $this->edit('resources/js/types/shared.ts', fn (string $code): string => SharedProps::declareMenu($code),
+            need: ['menu: MenuItem[];'], hint: 'declare menu: MenuItem[] (from @/types/ui) in SharedProps');
+
+        foreach (['resources/js/components/app-sidebar.tsx', 'resources/js/components/app-header.tsx'] as $nav) {
+            $this->edit($nav, fn (string $code): string => MainNav::rewire($code),
+                need: ['useMainNavItems()'], hint: 'take the main menu from useMainNavItems() (@/hooks/use-main-nav-items) instead of a list of its own (list-pages.md, "Menu")');
+        }
+
         $this->edit('resources/js/types/global.d.ts', fn (string $code): string => SharedProps::declare($code),
             need: ['SharedProps'], hint: 'declare sharedPageProps as SharedProps from @/types/shared');
 

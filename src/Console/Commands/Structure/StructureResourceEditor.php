@@ -121,6 +121,61 @@ final class StructureResourceEditor
     }
 
     /**
+     * Puts the resource's list page in the main menu with a title and an icon, keeps it out with
+     * `"menu": null` (`$inMenu` false), or says nothing about it (`$inMenu` null), which leaves
+     * the list page to the `menu` check (list-pages.md, "Menu").
+     *
+     * @return array<string, list<string>> what is wrong, by field; empty when it was written
+     */
+    public function saveMenu(string $resource, string $version, ?bool $inMenu, ?string $title, ?string $icon): array
+    {
+        $manifest = $this->manifest($resource);
+        $refused = $this->refusal($resource, $manifest, $version);
+
+        if ($refused !== null || $manifest === null) {
+            return $refused ?? [];
+        }
+
+        if ($inMenu === null) {
+            unset($manifest['menu']);
+
+            return $this->write($resource, $manifest);
+        }
+
+        if (! $inMenu) {
+            $manifest['menu'] = null;
+
+            return $this->write($resource, $manifest);
+        }
+
+        $errors = [];
+
+        if (StructureReader::listPageOf(is_array($manifest['pages']) ? $manifest['pages'] : []) === null) {
+            $errors['inMenu'][] = 'Only a list page goes in the menu: add a table or grid page at {folder}/index first.';
+        }
+
+        if (preg_match('/^[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)+$/', (string) $title) !== 1) {
+            $errors['title'][] = 'The title is a translation key, such as merchants.title.';
+        }
+
+        if (preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', (string) $icon) !== 1) {
+            $errors['icon'][] = 'The icon is a lucide icon name in kebab-case, such as store or layout-grid.';
+        }
+
+        if (! in_array('viewAny', is_array($manifest['policy']) ? $manifest['policy'] : [], true)) {
+            $errors['inMenu'][] = 'The menu asks the policy\'s viewAny who sees the entry, so add viewAny to the policy first.';
+        }
+
+        if ($errors !== []) {
+            return $errors;
+        }
+
+        $manifest['menu'] = ['title' => (string) $title, 'icon' => (string) $icon];
+
+        return $this->write($resource, $manifest);
+    }
+
+    /**
      * Adds a controller method, an action or a page, or changes or renames the one named
      * `$previous`.
      *
@@ -167,6 +222,15 @@ final class StructureResourceEditor
 
         $pieces[$name] = $value;
         $manifest[$section] = $pieces;
+
+        /*
+         * A new list page at `{folder}/index` starts in the menu, as list-pages.md wants it, until
+         * someone changes its title or icon or keeps it out. A nested list (`{a}/{b}/index`) opens
+         * under a parent's id, so it has no place of its own in the menu.
+         */
+        if ($section === 'pages' && ! array_key_exists('menu', $manifest) && in_array($value, ['table', 'grid'], true) && preg_match('#^([a-z0-9-]+)/index$#', $name, $folder) === 1) {
+            $manifest['menu'] = ['title' => "{$folder[1]}.title", 'icon' => 'list'];
+        }
 
         return $this->write($resource, $manifest);
     }

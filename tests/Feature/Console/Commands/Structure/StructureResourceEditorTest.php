@@ -133,7 +133,43 @@ describe('StructureResourceEditor', function () {
         });
     });
 
+    describe('saveMenu', function () {
+        it('puts the list page in the menu once the policy answers viewAny, keeps it out, or says nothing', function () {
+            $editor = samplingRouteEditor();
+            $editor->saveResource(SAMPLING_ROUTE_CASE, samplingRouteVersion(), SAMPLING_ROUTE_CASE, ['viewAny']);
+
+            expect($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), true, 'sampling-route-cases.title', 'briefcase'))->toBe([])
+                ->and(samplingRouteManifest()['menu'])->toBe(['title' => 'sampling-route-cases.title', 'icon' => 'briefcase'])
+                ->and($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), false, null, null))->toBe([])
+                ->and(samplingRouteManifest()['menu'])->toBeNull()
+                ->and($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), null, null, null))->toBe([])
+                ->and(samplingRouteManifest())->not->toHaveKey('menu');
+        });
+
+        it('refuses an entry that does not fit, under the field that holds it', function () {
+            $editor = samplingRouteEditor();
+
+            expect($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), true, 'Cases', 'Briefcase'))->toHaveKeys(['title', 'icon', 'inMenu'])
+                ->and($editor->saveMenu(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), true, 'x.title', 'box')['inMenu'])->toContain('Only a list page goes in the menu: add a table or grid page at {folder}/index first.')
+                ->and(samplingRouteManifest())->not->toHaveKey('menu');
+        });
+    });
+
     describe('savePiece', function () {
+        it('starts a new list page at {folder}/index in the menu, and leaves a nested one and a set menu alone', function () {
+            $editor = samplingRouteEditor();
+            $editor->saveResource(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), SAMPLING_ROUTE_BUILT, null);
+
+            expect($editor->savePiece(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), 'pages', null, 'sampling-route-builts/index', ['kind' => 'grid']))->toBe([])
+                ->and(samplingRouteManifest(SAMPLING_ROUTE_BUILT)['menu'])->toBe(['title' => 'sampling-route-builts.title', 'icon' => 'list']);
+
+            $editor->saveMenu(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), false, null, null);
+            $editor->removePiece(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), 'pages', 'sampling-route-builts/index');
+            $editor->savePiece(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), 'pages', null, 'sampling-route-builts/index', ['kind' => 'table']);
+
+            expect(samplingRouteManifest(SAMPLING_ROUTE_BUILT)['menu'])->toBeNull();
+        });
+
         it('adds a method, an action and a page in the manifest\'s canonical shape', function () {
             $editor = samplingRouteEditor();
 

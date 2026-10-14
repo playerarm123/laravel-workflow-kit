@@ -209,3 +209,13 @@ describe('StructureComparer', function () {
         });
     });
 });
+
+describe('resourceEntries menu', function () {
+    it('names a menu entry after the list page, and reads "menu": null as no entry', function () {
+        $resource = ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => ['crates/create' => 'form', 'crates/index' => 'table']];
+
+        expect(StructureComparer::resourceEntries([...$resource, 'menu' => ['icon' => 'package', 'title' => 'crates.title']]))->toHaveKey('menu.crates/index', ['title' => 'crates.title', 'icon' => 'package'])
+            ->and(StructureComparer::resourceEntries([...$resource, 'menu' => null]))->toBe(StructureComparer::resourceEntries($resource))
+            ->and(StructureComparer::resourceNode('Crate', 'menu.crates/index'))->toBe('page:Crate/crates/index');
+    });
+});

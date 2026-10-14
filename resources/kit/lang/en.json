@@ -32,6 +32,7 @@
     "common.close": "Close",
     "common.confirm_delete_description": "This cannot be undone.",
     "common.confirm_delete_title": "Delete this item?",
+    "common.dashboard": "Dashboard",
     "common.forbidden": "You are not allowed to do this.",
     "common.language": "Language",
     "common.log_out": "Log out",
