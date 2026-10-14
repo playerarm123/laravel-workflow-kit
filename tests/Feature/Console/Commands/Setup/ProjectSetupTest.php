@@ -160,6 +160,43 @@ describe('wiring', function () {
             ->and(($this->read)('resources/js/components/ui/sonner.tsx'))->not->toContain('useFlashToast');
     });
 
+    it('shares the main menu, and points the sidebar and the header at it', function () {
+        $this->setup->files();
+        $this->setup->wiring();
+
+        expect($this->project.'/app/Http/Navigation.php')->toBeFile()
+            ->and(($this->read)('app/Http/Middleware/HandleInertiaRequests.php'))->toContain("'menu' => fn (): array => \\App\\Http\\Navigation::for(\$request->user()),")
+            ->and(($this->read)('resources/js/types/shared.ts'))->toContain('menu: MenuItem[];');
+
+        foreach (['app-sidebar', 'app-header'] as $component) {
+            $code = ($this->read)("resources/js/components/{$component}.tsx");
+
+            expect($code)->toContain("import { useMainNavItems } from '@/hooks/use-main-nav-items';", '    const mainNavItems = useMainNavItems();')
+                ->not->toContain('const mainNavItems: NavItem[]')
+                ->not->toContain('LayoutGrid');
+        }
+    });
+
+    it('adds the menu to a project set up before the menu existed', function () {
+        $this->setup->files();
+        $this->setup->wiring();
+        $middleware = ($this->read)('app/Http/Middleware/HandleInertiaRequests.php');
+        file_put_contents($this->project.'/app/Http/Middleware/HandleInertiaRequests.php', str_replace("            'menu' => fn (): array => \\App\\Http\\Navigation::for(\$request->user()),\n", '', $middleware));
+        $shared = ($this->read)('resources/js/types/shared.ts');
+        file_put_contents($this->project.'/resources/js/types/shared.ts', (string) preg_replace("/\n    \/\*\* @see app\/Http\/Navigation.php[^\n]*\n    menu: MenuItem\[\];|import type \{ MenuItem \} from '@\/types\/ui';\n/", '', $shared));
+
+        $this->setup->wiring();
+
+        expect(($this->read)('app/Http/Middleware/HandleInertiaRequests.php'))->toBe($middleware)
+            ->and(($this->read)('resources/js/types/shared.ts'))->toBe($shared);
+    });
+
+    it('leaves a sidebar it cannot read the way it expects to the user', function () {
+        file_put_contents($this->project.'/resources/js/components/app-sidebar.tsx', "export function AppSidebar() {\n    return null;\n}\n");
+
+        expect($this->setup->wiring()['manual'])->toContain('resources/js/components/app-sidebar.tsx: take the main menu from useMainNavItems() (@/hooks/use-main-nav-items) instead of a list of its own (list-pages.md, "Menu")');
+    });
+
     it('leaves a file it cannot read the way it expects to the user', function () {
         file_put_contents($this->project.'/bootstrap/app.php', "<?php\n\nreturn require 'elsewhere.php';\n");
 

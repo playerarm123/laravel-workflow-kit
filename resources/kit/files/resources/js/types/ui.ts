@@ -16,6 +16,15 @@ export type FlashToast = {
     message: string;
 };
 
+/** @see app/Http/Navigation.php — one entry of the main menu the server shares as `menu` */
+export type MenuItem = {
+    /** A translation key */
+    title: string;
+    href: string;
+    /** A lucide icon name in kebab-case, as lucide.dev lists it */
+    icon: string;
+};
+
 export type AuthLayoutProps = {
     children?: ReactNode;
     name?: string;

@@ -4,7 +4,8 @@ namespace Playerarm123\LaravelWorkflowKit\Console\Commands\Setup;
 
 /**
  * The props every page shares, which the kit's hooks read: the locale, the time zone, the
- * currency and the active locale's translations (list-pages.md, dates.md, numbers.md).
+ * currency, the active locale's translations (list-pages.md, dates.md, numbers.md) and the main
+ * menu app/Http/Navigation.php builds for the user (list-pages.md, "Menu").
  */
 final class SharedProps
 {
@@ -55,6 +56,38 @@ final class SharedProps
         $code = (string) preg_replace('/(public function share\(Request \$request\): array\n    \{\n(?:.*\n)*?)(        \];\n    \})/', "$1{$props}$2", $code, 1);
 
         return (string) preg_replace('/\n\}\s*$/', "\n".rtrim(self::TRANSLATIONS)."\n}\n", $code, 1);
+    }
+
+    /**
+     * Adds the `menu` prop to HandleInertiaRequests::share(). Its own step, so a project set up
+     * before the menu existed gets it too.
+     */
+    public static function menu(string $code): string
+    {
+        if (str_contains($code, "'menu' =>")) {
+            return $code;
+        }
+
+        return (string) preg_replace(
+            '/(public function share\(Request \$request\): array\n    \{\n(?:.*\n)*?)(        \];\n    \})/',
+            "$1            'menu' => fn (): array => \\App\\Http\\Navigation::for(\$request->user()),\n$2",
+            $code,
+            1,
+        );
+    }
+
+    /**
+     * Adds the menu to the SharedProps type of a shared.ts written before the menu existed.
+     */
+    public static function declareMenu(string $code): string
+    {
+        if (preg_match('/^\s*menu: /m', $code) === 1) {
+            return $code;
+        }
+
+        $code = (string) preg_replace("/^(import type \{ Auth \} from '@\/types\/auth';\n)/m", "$1import type { MenuItem } from '@/types/ui';\n", $code, 1);
+
+        return (string) preg_replace('/(\n    translations: Record<string, string>;\n)(\};)/', "$1    /** @see app/Http/Navigation.php — the main menu, already narrowed to what the user may open */\n    menu: MenuItem[];\n$2", $code, 1);
     }
 
     /**
