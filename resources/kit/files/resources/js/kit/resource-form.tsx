@@ -97,6 +97,92 @@ export function NewResourceForm({
 }
 
 /**
+ * Puts the resource's list page in the main menu with a title and a lucide icon, or keeps it out
+ * (list-pages.md, "Menu"). kit:apply writes the entry once the route, the page and the policy's
+ * viewAny exist.
+ */
+export function ResourceMenuForm({
+    graph,
+    endpoints,
+    resource,
+    onSaved,
+}: {
+    graph: StructureGraph;
+    endpoints: StructureEndpoints;
+    resource: string;
+    onSaved: (graph: StructureGraph) => void;
+}) {
+    const menu = graph.resourceManifests[resource]?.menu;
+    const form = useHttp<
+        { version: string; inMenu: boolean; title: string; icon: string },
+        { graph: StructureGraph }
+    >({
+        version: graph.resourceVersions[resource] ?? '',
+        inMenu: menu !== null,
+        title: menu?.title ?? '',
+        icon: menu?.icon ?? 'list',
+    });
+    const { data, setData, errors } = form;
+
+    const submit = (event: FormEvent) => {
+        event.preventDefault();
+        form.post(
+            endpoints.saveMenu.replace(
+                '__RESOURCE__',
+                encodeURIComponent(resource),
+            ),
+            {
+                onSuccess: (response) => onSaved(response.graph),
+            },
+        );
+    };
+
+    return (
+        <form onSubmit={submit} className="space-y-4 border-t pt-4">
+            <h3 className="text-sm font-medium">Main menu</h3>
+            <InputError message={errors.version} />
+            <Label className="flex items-center gap-2 font-normal">
+                <Checkbox
+                    checked={data.inMenu}
+                    onCheckedChange={(checked) =>
+                        setData('inMenu', checked === true)
+                    }
+                />
+                Its list page is in the main menu
+            </Label>
+            <InputError message={errors.inMenu} />
+            <div className="space-y-1.5">
+                <Label htmlFor="resource-menu-title">
+                    Title, as a translation key
+                </Label>
+                <Input
+                    id="resource-menu-title"
+                    value={data.title}
+                    disabled={!data.inMenu}
+                    onChange={(event) => setData('title', event.target.value)}
+                />
+                <InputError message={errors.title} />
+            </div>
+            <div className="space-y-1.5">
+                <Label htmlFor="resource-menu-icon">
+                    Icon, a lucide name in kebab-case
+                </Label>
+                <Input
+                    id="resource-menu-icon"
+                    value={data.icon}
+                    disabled={!data.inMenu}
+                    onChange={(event) => setData('icon', event.target.value)}
+                />
+                <InputError message={errors.icon} />
+            </div>
+            <Button type="submit" size="sm" disabled={form.processing}>
+                Save menu
+            </Button>
+        </form>
+    );
+}
+
+/**
  * Sets the model a resource stands for and the abilities of its policy.
  */
 export function ResourceSettingsForm({

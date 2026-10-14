@@ -106,6 +106,7 @@ class KitServiceProvider extends ServiceProvider
                     'syncPiece' => route('kit.structure.pieces.sync', ['context' => '__CONTEXT__']),
                     'createResource' => route('kit.structure.resources.store'),
                     'saveResource' => route('kit.structure.resources.update', ['resource' => '__RESOURCE__']),
+                    'saveMenu' => route('kit.structure.resources.menu', ['resource' => '__RESOURCE__']),
                     'saveResourcePiece' => route('kit.structure.resource-pieces.store', ['resource' => '__RESOURCE__']),
                     'removeResourcePiece' => route('kit.structure.resource-pieces.remove', ['resource' => '__RESOURCE__']),
                     'syncResourcePiece' => route('kit.structure.resource-pieces.sync', ['resource' => '__RESOURCE__']),
@@ -260,6 +261,16 @@ class KitServiceProvider extends ServiceProvider
                     $request->has('policy') && is_array($request->input('policy')) ? array_values(array_filter($request->input('policy'), is_string(...))) : null,
                 ),
             ))->name('.resources.update');
+
+            Route::post('resources/{resource}/menu', fn (Request $request, string $resource): JsonResponse => $this->answer(
+                $this->resourceEditor()->saveMenu(
+                    $resource,
+                    $request->string('version')->toString(),
+                    $request->has('inMenu') ? $request->boolean('inMenu') : null,
+                    $request->filled('title') ? $request->string('title')->toString() : null,
+                    $request->filled('icon') ? $request->string('icon')->toString() : null,
+                ),
+            ))->name('.resources.menu');
 
             Route::post('resources/{resource}/pieces', fn (Request $request, string $resource): JsonResponse => $this->answer(
                 $this->resourceEditor()->savePiece(

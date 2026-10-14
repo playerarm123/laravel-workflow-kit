@@ -638,7 +638,47 @@ final class StructurePlanner
             }, 'make:list-page', $arguments, ["page:{$resource}/{$page}"]);
         }
 
+        $listPage = StructureReader::listPageOf($manifest['pages']);
+
+        if (StructureFiles::isMenuEntry($manifest['menu'] ?? null) && $listPage !== null) {
+            $steps[] = $this->menuStep($resource, $model, $listPage, $manifest['menu']);
+        }
+
         return $steps;
+    }
+
+    /**
+     * The list page's line in the main menu (list-pages.md, "Menu"), done once the menu has an
+     * entry for its route, whatever its title or icon. It waits for the route, the page and the
+     * policy's viewAny, which the entry asks.
+     *
+     * @param  array{title: string, icon: string}  $menu
+     * @return PlannedStep
+     */
+    private function menuStep(string $resource, string $model, string $listPage, array $menu): array
+    {
+        $route = StructureReader::listRouteOf($listPage);
+        $done = $this->markers->matches(StructureMarkers::MENU, '/->item\\(\\s*([\'"])[^\'"]+\\1\\s*,\\s*([\'"])'.preg_quote($route, '/').'\\2/');
+        $waiting = match (true) {
+            ! in_array('index', $this->markers->resourceMethods("{$model}Controller") ?? [], true) => 'its route comes first',
+            ! is_file($this->pagePath($listPage)) => 'its list page comes first',
+            ! in_array('viewAny', $this->publicMethodsOf($this->rootOf()."/app/Policies/{$model}Policy.php"), true) => "{$model}Policy::viewAny() comes first: the menu asks it who sees the entry",
+            default => null,
+        };
+
+        return [
+            'order' => 14,
+            'key' => "menu {$route}",
+            'title' => "menu {$route}",
+            'state' => $done ? self::DONE : ($waiting === null ? self::READY : self::WAITING),
+            'reason' => $done ? null : $waiting,
+            'command' => null,
+            'arguments' => [],
+            'marker' => StructureMarkers::MENU,
+            'line' => StructureMenu::line($menu['title'], $route, $menu['icon'], "App\\Models\\{$model}"),
+            'nodes' => ["page:{$resource}/{$listPage}"],
+            'swap' => null,
+        ];
     }
 
     /**

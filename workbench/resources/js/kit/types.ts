@@ -180,6 +180,8 @@ export type ResourceManifest = {
     >;
     policy: string[] | null;
     pages: Partial<Record<string, PageKind>>;
+    /** The list page's main menu entry; null keeps it out; absent says nothing yet. */
+    menu?: { title: string; icon: string } | null;
 };
 
 export type StructureGraph = {
@@ -220,6 +222,7 @@ export type StructureEndpoints = {
     syncPiece: string;
     createResource: string;
     saveResource: string;
+    saveMenu: string;
     saveResourcePiece: string;
     removeResourcePiece: string;
     syncResourcePiece: string;

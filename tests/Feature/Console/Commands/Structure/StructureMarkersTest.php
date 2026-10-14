@@ -43,6 +43,23 @@ describe('StructureMarkers', function () {
                 ->and(File::get(samplingMarkersRoot().'/routes/web.php'))->toContain("    Route::get('x', \\X::class);\n    // kit:routes\n");
         });
 
+        it('writes a menu entry above // kit:menu in the main menu under app/Http, and only once', function () {
+            $navigation = "<?php\n\nfinal class Navigation\n{\n    private function items(): array\n    {\n        return array_values(array_filter([\n            \$this->item('common.dashboard', 'dashboard', 'layout-grid'),\n            // kit:menu\n        ]));\n    }\n}\n";
+            writeSamplingMarkersFile('app/Http/Navigation.php', $navigation);
+            writeSamplingMarkersFile('app/Http/Middleware/Other.php', "<?php\n// kit:menu is mentioned here, not marked\n");
+            $markers = new StructureMarkers(samplingMarkersRoot());
+            $line = "\$this->item('crates.title', 'crates.index', 'package', \\App\\Models\\Crate::class),";
+
+            expect($markers->insert(StructureMarkers::MENU, $line))->toBe(StructureMarkers::WRITTEN)
+                ->and($markers->insert(StructureMarkers::MENU, $line))->toBe(StructureMarkers::PRESENT)
+                ->and($markers->fileOf(StructureMarkers::MENU))->toBe('app/Http/Navigation.php')
+                ->and(File::get(samplingMarkersRoot().'/app/Http/Navigation.php'))->toContain("            \$this->item('common.dashboard', 'dashboard', 'layout-grid'),\n            {$line}\n            // kit:menu\n");
+        });
+
+        it('writes no menu entry where there is no main menu', function () {
+            expect((new StructureMarkers(samplingMarkersRoot()))->insert(StructureMarkers::MENU, "\$this->item('x.title', 'x.index', 'box'),"))->toBe(StructureMarkers::NO_MARKER);
+        });
+
         it('leaves a line that is already there alone', function () {
             $markers = new StructureMarkers(samplingMarkersRoot());
 

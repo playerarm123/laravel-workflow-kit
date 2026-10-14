@@ -733,6 +733,8 @@ final class StructureFiles
     /**
      * Whether a value is a menu entry: a translation key for its title and a kebab-case lucide
      * icon name, nothing else.
+     *
+     * @phpstan-assert-if-true array{title: string, icon: string} $menu
      */
     public static function isMenuEntry(mixed $menu): bool
     {
