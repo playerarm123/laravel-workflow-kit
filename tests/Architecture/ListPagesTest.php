@@ -2,13 +2,18 @@
 
 require_once __DIR__.'/Support/rules.php';
 
+use Illuminate\Database\Eloquent\Attributes\UsePolicy;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureFiles;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureMenu;
+
 /**
  * The machine-checked half of list-pages.md — change the two together.
  *
  * The in-file rules (router calls, toolbar state, table imports) are ESLint's, in
  * tests/ESLint/list-pages.js, proven by ListPagesEslintTest. This file checks what spans
  * files: the kit, its translations, the shape of every list page, where domain toolbars
- * live, and that every TypeScript row and filter set mirrors its PHP twin key for key.
+ * live, that every TypeScript row and filter set mirrors its PHP twin key for key, and that
+ * every list page has its entry in the main menu (app/Http/Navigation.php).
  *
  * @return array{
  *     kit_files: list<string>,
@@ -27,6 +32,7 @@ require_once __DIR__.'/Support/rules.php';
  *     toolbar_pattern: string,
  *     row_glob: string,
  *     criteria_glob: string,
+ *     lucide_icons: string,
  * }
  */
 function listPagesSpec(): array
@@ -48,6 +54,9 @@ function listPagesSpec(): array
             'resources/js/components/ui/date-range-picker.tsx',
             'resources/js/types/data-table.ts',
             'resources/js/types/pagination.ts',
+            'resources/js/types/ui.ts',
+            'resources/js/hooks/use-main-nav-items.tsx',
+            StructureMenu::FILE,
             'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/list-pages.js',
             'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/Support/rules.js',
         ],
@@ -86,7 +95,7 @@ function listPagesSpec(): array
             'data_table.remove_filter',
         ],
         'lang_glob' => 'lang/*.json',
-        'shared_props' => ['locale', 'timezone', 'translations'],
+        'shared_props' => ['locale', 'timezone', 'translations', 'menu'],
         'share_file' => 'app/Http/Middleware/HandleInertiaRequests.php',
         'types_path' => 'resources/js/types',
         'pages_path' => 'resources/js/pages',
@@ -106,6 +115,7 @@ function listPagesSpec(): array
         'toolbar_pattern' => '#^resources/js/components/[^/]+/table-toolbar\.tsx$#',
         'row_glob' => 'app/Application/*/UseCases/List*/*ListRow.php',
         'criteria_glob' => 'app/Application/*/UseCases/List*/List*Criteria.php',
+        'lucide_icons' => 'node_modules/lucide-react/dist/esm/dynamicIconImports.mjs',
     ];
 }
 
@@ -132,6 +142,58 @@ function listPagesListPages(): array
         fn (string $file): bool => basename($file) === 'index.tsx'
             && str_contains(ruleCodeWithoutComments($file), listPagesSpec()['list_page_marker']),
     ));
+}
+
+/**
+ * The route a list page opens from: its folder under the pages, dotted, then `.index`
+ * (`pages/audit-entries/index.tsx` → `audit-entries.index`), as Route::resource() names it.
+ */
+function listPagesRouteOf(string $page): string
+{
+    $folder = substr(dirname($page), strlen(listPagesSpec()['pages_path']) + 1);
+
+    return str_replace('/', '.', $folder).'.index';
+}
+
+/**
+ * The list pages a resource manifest keeps out of the menu on purpose, with `"menu": null`.
+ *
+ * @return list<string> page paths from the project root
+ */
+function listPagesOutOfMenu(): array
+{
+    $files = new StructureFiles(ruleProjectPath());
+    $pages = [];
+
+    foreach ($files->resources() as $resource) {
+        $manifest = $files->readResource($resource);
+
+        if (! is_array($manifest) || ! array_key_exists('menu', $manifest) || $manifest['menu'] !== null) {
+            continue;
+        }
+
+        foreach (array_keys((array) ($manifest['pages'] ?? [])) as $path) {
+            $pages[] = listPagesSpec()['pages_path'].'/'.$path.'.tsx';
+        }
+    }
+
+    return $pages;
+}
+
+/**
+ * The icon names the installed lucide-react knows, or null when it cannot be read.
+ *
+ * @return list<string>|null
+ */
+function listPagesLucideIcons(): ?array
+{
+    $file = ruleProjectPath(listPagesSpec()['lucide_icons']);
+
+    if (! is_file($file) || preg_match_all('/^\s*"([a-z0-9-]+)":/m', (string) file_get_contents($file), $names) < 1) {
+        return null;
+    }
+
+    return $names[1];
 }
 
 /**
@@ -265,6 +327,77 @@ describe('list pages', function () {
             foreach (array_unique($used[1]) as $key) {
                 if (! in_array($key, $keys, true)) {
                     $violations[] = ['subject' => $file, 'message' => sprintf('uses "%s", which listPagesSpec() kit_lang_keys does not list', $key)];
+                }
+            }
+        }
+
+        expect(ruleUnexcused('list-pages', 'lang-keys', $violations))->toBe([]);
+    });
+
+    it('puts every list page in the main menu', function () {
+        $menu = new StructureMenu(ruleProjectPath());
+        $kept = listPagesOutOfMenu();
+        $violations = [];
+
+        foreach (listPagesListPages() as $page) {
+            if (in_array($page, $kept, true) || $menu->entryFor(listPagesRouteOf($page)) !== null) {
+                continue;
+            }
+
+            $violations[] = ['subject' => $page, 'message' => sprintf(
+                "has no entry for '%s' in %s — add `\"menu\"` to its resource manifest and run `php artisan kit:apply`, or set `\"menu\": null` to keep it out",
+                listPagesRouteOf($page),
+                StructureMenu::FILE,
+            )];
+        }
+
+        expect(ruleUnexcused('list-pages', 'menu', $violations))->toBe([]);
+    });
+
+    it('shows a menu entry about a model only to whom its policy lets view the list', function () {
+        $violations = [];
+
+        foreach ((new StructureMenu(ruleProjectPath()))->entries() as $entry) {
+            if ($entry['model'] === null) {
+                continue;
+            }
+
+            $policy = class_exists($entry['model'])
+                ? (new ReflectionClass($entry['model']))->getAttributes(UsePolicy::class)[0] ?? null
+                : null;
+            $class = $policy?->getArguments()[0] ?? null;
+
+            if (! is_string($class) || ! method_exists($class, 'viewAny')) {
+                $violations[] = ['subject' => $entry['route'], 'message' => sprintf('asks viewAny of %s, whose policy does not answer it — add viewAny() to its policy (authorization.md)', $entry['model'])];
+            }
+        }
+
+        expect(ruleUnexcused('list-pages', 'menu-ability', $violations))->toBe([]);
+    });
+
+    it('names every menu icon lucide knows', function () {
+        $known = listPagesLucideIcons();
+        $violations = [];
+
+        foreach ($known === null ? [] : (new StructureMenu(ruleProjectPath()))->entries() as $entry) {
+            if (! in_array($entry['icon'], $known, true)) {
+                $violations[] = ['subject' => $entry['route'], 'message' => sprintf('shows the icon "%s", which lucide-react does not have — pick a kebab-case name from lucide.dev', $entry['icon'])];
+            }
+        }
+
+        expect(ruleUnexcused('list-pages', 'menu-icon', $violations))->toBe([]);
+    });
+
+    it('translates every menu title in every locale', function () {
+        $violations = [];
+
+        foreach (ruleGlob(ruleProjectPath(listPagesSpec()['lang_glob'])) as $path) {
+            $file = ltrim(substr($path, strlen(ruleProjectPath())), '/');
+            $translations = ruleReadJson($file);
+
+            foreach ((new StructureMenu(ruleProjectPath()))->entries() as $entry) {
+                if (! is_string($translations[$entry['title']] ?? null)) {
+                    $violations[] = ['subject' => $file, 'message' => sprintf('is missing the menu title "%s"', $entry['title'])];
                 }
             }
         }
