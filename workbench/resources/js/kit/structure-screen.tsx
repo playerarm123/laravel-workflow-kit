@@ -322,7 +322,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
               ];
 
     return (
-        <div className="bg-background text-foreground flex h-screen flex-col">
+        <div className="flex h-screen flex-col bg-background text-foreground">
             <StructureToolbar
                 place={place}
                 shared={shared}
@@ -634,7 +634,7 @@ function CardContents({
     const name = nameOf(node);
     const lines =
         node.items.length > 0 ? (
-            <div className="text-muted-foreground space-y-0.5 text-xs">
+            <div className="space-y-0.5 text-xs text-muted-foreground">
                 {node.items.map((item) => (
                     <div key={item} className="break-all">
                         {item}
@@ -938,7 +938,7 @@ function Details({
             <div className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                        <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Icon className={`size-3.5 ${look.accent}`} />
                             {KIND_LABELS[node.kind]}
                         </div>
@@ -956,12 +956,12 @@ function Details({
                     </div>
                 )}
                 {node.reason !== null && (
-                    <p className="text-muted-foreground text-xs">
+                    <p className="text-xs text-muted-foreground">
                         {node.reason}
                     </p>
                 )}
                 {command !== null && (
-                    <div className="bg-muted flex items-start gap-1 rounded-md p-2">
+                    <div className="flex items-start gap-1 rounded-md bg-muted p-2">
                         <code className="min-w-0 flex-1 text-xs break-all whitespace-pre-wrap">
                             {command}
                         </code>
@@ -980,7 +980,7 @@ function Details({
                 {(contextSection !== undefined ||
                     resourceSection !== undefined) &&
                     !node.editable && (
-                        <p className="text-muted-foreground text-xs">
+                        <p className="text-xs text-muted-foreground">
                             The code already has it. Change the code and sync
                             it, or replace it.
                         </p>
