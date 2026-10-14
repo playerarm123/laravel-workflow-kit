@@ -23,7 +23,7 @@ function iconOf(name: string): LucideIcon {
         ? (name as IconName)
         : 'circle';
     const icon = forwardRef<SVGSVGElement, LucideProps>((props, ref) => (
-        <DynamicIcon name={known} ref={ref} {...props} />
+        <DynamicIcon {...props} name={known} ref={ref} />
     ));
     icon.displayName = `MenuIcon(${known})`;
     icons.set(name, icon);
