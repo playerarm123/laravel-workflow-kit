@@ -139,7 +139,8 @@ It has a file of its own, because an entry point calls into more than one contex
     "pages": {
         "crates/create": "form",
         "crates/index": "table"
-    }
+    },
+    "menu": { "title": "crates.title", "icon": "package" }
 }
 ```
 
@@ -151,6 +152,7 @@ It has a file of its own, because an entry point calls into more than one contex
   - `grid` when it renders `<InfiniteScroll`;
   - `form` when it imports a form from `@/components/*/form`;
   - `page` for anything else.
+- `menu`: the list page's entry in the main menu, its title's translation key and its lucide icon, read from `app/Http/Navigation.php`; `null` keeps the list page out of the menu on purpose; left out, the manifest says nothing yet (list-pages.md, "Menu").
 
 The starter kit's controllers (`App\Http\Controllers\Settings`) and the kit's own audit log page (`AuditEntry`) have no resource manifest.
 
@@ -200,6 +202,7 @@ Each step is a `make:*` generator or one line written into a project file. They 
 | form request, form pages | `make:form-request`, `make:form-page` | the fields of the create Command, then `{Model}FormValues` |
 | list page | `make:list-page` | a key other than `id` in its Row's `toArray()` |
 | route | a line above `// kit:routes` | the controller |
+| menu | a line above `// kit:menu` in `app/Http/Navigation.php` | the index route, the list page and the policy's `viewAny` |
 
 An exception step builds each exception `exceptions` designs, of its own kind and in its own home, and a domain service's step passes `--exception` when its `exception` is true. A name a method throws that no manifest designs is built as a refusal of the method's own aggregate when it is named bare. One of the shared kernel or of another aggregate is built from the manifest that designs it, and the method waits for it; one no manifest designs is built by hand. `make:entity-method` writes the method with `@throws` and an empty body, and gives the entity's Unit test a `describe()` for it with a todo for the case that passes and one per exception. The `throw` lines are written by hand, and `matches` names each one the body still lacks.
 
@@ -208,7 +211,7 @@ An exception step builds each exception `exceptions` designs, of its own kind an
 A step that waits for code a person writes (a Command's fields, a Row's keys) is named with its reason. Fill that code in and run `kit:apply` again: a plan is read from the code as it stands, so it picks up where the last run stopped. A step that fails is not run again in the same call.
 
 **Do**
-- Put `// kit:bindings` on its own line as the last entry of one provider's `$bindings`, and `// kit:routes` as the last line of the route group new pages belong in. `kit:apply` writes each new line above its marker, with full class names, so no `use` line changes. Without a marker, or with more than one, it prints the line for you to place. *Review only.*
+- Put `// kit:bindings` on its own line as the last entry of one provider's `$bindings`, `// kit:routes` as the last line of the route group new pages belong in, and `// kit:menu` as the last line of the main menu's list in `app/Http/Navigation.php` (list-pages.md). `kit:apply` writes each new line above its marker, with full class names, so no `use` line changes. Without a marker, or with more than one, it prints the line for you to place. *Review only.*
 - Finish by hand what no generator writes, which `kit:plan` lists last as the check's own messages: a second repository or one from another context, a handler that returns `int`, a controller method outside the resource ones, a policy ability other than the CRUD ones, `#[UsePolicy]` on the model, and a page of kind `page`. *Review only.*
 - Count a route as done once a route file registers its controller, whatever uri it chose. A `Route::resource()` counts only once it registers every controller method the manifest lists: `kit:apply` widens its `only([...])` to cover a method added later, and leaves one an `except([...])` holds back for you to change by hand. *Review only.*
 

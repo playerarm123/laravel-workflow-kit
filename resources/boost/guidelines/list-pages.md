@@ -13,9 +13,10 @@ Enforced by the package's `tests/Architecture/ListPagesTest.php` and by the pack
 ## Kit files
 
 These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). `php artisan kit:install` writes the rest from the kit, and the check fails when one is missing or differs from the kit's copy.
-- `resources/js/hooks/use-list-query.ts`, `use-data-table.tsx`, `use-data-table-toolbar.ts`, `use-actions.ts`, `use-dialog.ts`, `use-translation.ts`
+- `resources/js/hooks/use-list-query.ts`, `use-data-table.tsx`, `use-data-table-toolbar.ts`, `use-actions.ts`, `use-dialog.ts`, `use-translation.ts`, `use-main-nav-items.tsx`
 - `resources/js/components/dt-table.tsx`, `dt-toolbar.tsx`, `dialog.tsx`, `buttons.tsx`, `icons.tsx`, `heading.tsx`, `ui/date-range-picker.tsx`
-- `resources/js/types/data-table.ts`, `pagination.ts`
+- `resources/js/types/data-table.ts`, `pagination.ts`, `ui.ts`
+- `app/Http/Navigation.php`, the main menu. `kit:install` writes it once, and the project owns it from then on: the check only wants it there
 - *package:* `tests/ESLint/list-pages.js`, imported by `eslint.config.js` (*check `eslint`*), and the fixtures its proof lints in `tests/ESLint/Fixtures/`
 - *package:* `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through. Its `internalAlias`, spread in first, ranks an unresolved `@/` import as internal, so a generated page passes import/order before `wayfinder:generate` runs
 
@@ -30,16 +31,41 @@ Scaffold a list page after its PHP half (list-queries.md) is filled in. Run `php
 - or, with `--grid`, the grid page (the one `visit`, `<InfiniteScroll>` and both empty states) and `resources/js/components/{aggregate}/card.tsx`, with one label and value per row key
 - the page's Browser test (testing.md)
 
-Then add the cells or card fields, row actions, dialogs, `can` and translations. The command lists the translation keys and the route still missing. *Review only.*
+Then add the cells or card fields, row actions, dialogs, `can` and translations. The command lists the translation keys and the route still missing. *Review only.* The page's menu entry is `kit:apply`'s (see Menu below).
 
 The controller half is `php artisan make:controller {Name} --domain={Context} --only=index,destroy`, with `--grid` for the grid shape. It reads `List{Names}Command` for the raw query string arguments and `List{Names}Result` for the rows prop, and writes each action's test. A grid's index sends the rows through `Inertia::scroll(…)` and no `sort`, and the command warns when the Command still takes `sort` or `direction`. *Review only.*
+
+## Menu
+
+Every list page has its entry in the main menu. The menu has one home, `app/Http/Navigation.php`, one line per entry:
+
+```
+manifest "menu" → kit:apply → $this->item('{title key}', '{route}', '{lucide icon}', Model::class) above // kit:menu
+  → Navigation::for($user) keeps the entries the policy's viewAny allows → shared as `menu`
+  → useMainNavItems() → the starter kit's sidebar and header
+```
+
+**Do**
+- Give the list page's resource manifest `"menu": {"title": "{folder}.title", "icon": "{lucide icon}"}` (structure.md), and run `php artisan kit:apply`: it writes the entry once the index route, the page and the policy's `viewAny` exist. The structure screen starts a new list page at `{folder}/index` in the menu. *Check `menu`.*
+- Keep a list page out of the menu on purpose with `"menu": null`, such as a list under a parent (`{a}/{b}/index`) that only opens from the parent's page. *Check `menu`.*
+- Name the model of an entry about one, so the menu asks its policy's `viewAny` who sees it. An entry without a model (the dashboard, a report) shows to everyone signed in. *Check `menu-ability`.*
+- Name the icon as lucide.dev does, in kebab-case. *Check `menu-icon`.*
+- Translate every title in every `lang/*.json`. *Check `lang-keys`.*
+- Share the menu as `menu` from `HandleInertiaRequests::share()` and draw it through `useMainNavItems()` in the sidebar and the header, as `kit:setup` wires them. *Check `shared-props`.*
+- Move the lines into the order the menu should read; keep `// kit:menu` as the last line of the list. *Review only.*
+
+**Don't**
+- Keep a list of menu entries anywhere else, such as a `mainNavItems` in the sidebar, or hide an entry in the client with `can`: the server already left out what the user may not open.
+- Call it `can`: Inertia merges the shared props and a page's own props shallowly, so a page's `can` would replace it.
+
+**Why:** a page with no way to reach it is not finished, and nothing on screen says so. Keeping the menu on the server lets the policy that guards the page decide who sees its link, and keeps the sidebar and the header from drifting apart.
 
 ## Translations
 
 The kit speaks through `t()` from `use-translation.ts`, which reads the `locale`, `timezone` and `translations` props.
 
 **Do**
-- Share those three props from `HandleInertiaRequests::share()`, with `translations` holding the active locale's `lang/{locale}.json` over the fallback locale's. Declare them in `SharedProps`. *Check `shared-props`.*
+- Share those three props from `HandleInertiaRequests::share()` (with `menu`, see Menu), with `translations` holding the active locale's `lang/{locale}.json` over the fallback locale's. Declare them in `SharedProps`. *Check `shared-props`.*
 - Keep every key the kit uses in every `lang/*.json`. *Check `lang-keys`.* The spec lists the keys, and the check also fails when a kit file uses a key the spec does not list.
 
 A key with no translation renders as itself, so a missing key shows up on screen instead of crashing the page.
