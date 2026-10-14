@@ -245,7 +245,9 @@ final class StructureReader
     /**
      * One HTTP resource as its manifest holds it.
      *
-     * @return array{resource: string, model: string|null, controller: array<string, list<string>>, actions: array<string, array{row: bool, bulk: bool, useCases: list<string>}>, policy: list<string>|null, pages: array<string, string>}
+     * `menu` is there only when the main menu has an entry for the resource's list page.
+     *
+     * @return array{resource: string, model: string|null, controller: array<string, list<string>>, actions: array<string, array{row: bool, bulk: bool, useCases: list<string>}>, policy: list<string>|null, pages: array<string, string>, menu?: array{title: string, icon: string}}
      */
     public function readResource(string $resource): array
     {
@@ -292,7 +294,7 @@ final class StructureReader
         ksort($actions);
         ksort($pages);
 
-        return [
+        $read = [
             'resource' => $resource,
             'model' => $model,
             'controller' => $controller,
@@ -300,6 +302,40 @@ final class StructureReader
             'policy' => $model === null ? null : $this->policyOf($model),
             'pages' => $pages,
         ];
+
+        $listPage = self::listPageOf($pages);
+        $entry = $listPage === null ? null : (new StructureMenu($this->root))->entryFor(self::listRouteOf($listPage));
+
+        if ($entry !== null) {
+            $read['menu'] = ['title' => $entry['title'], 'icon' => $entry['icon']];
+        }
+
+        return $read;
+    }
+
+    /**
+     * The resource's list page: its table or grid page at `{folder}/index`, or null.
+     *
+     * @param  array<string, mixed>  $pages
+     */
+    public static function listPageOf(array $pages): ?string
+    {
+        foreach ($pages as $page => $kind) {
+            if (in_array($kind, ['table', 'grid'], true) && str_ends_with((string) $page, '/index')) {
+                return (string) $page;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The route a list page opens from, as Route::resource() names it:
+     * `audit-entries/index` → `audit-entries.index`.
+     */
+    public static function listRouteOf(string $page): string
+    {
+        return str_replace('/', '.', $page);
     }
 
     /**

@@ -506,6 +506,27 @@ JSON)
                 ->toContain('"policy": null,');
         });
 
+        it('writes the menu only when the manifest says something about it', function () {
+            $resource = ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => []];
+
+            expect($this->files->encodeResource($resource))->not->toContain('"menu"')
+                ->and($this->files->encodeResource([...$resource, 'menu' => null]))->toContain('"menu": null')
+                ->and($this->files->encodeResource([...$resource, 'menu' => ['icon' => 'package', 'title' => 'crates.title']]))->toContain("\"menu\": {\n        \"title\": \"crates.title\",\n        \"icon\": \"package\"\n    }")
+                ->and($this->files->resourceProblems('Crate', [...$resource, 'menu' => null]))->toBe([])
+                ->and($this->files->resourceProblems('Crate', [...$resource, 'menu' => ['title' => 'crates.title', 'icon' => 'package']]))->toBe([]);
+        });
+
+        it('refuses a menu that is not a title key and a kebab-case icon', function (mixed $menu) {
+            expect($this->files->resourceProblems('Crate', ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => [], 'menu' => $menu]))
+                ->toBe(['"menu" must be {"title": "a translation key", "icon": "a kebab-case lucide icon"}, or null to keep the list page out of the menu']);
+        })->with([
+            'no icon' => [['title' => 'crates.title']],
+            'a PascalCase icon' => [['title' => 'crates.title', 'icon' => 'Package']],
+            'a title that is not a key' => [['title' => 'Crates', 'icon' => 'package']],
+            'an extra key' => [['title' => 'crates.title', 'icon' => 'package', 'order' => 1]],
+            'true' => [true],
+        ]);
+
         it('names every fault of a resource with the wrong shape', function () {
             expect($this->files->resourceProblems('Crate', [
                 'resource' => 'Box',

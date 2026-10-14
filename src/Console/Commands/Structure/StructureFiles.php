@@ -19,7 +19,7 @@ final class StructureFiles
     /**
      * The keys of a resource manifest, in the order the canonical form writes them.
      */
-    public const array RESOURCE_KEYS = ['resource', 'model', 'controller', 'actions', 'policy', 'pages'];
+    public const array RESOURCE_KEYS = ['resource', 'model', 'controller', 'actions', 'policy', 'pages', 'menu'];
 
     public const array PAGE_KINDS = ['table', 'grid', 'form', 'page'];
 
@@ -718,7 +718,28 @@ final class StructureFiles
             'pages' => (object) $pages,
         ];
 
+        /*
+         * The menu is written only when the manifest says something about it: an entry, or null
+         * to keep the list page out of the menu (list-pages.md, "Menu").
+         */
+        if (array_key_exists('menu', $manifest)) {
+            $menu = $manifest['menu'];
+            $document['menu'] = is_array($menu) ? (object) ['title' => $menu['title'] ?? null, 'icon' => $menu['icon'] ?? null] : null;
+        }
+
         return json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n";
+    }
+
+    /**
+     * Whether a value is a menu entry: a translation key for its title and a kebab-case lucide
+     * icon name, nothing else.
+     */
+    public static function isMenuEntry(mixed $menu): bool
+    {
+        return is_array($menu)
+            && array_diff(array_keys($menu), ['title', 'icon']) === []
+            && is_string($menu['title'] ?? null) && preg_match('/^[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)+$/', $menu['title']) === 1
+            && is_string($menu['icon'] ?? null) && preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $menu['icon']) === 1;
     }
 
     /**
@@ -802,6 +823,10 @@ final class StructureFiles
                     $problems[] = sprintf('pages.%s: must be one of %s', $page, implode(', ', self::PAGE_KINDS));
                 }
             }
+        }
+
+        if (array_key_exists('menu', $document) && $document['menu'] !== null && ! self::isMenuEntry($document['menu'])) {
+            $problems[] = '"menu" must be {"title": "a translation key", "icon": "a kebab-case lucide icon"}, or null to keep the list page out of the menu';
         }
 
         return $problems;
