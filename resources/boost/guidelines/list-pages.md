@@ -19,7 +19,7 @@ These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship i
 - *package:* `tests/ESLint/list-pages.js`, imported by `eslint.config.js` (*check `eslint`*), and the fixtures its proof lints in `tests/ESLint/Fixtures/`
 - *package:* `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through. Its `internalAlias`, spread in first, ranks an unresolved `@/` import as internal, so a generated page passes import/order before `wayfinder:generate` runs
 
-The kit builds on these shadcn components, added with `npx shadcn add`: badge, button, calendar, checkbox, dialog, dropdown-menu, input, label, pagination, popover, select, table, tooltip.
+The kit builds on these shadcn components, added with `php artisan kit:ui-add <name>`, never `npx shadcn add` directly (stack.md): badge, button, calendar, checkbox, dialog, dropdown-menu, input, label, pagination, popover, select, table, tooltip.
 
 ## Scaffold, never hand-write
 

@@ -11,6 +11,7 @@ import dates from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/dates
 import formPages from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/form-pages.js';
 import listPages from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/list-pages.js';
 import numbers from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/numbers.js';
+import stack from './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/stack.js';
 
 const controlStatements = [
     'if',
@@ -116,6 +117,7 @@ export default [
     ...actions,
     ...dates,
     ...numbers,
+    ...stack,
     {
         ignores: [
             'vendor',

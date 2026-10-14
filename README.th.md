@@ -68,6 +68,7 @@ php artisan test --testsuite=Architecture
 | `[stack:major] x: is declared but missing from composer.lock` (หรือ lockfile ฝั่ง JS) | รัน `composer update` หรือ install ด้วย package manager ของโปรเจกต์ |
 | `[stack:required] x: is required but not declared` | รัน `php artisan kit:setup` อีกรอบ หรือ require แพ็กเกจนั้นเอง |
 | `[stack:database] .env.example DB_CONNECTION: is "sqlite"` | `php artisan kit:setup --database=pgsql` |
+| `[stack:forbidden] cn` หรือ `[stack:cn-import] …` หลังรัน `npx shadcn add` | เพิ่ม component ด้วย `php artisan kit:ui-add <name>` ซึ่งจะ import `cn` จาก `@/lib/utils` และไม่ติดตั้งแพ็กเกจ `cn` |
 | `[…:kit-files] x: differs from the kit` | `php artisan kit:install --force` เพื่อเอาไฟล์ของ kit กลับมา |
 | `[testing:mirror] X: has no tests/…Test.php` | เขียนเทสต์ไว้ที่ path นั้น (testing.md) |
 | `[structure:in-json] .kit/structure/X.json: is missing` | `php artisan kit:import` |
@@ -119,6 +120,7 @@ generator ทุกตัวเขียน test ไว้ข้างไฟล�
 | คำสั่ง | ทำอะไร |
 |---|---|
 | `kit:setup [--database=] [--skip-dependencies]` | ตั้งค่าโปรเจกต์ที่สร้างจาก React starter kit ให้ครบในครั้งเดียว |
+| `kit:ui-add {components*} [--overwrite=] [--allow=] [--dry-run]` | เพิ่ม shadcn component ให้ตรงกับ stack ใช้แทน `npx shadcn add` ([stack.md](resources/boost/guidelines/stack.md)) |
 | `kit:install [--force]` | วางไฟล์ของ kit ลงในโปรเจกต์ |
 | `kit:import [--context=] [--resource=] [--force]` | เขียน structure manifest จากโค้ด |
 | `kit:plan [--context=] [--resource=]` | แสดงขั้นตอนที่จะสร้างตาม manifest |

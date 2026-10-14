@@ -183,6 +183,19 @@ final class ProjectSetup
             $this->edit($file, fn (string $code): string => RadixImports::rewrite($code));
         }
 
+        /*
+         * Tools that detect the package manager (shadcn's CLI among them) read pnpm-workspace.yaml
+         * as pnpm before they read package-lock.json, then install with pnpm and leave a second
+         * lockfile. packageManager in package.json outranks every lockfile.
+         */
+        if (is_file($this->path('pnpm-workspace.yaml')) && $this->packageManager() !== 'pnpm' && ! isset($package['packageManager'])) {
+            $this->result['manual'][] = sprintf(
+                'pnpm-workspace.yaml makes shadcn and other tools install with pnpm, while the project locks with %s: delete pnpm-workspace.yaml, or set "packageManager" in package.json (e.g. "%s@<version>")',
+                $this->packageManager(),
+                $this->packageManager(),
+            );
+        }
+
         return [...$this->finish(), 'packages' => $touched];
     }
 
@@ -373,11 +386,7 @@ final class ProjectSetup
             return $code;
         });
 
-        $this->edit('resources/js/components/ui/sonner.tsx', fn (string $code): string => (string) preg_replace(
-            ["/import \\{ useFlashToast \\} from '@\\/hooks\\/use-flash-toast';\n/", "/\n    useFlashToast\\(\\);\n/"],
-            ['', ''],
-            $code,
-        ));
+        $this->edit('resources/js/components/ui/sonner.tsx', fn (string $code): string => UiComponents::withoutFlashToast($code));
 
         $this->edit('resources/js/app.tsx', function (string $code): string {
             if (str_contains($code, '<FlashToast')) {
@@ -516,9 +525,17 @@ final class ProjectSetup
      */
     public function packageManager(): string
     {
+        return self::packageManagerOf($this->projectPath);
+    }
+
+    /**
+     * The package manager of the project at $projectPath, read from its lockfile.
+     */
+    public static function packageManagerOf(string $projectPath): string
+    {
         return match (true) {
-            is_file($this->path('pnpm-lock.yaml')) => 'pnpm',
-            is_file($this->path('bun.lock')) || is_file($this->path('bun.lockb')) => 'bun',
+            is_file($projectPath.'/pnpm-lock.yaml') => 'pnpm',
+            is_file($projectPath.'/bun.lock') || is_file($projectPath.'/bun.lockb') => 'bun',
             default => 'npm',
         };
     }

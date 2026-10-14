@@ -1,148 +1,10 @@
 <?php
 
 require_once __DIR__.'/Support/rules.php';
+require_once __DIR__.'/Support/stack.php';
 
-/**
- * The machine-checked half of stack.md — change the two together.
- *
- * `required` packages must be declared and installed on the locked line. `optional`
- * packages are not required, but when a project installs one it must sit on the locked
- * line. `forbidden` packages are the alternatives the stack already answered for.
- * A version is a major (`13`) or, on a 0.x line, a major.minor (`0.1`).
- *
- * @return array{
- *     php: string,
- *     composer: array{required: array<string, string>, optional: array<string, string>, forbidden: list<string>},
- *     npm: array{required: array<string, string>, optional: array<string, string>, forbidden: list<string>},
- *     databases: list<string>,
- *     redis_client: string,
- *     icon_library: string,
- * }
- */
-function stackSpec(): array
-{
-    return [
-        'php' => '8.4',
-        'composer' => [
-            'required' => [
-                'laravel/framework' => '13',
-                'inertiajs/inertia-laravel' => '3',
-                'laravel/fortify' => '1',
-                'spatie/laravel-data' => '4',
-                'laravel/wayfinder' => '0.1',
-                'laravel/nightwatch' => '1',
-                'pestphp/pest' => '5',
-                'pestphp/pest-plugin-laravel' => '5',
-                'pestphp/pest-plugin-browser' => '5',
-                'larastan/larastan' => '3',
-                'laravel/pint' => '1',
-                'playerarm123/laravel-workflow-kit' => '0.2',
-            ],
-            'optional' => [
-                'intervention/image' => '4',
-                'maatwebsite/excel' => '4',
-                'mpdf/mpdf' => '8',
-                'laravel/horizon' => '5',
-                'pusher/pusher-php-server' => '7',
-                'laravel/slack-notification-channel' => '3',
-                'laravel-notification-channels/telegram' => '8',
-            ],
-            'forbidden' => [
-                'livewire/livewire',
-                'sentry/sentry-laravel',
-                'bugsnag/*',
-                'spatie/laravel-flare',
-                'opcodesio/log-viewer',
-                'spatie/image',
-                'imagine/imagine',
-                'predis/predis',
-                'spatie/simple-excel',
-                'rap2hpoutre/fast-excel',
-                'phpoffice/phpspreadsheet',
-                'barryvdh/laravel-dompdf',
-                'dompdf/dompdf',
-                'spatie/laravel-pdf',
-                'spatie/browsershot',
-                'knplabs/knp-snappy',
-                'barryvdh/laravel-snappy',
-                'linecorp/line-bot-sdk',
-                'spatie/laravel-activitylog',
-                'owen-it/laravel-auditing',
-            ],
-        ],
-        'npm' => [
-            'required' => [
-                '@inertiajs/react' => '3',
-                '@inertiajs/vite' => '3',
-                '@laravel/passkeys' => '0.2',
-                '@laravel/vite-plugin-wayfinder' => '0.1',
-                'react' => '19',
-                'react-dom' => '19',
-                'typescript' => '5',
-                'vite' => '8',
-                'tailwindcss' => '4',
-                '@tailwindcss/vite' => '4',
-                'laravel-vite-plugin' => '3',
-                'shadcn' => '4',
-                'radix-ui' => '1',
-                'lucide-react' => '1',
-                'eslint' => '9',
-                'prettier' => '3',
-                'prettier-plugin-tailwindcss' => '0.6',
-                'playwright' => '1',
-            ],
-            'optional' => [
-                'clsx' => '2',
-                'tailwind-merge' => '3',
-                '@tanstack/react-table' => '9',
-                'sonner' => '2',
-                'date-fns' => '4',
-                '@xyflow/react' => '12',
-                '@dagrejs/dagre' => '3',
-                'laravel-echo' => '2',
-                'pusher-js' => '8',
-            ],
-            'forbidden' => [
-                'vue',
-                'cn',
-                'classnames',
-                'svelte',
-                'alpinejs',
-                'jquery',
-                'axios',
-                'ky',
-                'swr',
-                '@tanstack/react-query',
-                'moment',
-                'dayjs',
-                'luxon',
-                'react-toastify',
-                'react-hot-toast',
-                'ag-grid-*',
-                'react-data-table-component',
-                '@phosphor-icons/react',
-                'react-icons',
-                '@heroicons/react',
-                '@tabler/icons-react',
-                '@radix-ui/*',
-                '@headlessui/react',
-                '@mui/*',
-                '@chakra-ui/*',
-                'antd',
-                '@mantine/*',
-                'reactflow',
-                'dagre',
-                'elkjs',
-                'mermaid',
-                'cytoscape',
-                'jointjs',
-            ],
-        ],
-        'databases' => ['pgsql', 'mysql', 'mariadb'],
-        'redis_client' => 'phpredis',
-        'icon_library' => 'lucide',
-    ];
-}
+/** The ESLint half of stack.md, which eslint.config.js imports from vendor/ and spreads in. */
+const STACK_ESLINT_RULES = './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/stack.js';
 
 /**
  * @param  array<string, string>  $locked
@@ -241,6 +103,36 @@ describe('stack', function () {
         ];
 
         expect(ruleUnexcused('stack', 'forbidden', $violations))->toBe([]);
+    });
+
+    /*
+     * The shadcn CLI depends on the cn package itself, so node_modules/cn is there and the import
+     * builds. tests/ESLint/stack.js reports it while editing; this covers components/ui too,
+     * which eslint.config.js ignores.
+     */
+    it('imports cn from @/lib/utils, never from the cn package', function () {
+        $violations = ruleCodeMatches(
+            ruleSourceFiles('resources/js', ['ts', 'tsx', 'js', 'jsx']),
+            '/\b(?:from|import)\s*\(?\s*([\'"])cn\1/',
+            'imports the cn package — import cn from @/lib/utils (`php artisan kit:ui-add` rewrites it)',
+        );
+
+        expect(ruleUnexcused('stack', 'cn-import', $violations))->toBe([]);
+    });
+
+    it('spreads the stack ESLint rules into the ESLint config', function () {
+        $config = 'eslint.config.js';
+        $code = is_file(ruleProjectPath($config)) ? ruleCodeWithoutComments($config) : '';
+        $import = sprintf('/^import\s+(\w+)\s+from\s+[\'"]%s[\'"]/m', preg_quote(STACK_ESLINT_RULES, '/'));
+        $violations = [];
+
+        if (preg_match($import, $code, $match) !== 1) {
+            $violations[] = ['subject' => $config, 'message' => sprintf('must import %s', STACK_ESLINT_RULES)];
+        } elseif (! str_contains($code, '...'.$match[1])) {
+            $violations[] = ['subject' => $config, 'message' => sprintf('must spread ...%s into the exported config', $match[1])];
+        }
+
+        expect(ruleUnexcused('stack', 'eslint', $violations))->toBe([]);
     });
 
     it('talks to redis through phpredis', function () {

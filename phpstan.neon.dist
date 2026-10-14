@@ -5,6 +5,10 @@ parameters:
     paths:
         - src/
 
+    # WorkflowKit::stack() reads stackSpec() from the Architecture suite's support file.
+    scanFiles:
+        - tests/Architecture/Support/stack.php
+
     level: 7
 
     ignoreErrors:

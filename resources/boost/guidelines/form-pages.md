@@ -20,7 +20,7 @@ These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship i
 - *package:* `tests/ESLint/form-pages.js`, imported by `eslint.config.js` (*check `eslint`*), and the fixtures its proof lints in `tests/ESLint/Fixtures/`
 - *package:* `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through. Its `internalAlias`, spread in first, ranks an unresolved `@/` import as internal, so a generated page passes import/order before `wayfinder:generate` runs
 
-The kit builds on these shadcn components: button, card, checkbox, input, label, select, spinner. Every `lang/*.json` carries the keys the kit speaks: `common.save`, `common.cancel`, `common.back`, `common.toast_success_title`, `common.toast_error_title`. *Check `lang-keys`.*
+The kit builds on these shadcn components, added with `php artisan kit:ui-add <name>`, never `npx shadcn add` directly (stack.md): button, card, checkbox, input, label, select, spinner. Every `lang/*.json` carries the keys the kit speaks: `common.save`, `common.cancel`, `common.back`, `common.toast_success_title`, `common.toast_error_title`. *Check `lang-keys`.*
 
 ## Scaffold, never hand-write
 

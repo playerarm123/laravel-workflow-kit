@@ -68,6 +68,7 @@ Every failure reads `[rule:check] subject: message — see rule.md in the workfl
 | `[stack:major] x: is declared but missing from composer.lock` (or the JS lockfile) | run `composer update` or your package manager's install |
 | `[stack:required] x: is required but not declared` | run `php artisan kit:setup` again, or require the package |
 | `[stack:database] .env.example DB_CONNECTION: is "sqlite"` | `php artisan kit:setup --database=pgsql` |
+| `[stack:forbidden] cn` or `[stack:cn-import] …` after `npx shadcn add` | add components with `php artisan kit:ui-add <name>`, which imports `cn` from `@/lib/utils` and never installs the `cn` package |
 | `[…:kit-files] x: differs from the kit` | `php artisan kit:install --force` takes the kit's copy |
 | `[testing:mirror] X: has no tests/…Test.php` | write that test at that path (testing.md) |
 | `[structure:in-json] .kit/structure/X.json: is missing` | `php artisan kit:import` |
@@ -119,6 +120,7 @@ Each generator writes the test beside what it writes, with a `->todo()` per case
 | Command | What it does |
 |---|---|
 | `kit:setup [--database=] [--skip-dependencies]` | Set up a project made from the React starter kit, in one run |
+| `kit:ui-add {components*} [--overwrite=] [--allow=] [--dry-run]` | Add shadcn components the way the stack wants them, instead of `npx shadcn add` ([stack.md](resources/boost/guidelines/stack.md)) |
 | `kit:install [--force]` | Write the kit's files into the project |
 | `kit:import [--context=] [--resource=] [--force]` | Write the structure manifest from the code |
 | `kit:plan [--context=] [--resource=]` | Show the steps that build the manifest |
