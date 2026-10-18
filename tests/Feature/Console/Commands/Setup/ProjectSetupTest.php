@@ -144,6 +144,32 @@ describe('config', function () {
 
         expect(($this->read)('.env.example'))->toContain("DB_CONNECTION=mysql\nDB_HOST=127.0.0.1\nDB_PORT=3306", 'DB_USERNAME=root');
     });
+
+    it('moves a .env still on sqlite to the chosen engine', function () {
+        copy($this->project.'/.env.example', $this->project.'/.env');
+
+        $this->setup->config();
+
+        expect(($this->read)('.env'))->toContain("DB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=5432\nDB_DATABASE=laravel\nDB_USERNAME=postgres\nDB_PASSWORD=");
+    });
+
+    it('keeps the database and credentials of a .env already on the chosen engine', function () {
+        file_put_contents($this->project.'/.env', "APP_NAME=Clinic\n\nDB_CONNECTION=pgsql\nDB_HOST=db.internal\nDB_PORT=6543\nDB_DATABASE=alone_clinic\nDB_USERNAME=playerarm123\nDB_PASSWORD=secret\n");
+
+        $this->setup->config();
+
+        expect(($this->read)('.env'))->toContain("DB_CONNECTION=pgsql\nDB_HOST=db.internal\nDB_PORT=6543\nDB_DATABASE=alone_clinic\nDB_USERNAME=playerarm123\nDB_PASSWORD=secret\n", 'NIGHTWATCH_TOKEN=')
+            ->and(($this->read)('.env.example'))->toContain('DB_DATABASE=laravel', 'DB_USERNAME=postgres');
+    });
+
+    it('fills only the keys a .env on the chosen engine leaves out', function () {
+        file_put_contents($this->project.'/.env', "DB_CONNECTION=pgsql\nDB_DATABASE=alone_clinic\n# DB_USERNAME=root\n");
+
+        $this->setup->config();
+
+        expect(($this->read)('.env'))->toContain('DB_DATABASE=alone_clinic', "DB_USERNAME=postgres\n", 'DB_HOST=127.0.0.1', 'DB_PORT=5432')
+            ->not->toContain('# DB_USERNAME');
+    });
 });
 
 describe('wiring', function () {

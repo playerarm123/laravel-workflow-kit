@@ -20,4 +20,16 @@ final class EnvFile
 
         return rtrim($code)."\n\n".$key.'='.$value."\n";
     }
+
+    /**
+     * The value the file sets a key to, or null when no line sets it (a commented line does not).
+     */
+    public static function get(string $code, string $key): ?string
+    {
+        if (preg_match(sprintf('/^%s=(.*)$/m', preg_quote($key, '/')), $code, $match) !== 1) {
+            return null;
+        }
+
+        return trim($match[1], " \t\"'");
+    }
 }

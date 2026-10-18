@@ -281,9 +281,16 @@ final class ProjectSetup
                 continue;
             }
 
-            $this->edit($file, function (string $code) use ($env): string {
+            $this->edit($file, function (string $code) use ($env, $file): string {
+                /*
+                 * .env.example is the template every clone starts from, so it always names the
+                 * defaults. A .env already on the chosen engine holds this machine's database and
+                 * credentials: it only gains the keys it lacks.
+                 */
+                $keep = $file === '.env' && EnvFile::get($code, 'DB_CONNECTION') === $this->database;
+
                 foreach ($env as $key => $value) {
-                    $code = EnvFile::set($code, $key, $value);
+                    $code = EnvFile::set($code, $key, $value, onlyWhenMissing: $keep);
                 }
 
                 return EnvFile::set($code, 'NIGHTWATCH_TOKEN', '', onlyWhenMissing: true);
