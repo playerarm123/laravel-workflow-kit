@@ -274,7 +274,7 @@ describe('auditPage', function () {
     });
 
     it('adds only the missing keys to a locale the project already has', function () {
-        file_put_contents($this->project.'/.env', "APP_LOCALE=th\nAPP_FALLBACK_LOCALE=th\n");
+        file_put_contents($this->project.'/.env.example', str_replace(['APP_LOCALE=en', 'APP_FALLBACK_LOCALE=en'], ['APP_LOCALE=th', 'APP_FALLBACK_LOCALE=th'], ($this->read)('.env.example')));
         File::ensureDirectoryExists($this->project.'/lang');
         file_put_contents($this->project.'/lang/th.json', json_encode(['common.save' => 'บันทึก']));
 
@@ -301,6 +301,15 @@ describe('auditPage', function () {
 
     it('reads the locale from .env.example when the project has no .env', function () {
         file_put_contents($this->project.'/.env.example', str_replace('APP_LOCALE=en', 'APP_LOCALE=th', ($this->read)('.env.example')));
+
+        $this->setup->auditPage();
+
+        expect($this->project.'/lang/th.json')->toBeFile()
+            ->and($this->project.'/lang/en.json')->toBeFile();
+    });
+
+    it('writes the file of the locale .env.example names too, which every clone runs in', function () {
+        file_put_contents($this->project.'/.env', "APP_LOCALE=th\nAPP_FALLBACK_LOCALE=th\n");
 
         $this->setup->auditPage();
 

@@ -596,8 +596,9 @@ final class ProjectSetup
     }
 
     /**
-     * The locale and the fallback locale the app runs in: what .env sets, else .env.example,
-     * else Laravel's `en`.
+     * Every locale and fallback locale the app runs in: what .env sets on this machine, and what
+     * .env.example sets for every clone and CI run, as [list-pages:lang-keys] reads them. A key
+     * neither file sets is Laravel's `en`.
      *
      * @return list<string>
      */
@@ -606,13 +607,20 @@ final class ProjectSetup
         $locales = [];
 
         foreach (['APP_LOCALE', 'APP_FALLBACK_LOCALE'] as $key) {
-            $value = null;
+            $found = false;
 
             foreach (['.env', '.env.example'] as $file) {
-                $value ??= is_file($this->path($file)) ? EnvFile::get((string) file_get_contents($this->path($file)), $key) : null;
+                $value = is_file($this->path($file)) ? EnvFile::get((string) file_get_contents($this->path($file)), $key) : null;
+
+                if ($value !== null && preg_match('/^[A-Za-z]{2,3}([_-][A-Za-z0-9]+)*$/', $value) === 1) {
+                    $locales[] = $value;
+                    $found = true;
+                }
             }
 
-            $locales[] = $value !== null && preg_match('/^[A-Za-z]{2,3}([_-][A-Za-z0-9]+)*$/', $value) === 1 ? $value : 'en';
+            if (! $found) {
+                $locales[] = 'en';
+            }
         }
 
         return array_values(array_unique($locales));
