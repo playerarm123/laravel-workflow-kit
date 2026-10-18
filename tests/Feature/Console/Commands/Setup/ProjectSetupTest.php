@@ -246,6 +246,24 @@ describe('users', function () {
     });
 });
 
+describe('users without registration', function () {
+    it('asks nothing of a CreateNewUser a project made without registration does not have', function () {
+        unlink($this->project.'/app/Actions/Fortify/CreateNewUser.php');
+        File::ensureDirectoryExists($this->project.'/config');
+        file_put_contents($this->project.'/config/fortify.php', "<?php\n\nreturn [\n    'features' => [\n        Features::resetPasswords(),\n        // Features::registration(),\n    ],\n];\n");
+
+        expect($this->setup->users()['manual'])->toBe([]);
+    });
+
+    it('still asks for the id when Fortify registers users and CreateNewUser is gone', function () {
+        unlink($this->project.'/app/Actions/Fortify/CreateNewUser.php');
+        File::ensureDirectoryExists($this->project.'/config');
+        file_put_contents($this->project.'/config/fortify.php', "<?php\n\nreturn [\n    'features' => [\n        Features::registration(),\n    ],\n];\n");
+
+        expect($this->setup->users()['manual'])->toBe(['app/Actions/Fortify/CreateNewUser.php is missing: give the new user its id from IdGenerator in CreateNewUser']);
+    });
+});
+
 describe('auditPage', function () {
     it('routes the audit log for every signed-in user and marks where new pages go', function () {
         $this->setup->auditPage();

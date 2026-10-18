@@ -465,16 +465,22 @@ final class ProjectSetup
             ));
         }
 
-        $this->edit('app/Actions/Fortify/CreateNewUser.php', function (string $code): string {
-            if (str_contains($code, 'IdGenerator')) {
-                return $code;
-            }
+        /*
+         * A project made without registration has no CreateNewUser, and nothing else creates a
+         * user through Fortify, so there is nothing to give an id.
+         */
+        if (is_file($this->path('app/Actions/Fortify/CreateNewUser.php')) || $this->registersUsers()) {
+            $this->edit('app/Actions/Fortify/CreateNewUser.php', function (string $code): string {
+                if (str_contains($code, 'IdGenerator')) {
+                    return $code;
+                }
 
-            $code = PhpFile::addUse($code, 'App\Domain\Shared\Ports\IdGenerator');
-            $code = (string) preg_replace('/(\n    use [^;]+;\n)/', "$1\n    public function __construct(private readonly IdGenerator \$ids) {}\n", $code, 1);
+                $code = PhpFile::addUse($code, 'App\Domain\Shared\Ports\IdGenerator');
+                $code = (string) preg_replace('/(\n    use [^;]+;\n)/', "$1\n    public function __construct(private readonly IdGenerator \$ids) {}\n", $code, 1);
 
-            return (string) preg_replace('/(return User::create\\(\\[\\n)(\\s*)/', "$1$2'id' => \$this->ids->next(),\n$2", $code, 1);
-        }, need: ['$this->ids->next()'], hint: 'give the new user its id from IdGenerator in CreateNewUser');
+                return (string) preg_replace('/(return User::create\\(\\[\\n)(\\s*)/', "$1$2'id' => \$this->ids->next(),\n$2", $code, 1);
+            }, need: ['$this->ids->next()'], hint: 'give the new user its id from IdGenerator in CreateNewUser');
+        }
 
         $this->edit('app/Models/User.php', function (string $code): string {
             if (str_contains($code, 'KeyedByUuid')) {
@@ -565,6 +571,17 @@ final class ProjectSetup
         }
 
         return $this->finish();
+    }
+
+    /**
+     * Whether Fortify lets visitors register: config/fortify.php turns Features::registration()
+     * on, on a line of its own that is not a comment.
+     */
+    private function registersUsers(): bool
+    {
+        $config = is_file($this->path('config/fortify.php')) ? (string) file_get_contents($this->path('config/fortify.php')) : '';
+
+        return preg_match('/^\s*Features::registration\(\)/m', $config) === 1;
     }
 
     /**
