@@ -17,5 +17,5 @@ test('a dark appearance marks the html element before the scripts load', functio
     $this->withUnencryptedCookie('appearance', 'dark')
         ->get(route('home'))
         ->assertOk()
-        ->assertSee('<html lang="en" class="dark">', escape: false);
+        ->assertSee('<html lang="'.str_replace('_', '-', app()->getLocale()).'" class="dark">', escape: false);
 });

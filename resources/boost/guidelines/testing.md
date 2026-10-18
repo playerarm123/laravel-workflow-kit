@@ -109,6 +109,7 @@ Feature tests run on the engine production runs (stack.md), through the real rep
   - One case visits the page and asserts `assertNoJavaScriptErrors()` and `assertNoConsoleLogs()`.
   - The other cases cover what only the browser computes, which the controller test cannot see: formatting (money, rates, dates), badges, dialogs, the toolbar keeping the query on the url, and a form that posts and shows its toast or its errors.
   - The Browser suite runs on `public/build`, so run `npm run build` first, or it tests stale JavaScript.
+- **Every kind:** assert a message the app translates through its key, `__('common.forbidden')`, never through its English words, so the suite passes in whatever locale the app runs in. A dataset takes the key as `fn (): string => __('…')`, which Pest calls once the app has booted. Keep a literal only for text the test itself chose: a policy's own message, a name a factory was given.
 
 ## Scaffold, never hand-write
 
