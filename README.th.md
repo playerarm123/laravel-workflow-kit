@@ -45,14 +45,14 @@ php artisan test --testsuite=Architecture
 | ขั้น | สิ่งที่แก้ |
 |---|---|
 | Composer packages | ตั้ง `php` เป็น `^8.4`, เอา PHPUnit ออกแล้วใส่ Pest 5 (พร้อม plugin Laravel และ Browser), ใส่ Boost, Nightwatch, spatie/laravel-data และ s3 driver แล้วรัน `composer update` |
-| JavaScript packages | เปลี่ยน `@radix-ui/*` เป็น `radix-ui` (แก้ import ให้ทุกไฟล์), ใส่ ESLint, Prettier, Playwright และไลบรารีตาราง วันที่ และไดอะแกรม, เพิ่ม script `lint` และ `format` แล้วรัน install ด้วย package manager ที่โปรเจกต์ใช้ |
+| JavaScript packages | เปลี่ยน `@radix-ui/*` เป็น `radix-ui` (แก้ import ให้ทุกไฟล์), ใส่ ESLint, Prettier, Playwright และไลบรารีตาราง วันที่ และไดอะแกรม, เพิ่ม script `lint` และ `format`, ลบ `pnpm-workspace.yaml` ที่ starter kit ให้มาแบบ package เดียวเมื่อโปรเจกต์ใช้ npm หรือ bun แล้วรัน install ด้วย package manager ที่โปรเจกต์ใช้ |
 | Kit files | ไฟล์ทุกตัวที่ `kit:install` เขียน และไฟล์ที่เขียนให้ครั้งเดียวแล้วเป็นของโปรเจกต์: `IdGenerator` แบบ UUIDv7 พร้อม provider, middleware `InitializeUserContext`, `AuditEntryPolicy`, `tests/Pest.php`, `eslint.config.js`, `.prettierrc`, type `SharedProps`, เมนูหลัก `app/Http/Navigation.php`, shadcn component สี่ตัวที่หน้าของ kit ใช้, เทสต์ของ middleware ใน starter kit และ `rule-overrides.json` เปล่า ส่วน `ExampleTest` ถูกลบออก |
-| Config | ฐานข้อมูลใน `.env`, `.env.example` และ `phpunit.xml`, `NIGHTWATCH_TOKEN`, Architecture suite, กฎ write-path ของ PHPStan, `app.currency` และ Vite entry ของหน้า structure |
+| Config | ฐานข้อมูลใน `.env.example` และ `phpunit.xml` และใน `.env` ถ้ายังไม่ได้ใช้ engine นั้น (ถ้าใช้อยู่แล้วจะเติมเฉพาะ key ที่ขาด), `NIGHTWATCH_TOKEN`, Browser และ Architecture suite, กฎ write-path ของ PHPStan, `app.currency` และ Vite entry ของหน้า structure |
 | Wiring | providers, `ExceptionResponses`, `InitializeUserContext`, props ที่ส่งไปทุกหน้า (`locale`, `timezone`, `currency`, `translations`, `menu`) ทั้งฝั่ง PHP และ TypeScript, ให้ sidebar กับ header วาดเมนูที่ส่งมาผ่าน `useMainNavItems()` และ `<FlashToast />` |
-| Users on uuids | ตาราง users พร้อม sessions และ passkeys, `User`, `UserFactory` และ `CreateNewUser` เปลี่ยนเป็น key แบบ uuid ขั้นนี้แก้ migration เดิมตรง ๆ จึงทำได้เฉพาะก่อน deploy ครั้งแรก |
-| Audit log page | route, marker `// kit:routes` และคำแปลทุกคำที่หน้าของ kit ใช้ ในทุกไฟล์ `lang/*.json` |
+| Users on uuids | ตาราง users พร้อม sessions และ passkeys, `User`, `UserFactory` และ `CreateNewUser` (เมื่อเปิด registration) เปลี่ยนเป็น key แบบ uuid ขั้นนี้แก้ migration เดิมตรง ๆ จึงทำได้เฉพาะก่อน deploy ครั้งแรก |
+| Audit log page | route, marker `// kit:routes` และคำแปลทุกคำที่หน้าของ kit ใช้ ในทุกไฟล์ `lang/*.json` และในไฟล์ของ `APP_LOCALE` กับ `APP_FALLBACK_LOCALE` ภาษาที่ไม่ใช่ `en` จะได้คำภาษาอังกฤษไปก่อน และถูกแจ้งไว้ให้แปล |
 
-สุดท้ายรัน `wayfinder:generate`, `lint` (ESLint แบบ `--fix`) และ `kit:import`
+สุดท้ายรัน `wayfinder:generate`, `lint` (ESLint แบบ `--fix`), `build` ของ package manager ซึ่ง Feature test ของหน้าใน kit ต้องใช้ และ `kit:import`
 
 ใส่ `--database=pgsql` เพื่อข้ามคำถาม ส่วน `--skip-dependencies` จะแก้ `composer.json` และ `package.json` โดยไม่รัน install
 
