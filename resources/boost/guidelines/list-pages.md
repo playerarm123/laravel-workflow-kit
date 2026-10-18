@@ -66,7 +66,7 @@ The kit speaks through `t()` from `use-translation.ts`, which reads the `locale`
 
 **Do**
 - Share those three props from `HandleInertiaRequests::share()` (with `menu`, see Menu), with `translations` holding the active locale's `lang/{locale}.json` over the fallback locale's. Declare them in `SharedProps`. *Check `shared-props`.*
-- Keep every key the kit uses in every `lang/*.json`. *Check `lang-keys`.* The spec lists the keys, and the check also fails when a kit file uses a key the spec does not list.
+- Keep every key the kit uses in every `lang/*.json`, and keep a `lang/{locale}.json` for the `APP_LOCALE` and the `APP_FALLBACK_LOCALE` that `.env.example` and `.env` set. *Check `lang-keys`.* The spec lists the keys, and the check also fails when a kit file uses a key the spec does not list. `kit:setup` writes a missing locale's file with the kit's English words and lists it to translate.
 
 A key with no translation renders as itself, so a missing key shows up on screen instead of crashing the page.
 

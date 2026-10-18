@@ -527,25 +527,57 @@ final class ProjectSetup
 
         /** @var array<string, string> $kitKeys */
         $kitKeys = json_decode((string) file_get_contents($this->kitPath.'/lang/en.json'), true);
-        $locales = glob($this->path('lang/*.json')) ?: [];
 
-        if ($locales === []) {
-            $locales = [$this->path('lang/en.json')];
-        }
+        /*
+         * Every locale file the project has, and the one of each locale the app is set to: a
+         * locale with no file shows the pages their keys instead of their words.
+         */
+        $locales = array_map(fn (string $file): string => basename($file, '.json'), glob($this->path('lang/*.json')) ?: []);
+        $locales = array_values(array_unique([...$locales, ...$this->configuredLocales()]));
 
-        foreach ($locales as $file) {
-            $relative = substr($file, strlen($this->projectPath) + 1);
+        foreach ($locales as $locale) {
+            $relative = "lang/{$locale}.json";
             /** @var array<string, string> $current */
-            $current = is_file($file) ? (json_decode((string) file_get_contents($file), true) ?? []) : [];
+            $current = is_file($this->path($relative)) ? (json_decode((string) file_get_contents($this->path($relative)), true) ?? []) : [];
             $merged = $current + $kitKeys;
+            $added = count($merged) - count($current);
 
-            if (count($merged) !== count($current)) {
-                ksort($merged);
-                $this->put($relative, json_encode($merged, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+            if ($added === 0) {
+                continue;
+            }
+
+            ksort($merged);
+            $this->put($relative, json_encode($merged, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+
+            if ($locale !== 'en') {
+                $this->result['manual'][] = sprintf('%s: translate the %d keys the kit added in English', $relative, $added);
             }
         }
 
         return $this->finish();
+    }
+
+    /**
+     * The locale and the fallback locale the app runs in: what .env sets, else .env.example,
+     * else Laravel's `en`.
+     *
+     * @return list<string>
+     */
+    private function configuredLocales(): array
+    {
+        $locales = [];
+
+        foreach (['APP_LOCALE', 'APP_FALLBACK_LOCALE'] as $key) {
+            $value = null;
+
+            foreach (['.env', '.env.example'] as $file) {
+                $value ??= is_file($this->path($file)) ? EnvFile::get((string) file_get_contents($this->path($file)), $key) : null;
+            }
+
+            $locales[] = $value !== null && preg_match('/^[A-Za-z]{2,3}([_-][A-Za-z0-9]+)*$/', $value) === 1 ? $value : 'en';
+        }
+
+        return array_values(array_unique($locales));
     }
 
     /**

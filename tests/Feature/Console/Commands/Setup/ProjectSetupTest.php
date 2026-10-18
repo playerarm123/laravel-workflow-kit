@@ -256,15 +256,45 @@ describe('auditPage', function () {
     });
 
     it('adds only the missing keys to a locale the project already has', function () {
+        file_put_contents($this->project.'/.env', "APP_LOCALE=th\nAPP_FALLBACK_LOCALE=th\n");
         File::ensureDirectoryExists($this->project.'/lang');
         file_put_contents($this->project.'/lang/th.json', json_encode(['common.save' => 'บันทึก']));
 
-        $this->setup->auditPage();
+        $manual = $this->setup->auditPage()['manual'];
         $thai = json_decode(($this->read)('lang/th.json'), true);
 
         expect($thai['common.save'])->toBe('บันทึก')
             ->and($thai)->toHaveKey('common.cancel')
-            ->and($this->project.'/lang/en.json')->not->toBeFile();
+            ->and($this->project.'/lang/en.json')->not->toBeFile()
+            ->and($manual)->toHaveCount(1)
+            ->and($manual[0])->toStartWith('lang/th.json: translate the ')->toEndWith(' keys the kit added in English');
+    });
+
+    it('writes the file of the locale and the fallback locale the app runs in, and asks for the translation', function () {
+        file_put_contents($this->project.'/.env', "APP_LOCALE=th\nAPP_FALLBACK_LOCALE=en\n");
+
+        $manual = $this->setup->auditPage()['manual'];
+
+        expect(json_decode(($this->read)('lang/th.json'), true))->toHaveKeys(['common.save', 'audit-entries.title'])
+            ->and(json_decode(($this->read)('lang/th.json'), true)['common.save'])->toBe(json_decode(($this->read)('lang/en.json'), true)['common.save'])
+            ->and($manual)->toHaveCount(1)
+            ->and($manual[0])->toStartWith('lang/th.json: translate the ');
+    });
+
+    it('reads the locale from .env.example when the project has no .env', function () {
+        file_put_contents($this->project.'/.env.example', str_replace('APP_LOCALE=en', 'APP_LOCALE=th', ($this->read)('.env.example')));
+
+        $this->setup->auditPage();
+
+        expect($this->project.'/lang/th.json')->toBeFile()
+            ->and($this->project.'/lang/en.json')->toBeFile();
+    });
+
+    it('asks for no translation once every locale file holds the kit\'s keys', function () {
+        file_put_contents($this->project.'/.env', "APP_LOCALE=th\nAPP_FALLBACK_LOCALE=th\n");
+        $this->setup->auditPage();
+
+        expect($this->setup->auditPage()['manual'])->toBe([]);
     });
 });
 
