@@ -23,6 +23,17 @@ class KitSetupCommand extends Command
 {
     public function handle(): int
     {
+        $teams = ProjectSetup::teamsMarkerOf(base_path());
+
+        if ($teams !== null) {
+            $this->components->error(sprintf(
+                'This project was made from the starter kit\'s teams variant (%s), which kit:setup does not set up: its migrations key team members on a bigint users.id the kit keys on a uuid, and its team code does not follow the kit\'s rules. Start from the starter kit without teams, and build the teams the project needs with the kit.',
+                $teams,
+            ));
+
+            return self::FAILURE;
+        }
+
         $database = $this->database();
 
         if ($database === null) {

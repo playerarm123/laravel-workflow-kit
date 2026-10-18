@@ -17,6 +17,7 @@ The rules themselves live in [`resources/boost/guidelines`](resources/boost/guid
 - PHP 8.4, Composer, Node 22.
 - A PostgreSQL, MySQL or MariaDB server. The kit never runs on sqlite: tests run on the engine production runs.
 - A project made from Laravel's React starter kit (Laravel 13, Inertia 3, React 19). `kit:setup` brings it to the rest of the locked stack, which [`stack.md`](resources/boost/guidelines/stack.md) lists and the Architecture suite checks.
+- The starter kit without teams. `kit:setup` refuses a project made from its teams variant, before it changes anything: those migrations key team members on a bigint `users.id`, which the kit keys on a uuid, and the team code does not follow the kit's rules. Build the teams a project needs with the kit instead.
 
 ## Install
 
