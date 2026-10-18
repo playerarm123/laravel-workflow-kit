@@ -62,9 +62,15 @@ class KitSetupCommand extends Command
         $this->step('Users on uuids', fn () => $setup->users(), $manual);
         $this->step('Audit log page', fn () => $setup->auditPage(), $manual);
 
+        $built = false;
+
         if (! $this->option('skip-dependencies')) {
             $this->runProcess([PHP_BINARY, 'artisan', 'wayfinder:generate', '--with-form', '--no-interaction']);
             $this->runProcess([$setup->packageManager(), 'run', 'lint']);
+
+            // The kit's pages are new entries of the Vite manifest: a Feature test that renders
+            // one fails with a 500 until the assets are built again.
+            $built = $this->runProcess([$setup->packageManager(), 'run', 'build']);
         }
 
         $this->call('kit:import');
@@ -76,6 +82,7 @@ class KitSetupCommand extends Command
 
         $this->components->info('Next:');
         $this->components->bulletList([
+            ...($built ? [] : [sprintf('Run `%s run build`: the Feature tests render the kit\'s pages from the Vite manifest', $setup->packageManager())]),
             sprintf('Create the %s database your .env names, then run `php artisan migrate:fresh`', $database),
             'Run `php artisan boost:install` and add "playerarm123/laravel-workflow-kit" to "packages" in boost.json',
             'Run `npx playwright install chromium` for the Browser tests',

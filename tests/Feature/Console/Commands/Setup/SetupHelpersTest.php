@@ -33,6 +33,13 @@ describe('EnvFile', function () {
     it('keeps a value that is already set when asked to set it only when missing', function () {
         expect(EnvFile::set("NIGHTWATCH_TOKEN=secret\n", 'NIGHTWATCH_TOKEN', '', onlyWhenMissing: true))->toBe("NIGHTWATCH_TOKEN=secret\n");
     });
+
+    it('reads the value a line sets, unquoted, and nothing from a commented line', function () {
+        expect(EnvFile::get("DB_CONNECTION=pgsql\nAPP_NAME=\"Alone Clinic\"\n# DB_HOST=127.0.0.1\n", 'DB_CONNECTION'))->toBe('pgsql')
+            ->and(EnvFile::get("APP_NAME=\"Alone Clinic\"\n", 'APP_NAME'))->toBe('Alone Clinic')
+            ->and(EnvFile::get("# DB_HOST=127.0.0.1\n", 'DB_HOST'))->toBeNull()
+            ->and(EnvFile::get("A=1\n", 'DB_HOST'))->toBeNull();
+    });
 });
 
 describe('PhpFile', function () {

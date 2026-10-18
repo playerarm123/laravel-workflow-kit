@@ -117,8 +117,8 @@ describe('an inertia visit', function () {
             ->assertInertiaFlash('toast.message', $message);
     })->with([
         'the policy message' => ['forbidden', 'Only the owner may do this.'],
-        'no message' => ['forbidden-silent', 'You are not allowed to do this.'],
-        'an expired page' => ['expired', 'The page expired. Please try again.'],
+        'no message' => ['forbidden-silent', fn (): string => __('common.forbidden')],
+        'an expired page' => ['expired', fn (): string => __('common.page_expired')],
     ]);
 
     it('stays on the page with a toast when a write finds its row gone', function () {
@@ -151,14 +151,14 @@ describe('a JSON client', function () {
             ->assertStatus($status)
             ->assertExactJson(['message' => $message, 'code' => $code]);
     })->with([
-        'a missing entity' => ['not-found', 404, 'not_found', 'This record no longer exists. It may have been removed.'],
+        'a missing entity' => ['not-found', 404, 'not_found', fn (): string => __('common.not_found')],
         'the policy message' => ['forbidden', 403, 'forbidden', 'Only the owner may do this.'],
-        'no message' => ['forbidden-silent', 403, 'forbidden', 'You are not allowed to do this.'],
-        'no session' => ['unauthenticated', 401, 'unauthenticated', 'Please sign in to continue.'],
-        'an expired token' => ['expired', 419, 'page_expired', 'The page expired. Please try again.'],
+        'no message' => ['forbidden-silent', 403, 'forbidden', fn (): string => __('common.forbidden')],
+        'no session' => ['unauthenticated', 401, 'unauthenticated', fn (): string => __('common.unauthenticated')],
+        'an expired token' => ['expired', 419, 'page_expired', fn (): string => __('common.page_expired')],
         'any other client error' => ['teapot', 418, 'http_418', "I'm a teapot"],
-        'a failure' => ['failure', 500, 'server_error', 'Something went wrong on our side. Please try again later.'],
-        'maintenance' => ['maintenance', 503, 'service_unavailable', 'The system is under maintenance. Please check back soon.'],
+        'a failure' => ['failure', 500, 'server_error', fn (): string => __('common.server_error')],
+        'maintenance' => ['maintenance', 503, 'service_unavailable', fn (): string => __('common.service_unavailable')],
     ]);
 
     it('answers a path under api/ in JSON without asking for it', function () {

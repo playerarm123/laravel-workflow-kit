@@ -89,7 +89,7 @@ Every project ships the kit's read-only page at `audit-entries.index`. It reads 
 **Do** give the page what only the project knows: *check `page`.*
 - `app/Policies/AuditEntryPolicy.php` with `viewAny` alone, answered for the users who may read the log (authorization.md). Scaffold it with `php artisan make:policy AuditEntry` and delete the other abilities.
 - `Route::resource('audit-entries', AuditEntryController::class)->only(['index'])` in the routes the signed-in users reach.
-- `auditLogReader(): User` and `auditLogOutsider(): User` in `tests/Pest.php`: a user the policy allows and a signed-in user it refuses. The kit's controller and Browser tests sign in through them, so they never name a role.
+- `auditLogReader(): User` and `auditLogOutsider(): ?User` in `tests/Pest.php`: a user the policy allows and a signed-in user it refuses. The kit's controller and Browser tests sign in through them, so they never name a role. When the policy lets every signed-in user read the log, `auditLogOutsider()` returns `null`, and the tests that need somebody it refuses skip.
 - Every word the page speaks (`page_lang_keys` in the spec) in every `lang/*.json`.
 
 **Do** keep the audit log's entry in the main menu, `app/Http/Navigation.php`, with `AuditEntry` as its model, so the menu asks `viewAny` who sees it (list-pages.md, "Menu"). The kit writes the entry; it shows to whom the policy lets read the log. *Check `menu`.*

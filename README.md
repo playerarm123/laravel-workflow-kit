@@ -14,7 +14,7 @@ The rules themselves live in [`resources/boost/guidelines`](resources/boost/guid
 
 ## Requirements
 
-- PHP 8.4, Composer, Node 22.
+- PHP 8.4, Composer, Node 22.18+ or 24.11+ (what the starter kit's `vite-plus` needs; npm warns `EBADENGINE` on an older 22).
 - A PostgreSQL, MySQL or MariaDB server. The kit never runs on sqlite: tests run on the engine production runs.
 - A project made from Laravel's React starter kit (Laravel 13, Inertia 3, React 19). `kit:setup` brings it to the rest of the locked stack, which [`stack.md`](resources/boost/guidelines/stack.md) lists and the Architecture suite checks.
 - The starter kit without teams. `kit:setup` refuses a project made from its teams variant, before it changes anything: those migrations key team members on a bigint `users.id`, which the kit keys on a uuid, and the team code does not follow the kit's rules. Build the teams a project needs with the kit instead.
@@ -45,14 +45,14 @@ It changes only what is not in shape yet, so you can run it again at any time; a
 | Step | What it changes |
 |---|---|
 | Composer packages | `php` to `^8.4`; PHPUnit out, Pest 5 (with the Laravel and Browser plugins) in; Boost, Nightwatch, spatie/laravel-data and the s3 driver; then `composer update` |
-| JavaScript packages | the `@radix-ui/*` packages for `radix-ui` (every import rewritten); ESLint, Prettier, Playwright, the table, date and diagram libraries; `lint` and `format` scripts; then your package manager's install |
+| JavaScript packages | the `@radix-ui/*` packages for `radix-ui` (every import rewritten); ESLint, Prettier, Playwright, the table, date and diagram libraries; `lint` and `format` scripts; the starter kit's single-package `pnpm-workspace.yaml` goes when you lock with npm or bun; then your package manager's install |
 | Kit files | every file `kit:install` writes, plus files written once and yours from then on: the UUIDv7 `IdGenerator` and its provider, the `InitializeUserContext` middleware, `AuditEntryPolicy`, `tests/Pest.php`, `eslint.config.js`, `.prettierrc`, the `SharedProps` type, the main menu `app/Http/Navigation.php`, the four shadcn components the kit's pages use, tests for the starter kit's middleware, and an empty `rule-overrides.json`. The `ExampleTest`s go. |
-| Config | the database in `.env`, `.env.example` and `phpunit.xml`; `NIGHTWATCH_TOKEN`; the Architecture suite; the PHPStan write-path rule; `app.currency`; the structure screen's Vite entry |
+| Config | the database in `.env.example` and `phpunit.xml`, and in `.env` unless it is already on that engine (then only the keys it lacks); `NIGHTWATCH_TOKEN`; the Browser and Architecture suites; the PHPStan write-path rule; `app.currency`; the structure screen's Vite entry |
 | Wiring | the providers, `ExceptionResponses`, `InitializeUserContext`, the props every page shares (`locale`, `timezone`, `currency`, `translations`, `menu`) in PHP and TypeScript, the sidebar and the header drawing the shared menu through `useMainNavItems()`, and `<FlashToast />` |
-| Users on uuids | the users table, its sessions and passkeys, `User`, `UserFactory` and `CreateNewUser` move to uuid keys. This edits the migrations in place, which is safe only before the first deploy. |
-| Audit log page | its route, the `// kit:routes` marker, and every word the kit's pages speak in every `lang/*.json` |
+| Users on uuids | the users table, its sessions and passkeys, `User`, `UserFactory` and `CreateNewUser` (when registration is on) move to uuid keys. This edits the migrations in place, which is safe only before the first deploy. |
+| Audit log page | its route, the `// kit:routes` marker, and every word the kit's pages speak in every `lang/*.json` and in the file of `APP_LOCALE` and `APP_FALLBACK_LOCALE`. A locale other than `en` gets the English words, listed for you to translate. |
 
-Finally it runs `wayfinder:generate`, `lint` (ESLint with `--fix`) and `kit:import`.
+Finally it runs `wayfinder:generate`, `lint` (ESLint with `--fix`), your package manager's `build`, which the Feature tests of the kit's pages need, and `kit:import`.
 
 `--database=pgsql` skips the question. `--skip-dependencies` edits `composer.json` and `package.json` but runs no install.
 

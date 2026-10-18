@@ -197,8 +197,19 @@ final class ProjectSetup
          * Tools that detect the package manager (shadcn's CLI among them) read pnpm-workspace.yaml
          * as pnpm before they read package-lock.json, then install with pnpm and leave a second
          * lockfile. packageManager in package.json outranks every lockfile.
+         *
+         * The starter kit's own file names the project alone as its one package, with settings
+         * only pnpm reads, so it goes. One that names other packages is a workspace somebody
+         * set up, and stays theirs to decide.
          */
-        if (is_file($this->path('pnpm-workspace.yaml')) && $this->packageManager() !== 'pnpm' && ! isset($package['packageManager'])) {
+        $workspace = $this->path('pnpm-workspace.yaml');
+
+        if (is_file($workspace) && $this->packageManager() !== 'pnpm' && ! isset($package['packageManager']) && self::isSinglePackageWorkspace((string) file_get_contents($workspace))) {
+            unlink($workspace);
+            $this->result['changed'][] = 'pnpm-workspace.yaml (removed)';
+        }
+
+        if (is_file($workspace) && $this->packageManager() !== 'pnpm' && ! isset($package['packageManager'])) {
             $this->result['manual'][] = sprintf(
                 'pnpm-workspace.yaml makes shadcn and other tools install with pnpm, while the project locks with %s: delete pnpm-workspace.yaml, or set "packageManager" in package.json (e.g. "%s@<version>")',
                 $this->packageManager(),
@@ -237,7 +248,7 @@ final class ProjectSetup
          */
         $this->edit('tests/Pest.php', fn (string $code): string => PestFile::complete($code, (string) file_get_contents($this->kitPath.'/setup/tests/Pest.php')),
             need: ['function auditLogReader(', 'function auditLogOutsider('],
-            hint: "bind TestCase with RefreshDatabase to 'Feature' and 'Browser', and declare auditLogReader(): User and auditLogOutsider(): User (testing.md, audit-log.md)");
+            hint: "bind TestCase with RefreshDatabase to 'Feature' and 'Browser', and declare auditLogReader(): User and auditLogOutsider(): ?User (testing.md, audit-log.md)");
 
         if (is_file($this->path('tests/Pest.php')) && ! PestFile::bindsAsTheKitWants((string) file_get_contents($this->path('tests/Pest.php')))) {
             $this->result['manual'][] = "tests/Pest.php: bind TestCase with RefreshDatabase to 'Feature' and 'Browser' as ".str_replace("\n", ' ', PestFile::BINDING).' (testing.md)';
@@ -281,9 +292,16 @@ final class ProjectSetup
                 continue;
             }
 
-            $this->edit($file, function (string $code) use ($env): string {
+            $this->edit($file, function (string $code) use ($env, $file): string {
+                /*
+                 * .env.example is the template every clone starts from, so it always names the
+                 * defaults. A .env already on the chosen engine holds this machine's database and
+                 * credentials: it only gains the keys it lacks.
+                 */
+                $keep = $file === '.env' && EnvFile::get($code, 'DB_CONNECTION') === $this->database;
+
                 foreach ($env as $key => $value) {
-                    $code = EnvFile::set($code, $key, $value);
+                    $code = EnvFile::set($code, $key, $value, onlyWhenMissing: $keep);
                 }
 
                 return EnvFile::set($code, 'NIGHTWATCH_TOKEN', '', onlyWhenMissing: true);
@@ -293,6 +311,16 @@ final class ProjectSetup
         $this->edit('phpunit.xml', function (string $code): string {
             $code = (string) preg_replace('#<env name="DB_CONNECTION" value="[^"]*"\s*/>#', sprintf('<env name="DB_CONNECTION" value="%s"/>', $this->database), $code);
             $code = (string) preg_replace('#<env name="DB_DATABASE" value=":memory:"\s*/>#', '<env name="DB_DATABASE" value="testing"/>', $code);
+
+            // The starter kit registers Unit and Feature; the pages' tests need theirs too.
+            if (preg_match('#<testsuite name="Browser"#', $code) !== 1) {
+                $code = (string) preg_replace(
+                    '#(\n(\s*)</testsuites>)#',
+                    "\n$2    <testsuite name=\"Browser\">\n$2        <directory>tests/Browser</directory>\n$2    </testsuite>$1",
+                    $code,
+                    1,
+                );
+            }
 
             if (! str_contains($code, self::ARCHITECTURE_SUITE)) {
                 $code = (string) preg_replace(
@@ -304,7 +332,7 @@ final class ProjectSetup
             }
 
             return $code;
-        });
+        }, need: ['<testsuite name="Browser"', self::ARCHITECTURE_SUITE], hint: 'register the Browser suite on tests/Browser and the Architecture suite on '.self::ARCHITECTURE_SUITE.' in phpunit.xml (testing.md)');
 
         if (! is_file($this->path('phpstan.neon'))) {
             $this->put('phpstan.neon', "includes:\n    - vendor/larastan/larastan/extension.neon\n    - ".self::PHPSTAN_INCLUDE."\n\nparameters:\n    paths:\n        - app/\n        - bootstrap/app.php\n        - config/\n        - database/\n        - routes/\n\n    level: 7\n");
@@ -448,16 +476,22 @@ final class ProjectSetup
             ));
         }
 
-        $this->edit('app/Actions/Fortify/CreateNewUser.php', function (string $code): string {
-            if (str_contains($code, 'IdGenerator')) {
-                return $code;
-            }
+        /*
+         * A project made without registration has no CreateNewUser, and nothing else creates a
+         * user through Fortify, so there is nothing to give an id.
+         */
+        if (is_file($this->path('app/Actions/Fortify/CreateNewUser.php')) || $this->registersUsers()) {
+            $this->edit('app/Actions/Fortify/CreateNewUser.php', function (string $code): string {
+                if (str_contains($code, 'IdGenerator')) {
+                    return $code;
+                }
 
-            $code = PhpFile::addUse($code, 'App\Domain\Shared\Ports\IdGenerator');
-            $code = (string) preg_replace('/(\n    use [^;]+;\n)/', "$1\n    public function __construct(private readonly IdGenerator \$ids) {}\n", $code, 1);
+                $code = PhpFile::addUse($code, 'App\Domain\Shared\Ports\IdGenerator');
+                $code = (string) preg_replace('/(\n    use [^;]+;\n)/', "$1\n    public function __construct(private readonly IdGenerator \$ids) {}\n", $code, 1);
 
-            return (string) preg_replace('/(return User::create\\(\\[\\n)(\\s*)/', "$1$2'id' => \$this->ids->next(),\n$2", $code, 1);
-        }, need: ['$this->ids->next()'], hint: 'give the new user its id from IdGenerator in CreateNewUser');
+                return (string) preg_replace('/(return User::create\\(\\[\\n)(\\s*)/', "$1$2'id' => \$this->ids->next(),\n$2", $code, 1);
+            }, need: ['$this->ids->next()'], hint: 'give the new user its id from IdGenerator in CreateNewUser');
+        }
 
         $this->edit('app/Models/User.php', function (string $code): string {
             if (str_contains($code, 'KeyedByUuid')) {
@@ -520,25 +554,76 @@ final class ProjectSetup
 
         /** @var array<string, string> $kitKeys */
         $kitKeys = json_decode((string) file_get_contents($this->kitPath.'/lang/en.json'), true);
-        $locales = glob($this->path('lang/*.json')) ?: [];
 
-        if ($locales === []) {
-            $locales = [$this->path('lang/en.json')];
-        }
+        /*
+         * Every locale file the project has, and the one of each locale the app is set to: a
+         * locale with no file shows the pages their keys instead of their words.
+         */
+        $locales = array_map(fn (string $file): string => basename($file, '.json'), glob($this->path('lang/*.json')) ?: []);
+        $locales = array_values(array_unique([...$locales, ...$this->configuredLocales()]));
 
-        foreach ($locales as $file) {
-            $relative = substr($file, strlen($this->projectPath) + 1);
+        foreach ($locales as $locale) {
+            $relative = "lang/{$locale}.json";
             /** @var array<string, string> $current */
-            $current = is_file($file) ? (json_decode((string) file_get_contents($file), true) ?? []) : [];
+            $current = is_file($this->path($relative)) ? (json_decode((string) file_get_contents($this->path($relative)), true) ?? []) : [];
             $merged = $current + $kitKeys;
+            $added = count($merged) - count($current);
 
-            if (count($merged) !== count($current)) {
-                ksort($merged);
-                $this->put($relative, json_encode($merged, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+            if ($added === 0) {
+                continue;
+            }
+
+            ksort($merged);
+            $this->put($relative, json_encode($merged, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+
+            if ($locale !== 'en') {
+                $this->result['manual'][] = sprintf('%s: translate the %d keys the kit added in English', $relative, $added);
             }
         }
 
         return $this->finish();
+    }
+
+    /**
+     * Whether Fortify lets visitors register: config/fortify.php turns Features::registration()
+     * on, on a line of its own that is not a comment.
+     */
+    private function registersUsers(): bool
+    {
+        $config = is_file($this->path('config/fortify.php')) ? (string) file_get_contents($this->path('config/fortify.php')) : '';
+
+        return preg_match('/^\s*Features::registration\(\)/m', $config) === 1;
+    }
+
+    /**
+     * Every locale and fallback locale the app runs in: what .env sets on this machine, and what
+     * .env.example sets for every clone and CI run, as [list-pages:lang-keys] reads them. A key
+     * neither file sets is Laravel's `en`.
+     *
+     * @return list<string>
+     */
+    private function configuredLocales(): array
+    {
+        $locales = [];
+
+        foreach (['APP_LOCALE', 'APP_FALLBACK_LOCALE'] as $key) {
+            $found = false;
+
+            foreach (['.env', '.env.example'] as $file) {
+                $value = is_file($this->path($file)) ? EnvFile::get((string) file_get_contents($this->path($file)), $key) : null;
+
+                if ($value !== null && preg_match('/^[A-Za-z]{2,3}([_-][A-Za-z0-9]+)*$/', $value) === 1) {
+                    $locales[] = $value;
+                    $found = true;
+                }
+            }
+
+            if (! $found) {
+                $locales[] = 'en';
+            }
+        }
+
+        return array_values(array_unique($locales));
     }
 
     /**
@@ -657,6 +742,20 @@ final class ProjectSetup
     private function writeJson(string $relative, array $data): void
     {
         $this->put($relative, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+    }
+
+    /**
+     * Whether a pnpm-workspace.yaml lists the project itself, `'.'`, as its only package.
+     */
+    private static function isSinglePackageWorkspace(string $yaml): bool
+    {
+        if (preg_match('/^packages:[ \t]*\n((?:[ \t]+-.*\n?)+)/m', $yaml, $match) !== 1) {
+            return false;
+        }
+
+        preg_match_all('/^[ \t]+-[ \t]*[\'"]?([^\'"\s#]*)[\'"]?/m', $match[1], $entries);
+
+        return $entries[1] === ['.'];
     }
 
     /**

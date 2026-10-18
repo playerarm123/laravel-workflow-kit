@@ -28,7 +28,7 @@ require_once __DIR__.'/Support/rules.php';
  *     routes: string,
  *     route: string,
  *     test_helpers_file: string,
- *     test_helpers: list<string>,
+ *     test_helpers: array<string, string>,
  *     page_lang_keys: list<string>,
  *     page_lang_prefix: string,
  * }
@@ -69,7 +69,9 @@ function auditLogSpec(): array
         'routes' => 'routes/*.php',
         'route' => '/Route::resource\(\s*[\'"]audit-entries[\'"]\s*,\s*AuditEntryController::class\s*\)\s*->only\(\s*\[\s*[\'"]index[\'"]\s*\]\s*\)/',
         'test_helpers_file' => 'tests/Pest.php',
-        'test_helpers' => ['auditLogReader', 'auditLogOutsider'],
+        // Each helper with the type it returns: null from auditLogOutsider() means the policy
+        // refuses no signed-in user.
+        'test_helpers' => ['auditLogReader' => 'User', 'auditLogOutsider' => '?User'],
         'page_lang_keys' => [
             'audit-entries.title',
             'audit-entries.description',
@@ -402,9 +404,11 @@ describe('audit log', function () {
 
         $pest = is_file(ruleProjectPath($spec['test_helpers_file'])) ? (string) file_get_contents(ruleProjectPath($spec['test_helpers_file'])) : '';
 
-        foreach ($spec['test_helpers'] as $helper) {
-            if (preg_match('/\bfunction\s+'.$helper.'\s*\(\s*\)\s*:\s*User\b/', $pest) !== 1) {
-                $violations[] = ['subject' => $spec['test_helpers_file'], 'message' => sprintf('declares no %s(): User — the kit\'s page tests sign in through it', $helper)];
+        foreach ($spec['test_helpers'] as $helper => $type) {
+            $returns = str_starts_with($type, '?') ? '\??User\b' : 'User\b';
+
+            if (preg_match('/\bfunction\s+'.$helper.'\s*\(\s*\)\s*:\s*'.$returns.'/', $pest) !== 1) {
+                $violations[] = ['subject' => $spec['test_helpers_file'], 'message' => sprintf('declares no %s(): %s — the kit\'s page tests sign in through it', $helper, $type)];
             }
         }
 

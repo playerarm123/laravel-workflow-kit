@@ -143,12 +143,13 @@ jobs:
           git status --porcelain -- . ':!.kit' ':!resources/js/actions' ':!resources/js/routes' ':!resources/js/wayfinder'
           test -z "$(git status --porcelain -- . ':!.kit' ':!resources/js/actions' ':!resources/js/routes' ':!resources/js/wayfinder')"
 
-      - name: Migrate and build
+      # No build of its own: kit:setup builds the assets, and the Feature suite fails on the
+      # kit's pages when it does not.
+      - name: Migrate
         working-directory: app
         run: |
           psql -h 127.0.0.1 -U postgres -c 'create database testing'
           php artisan migrate:fresh --force
-          npm run build
 
       - name: Architecture
         working-directory: app

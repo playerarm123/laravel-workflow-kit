@@ -12,6 +12,12 @@ describe('viewAny', function () {
     });
 
     it('denies a user who has not', function () {
-        expect(Gate::forUser(auditLogOutsider())->allows('viewAny', AuditEntry::class))->toBeFalse();
+        $outsider = auditLogOutsider();
+
+        if ($outsider === null) {
+            $this->markTestSkipped('AuditEntryPolicy refuses no signed-in user: auditLogOutsider() is null');
+        }
+
+        expect(Gate::forUser($outsider)->allows('viewAny', AuditEntry::class))->toBeFalse();
     });
 });

@@ -106,7 +106,7 @@ describe('files on a starter kit made with Pest', function () {
 
         expect($result['manual'])->toBe([])
             ->and($pest)->toContain("pest()->extend(TestCase::class)\n    ->use(RefreshDatabase::class)\n    ->in('Feature', 'Browser');")
-            ->and($pest)->toContain('use Illuminate\Foundation\Testing\RefreshDatabase;', 'use App\Models\User;', 'function auditLogReader(): User', 'function auditLogOutsider(): User', "expect()->extend('toBeOne'", 'function something()')
+            ->and($pest)->toContain('use Illuminate\Foundation\Testing\RefreshDatabase;', 'use App\Models\User;', 'function auditLogReader(): User', 'function auditLogOutsider(): ?User', "expect()->extend('toBeOne'", 'function something()')
             ->and($pest)->not->toContain("->in('Feature');");
     })->with(['pest-init.php', 'uses.php']);
 
@@ -133,7 +133,7 @@ describe('config', function () {
         $this->setup->config();
 
         expect(($this->read)('.env.example'))->toContain("\n\nDB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=5432", 'NIGHTWATCH_TOKEN=')
-            ->and(($this->read)('phpunit.xml'))->toContain('<env name="DB_CONNECTION" value="pgsql"/>', 'vendor/playerarm123/laravel-workflow-kit/tests/Architecture')
+            ->and(($this->read)('phpunit.xml'))->toContain('<env name="DB_CONNECTION" value="pgsql"/>', "<testsuite name=\"Browser\">\n            <directory>tests/Browser</directory>\n        </testsuite>", 'vendor/playerarm123/laravel-workflow-kit/tests/Architecture')
             ->and(($this->read)('phpstan.neon'))->toContain('tests/PHPStan/write-path.php')
             ->and(($this->read)('config/app.php'))->toContain("'currency' => env('APP_CURRENCY', 'USD')")
             ->and(($this->read)('vite.config.ts'))->toContain("'resources/js/app.tsx', 'resources/js/kit/structure.tsx'");
@@ -143,6 +143,32 @@ describe('config', function () {
         (new ProjectSetup(WorkflowKit::kitPath(), $this->project, 'mysql'))->config();
 
         expect(($this->read)('.env.example'))->toContain("DB_CONNECTION=mysql\nDB_HOST=127.0.0.1\nDB_PORT=3306", 'DB_USERNAME=root');
+    });
+
+    it('moves a .env still on sqlite to the chosen engine', function () {
+        copy($this->project.'/.env.example', $this->project.'/.env');
+
+        $this->setup->config();
+
+        expect(($this->read)('.env'))->toContain("DB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=5432\nDB_DATABASE=laravel\nDB_USERNAME=postgres\nDB_PASSWORD=");
+    });
+
+    it('keeps the database and credentials of a .env already on the chosen engine', function () {
+        file_put_contents($this->project.'/.env', "APP_NAME=Clinic\n\nDB_CONNECTION=pgsql\nDB_HOST=db.internal\nDB_PORT=6543\nDB_DATABASE=alone_clinic\nDB_USERNAME=playerarm123\nDB_PASSWORD=secret\n");
+
+        $this->setup->config();
+
+        expect(($this->read)('.env'))->toContain("DB_CONNECTION=pgsql\nDB_HOST=db.internal\nDB_PORT=6543\nDB_DATABASE=alone_clinic\nDB_USERNAME=playerarm123\nDB_PASSWORD=secret\n", 'NIGHTWATCH_TOKEN=')
+            ->and(($this->read)('.env.example'))->toContain('DB_DATABASE=laravel', 'DB_USERNAME=postgres');
+    });
+
+    it('fills only the keys a .env on the chosen engine leaves out', function () {
+        file_put_contents($this->project.'/.env', "DB_CONNECTION=pgsql\nDB_DATABASE=alone_clinic\n# DB_USERNAME=root\n");
+
+        $this->setup->config();
+
+        expect(($this->read)('.env'))->toContain('DB_DATABASE=alone_clinic', "DB_USERNAME=postgres\n", 'DB_HOST=127.0.0.1', 'DB_PORT=5432')
+            ->not->toContain('# DB_USERNAME');
     });
 });
 
@@ -220,6 +246,24 @@ describe('users', function () {
     });
 });
 
+describe('users without registration', function () {
+    it('asks nothing of a CreateNewUser a project made without registration does not have', function () {
+        unlink($this->project.'/app/Actions/Fortify/CreateNewUser.php');
+        File::ensureDirectoryExists($this->project.'/config');
+        file_put_contents($this->project.'/config/fortify.php', "<?php\n\nreturn [\n    'features' => [\n        Features::resetPasswords(),\n        // Features::registration(),\n    ],\n];\n");
+
+        expect($this->setup->users()['manual'])->toBe([]);
+    });
+
+    it('still asks for the id when Fortify registers users and CreateNewUser is gone', function () {
+        unlink($this->project.'/app/Actions/Fortify/CreateNewUser.php');
+        File::ensureDirectoryExists($this->project.'/config');
+        file_put_contents($this->project.'/config/fortify.php', "<?php\n\nreturn [\n    'features' => [\n        Features::registration(),\n    ],\n];\n");
+
+        expect($this->setup->users()['manual'])->toBe(['app/Actions/Fortify/CreateNewUser.php is missing: give the new user its id from IdGenerator in CreateNewUser']);
+    });
+});
+
 describe('auditPage', function () {
     it('routes the audit log for every signed-in user and marks where new pages go', function () {
         $this->setup->auditPage();
@@ -230,15 +274,54 @@ describe('auditPage', function () {
     });
 
     it('adds only the missing keys to a locale the project already has', function () {
+        file_put_contents($this->project.'/.env.example', str_replace(['APP_LOCALE=en', 'APP_FALLBACK_LOCALE=en'], ['APP_LOCALE=th', 'APP_FALLBACK_LOCALE=th'], ($this->read)('.env.example')));
         File::ensureDirectoryExists($this->project.'/lang');
         file_put_contents($this->project.'/lang/th.json', json_encode(['common.save' => 'บันทึก']));
 
-        $this->setup->auditPage();
+        $manual = $this->setup->auditPage()['manual'];
         $thai = json_decode(($this->read)('lang/th.json'), true);
 
         expect($thai['common.save'])->toBe('บันทึก')
             ->and($thai)->toHaveKey('common.cancel')
-            ->and($this->project.'/lang/en.json')->not->toBeFile();
+            ->and($this->project.'/lang/en.json')->not->toBeFile()
+            ->and($manual)->toHaveCount(1)
+            ->and($manual[0])->toStartWith('lang/th.json: translate the ')->toEndWith(' keys the kit added in English');
+    });
+
+    it('writes the file of the locale and the fallback locale the app runs in, and asks for the translation', function () {
+        file_put_contents($this->project.'/.env', "APP_LOCALE=th\nAPP_FALLBACK_LOCALE=en\n");
+
+        $manual = $this->setup->auditPage()['manual'];
+
+        expect(json_decode(($this->read)('lang/th.json'), true))->toHaveKeys(['common.save', 'audit-entries.title'])
+            ->and(json_decode(($this->read)('lang/th.json'), true)['common.save'])->toBe(json_decode(($this->read)('lang/en.json'), true)['common.save'])
+            ->and($manual)->toHaveCount(1)
+            ->and($manual[0])->toStartWith('lang/th.json: translate the ');
+    });
+
+    it('reads the locale from .env.example when the project has no .env', function () {
+        file_put_contents($this->project.'/.env.example', str_replace('APP_LOCALE=en', 'APP_LOCALE=th', ($this->read)('.env.example')));
+
+        $this->setup->auditPage();
+
+        expect($this->project.'/lang/th.json')->toBeFile()
+            ->and($this->project.'/lang/en.json')->toBeFile();
+    });
+
+    it('writes the file of the locale .env.example names too, which every clone runs in', function () {
+        file_put_contents($this->project.'/.env', "APP_LOCALE=th\nAPP_FALLBACK_LOCALE=th\n");
+
+        $this->setup->auditPage();
+
+        expect($this->project.'/lang/th.json')->toBeFile()
+            ->and($this->project.'/lang/en.json')->toBeFile();
+    });
+
+    it('asks for no translation once every locale file holds the kit\'s keys', function () {
+        file_put_contents($this->project.'/.env', "APP_LOCALE=th\nAPP_FALLBACK_LOCALE=th\n");
+        $this->setup->auditPage();
+
+        expect($this->setup->auditPage()['manual'])->toBe([]);
     });
 });
 
@@ -270,6 +353,25 @@ describe('teamsMarkerOf', function () {
 });
 
 describe('pnpm-workspace.yaml', function () {
+    it('removes the starter kit\'s own pnpm-workspace.yaml from a project that locks with npm', function () {
+        touch($this->project.'/package-lock.json');
+        file_put_contents($this->project.'/pnpm-workspace.yaml', "packages:\n    - '.'\n\npublicHoistPattern:\n    - '@inertiajs/core'\n");
+
+        $result = $this->setup->npmDependencies();
+
+        expect($result['manual'])->toBe([])
+            ->and($result['changed'])->toContain('pnpm-workspace.yaml (removed)')
+            ->and($this->project.'/pnpm-workspace.yaml')->not->toBeFile();
+    });
+
+    it('leaves a workspace that names other packages to the user', function () {
+        touch($this->project.'/package-lock.json');
+        file_put_contents($this->project.'/pnpm-workspace.yaml', "packages:\n    - '.'\n    - 'packages/*'\n");
+
+        expect($this->setup->npmDependencies()['manual'])->toHaveCount(1)
+            ->and($this->project.'/pnpm-workspace.yaml')->toBeFile();
+    });
+
     it('leaves a pnpm-workspace.yaml beside another lockfile to the user, since tools read it as pnpm', function () {
         touch($this->project.'/package-lock.json');
         file_put_contents($this->project.'/pnpm-workspace.yaml', "packages: []\n");

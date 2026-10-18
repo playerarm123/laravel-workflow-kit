@@ -22,6 +22,8 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureMenu;
  *     eslint_rules: string,
  *     kit_lang_keys: list<string>,
  *     lang_glob: string,
+ *     locale_env_files: list<string>,
+ *     locale_env_keys: list<string>,
  *     shared_props: list<string>,
  *     share_file: string,
  *     types_path: string,
@@ -95,6 +97,9 @@ function listPagesSpec(): array
             'data_table.remove_filter',
         ],
         'lang_glob' => 'lang/*.json',
+        // The app runs in each locale these keys name, read from each file that exists.
+        'locale_env_files' => ['.env.example', '.env'],
+        'locale_env_keys' => ['APP_LOCALE', 'APP_FALLBACK_LOCALE'],
         'shared_props' => ['locale', 'timezone', 'translations', 'menu'],
         'share_file' => 'app/Http/Middleware/HandleInertiaRequests.php',
         'types_path' => 'resources/js/types',
@@ -305,6 +310,17 @@ describe('list pages', function () {
     it('translates every kit key in every locale', function () {
         $violations = [];
         $keys = listPagesSpec()['kit_lang_keys'];
+
+        foreach (listPagesSpec()['locale_env_files'] as $env) {
+            foreach (listPagesSpec()['locale_env_keys'] as $name) {
+                $locale = ruleEnvValue($env, $name);
+                $file = str_replace('*', (string) $locale, listPagesSpec()['lang_glob']);
+
+                if ($locale !== null && $locale !== '' && ! is_file(ruleProjectPath($file))) {
+                    $violations[] = ['subject' => $file, 'message' => sprintf('is missing, while %s in %s names %s — the pages would show their keys instead of their words', $name, $env, $locale)];
+                }
+            }
+        }
 
         foreach (ruleGlob(ruleProjectPath(listPagesSpec()['lang_glob'])) as $path) {
             $file = ltrim(substr($path, strlen(ruleProjectPath())), '/');
