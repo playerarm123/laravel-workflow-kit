@@ -33,14 +33,15 @@ final class StructureReader
     public const array KIT_CONTEXTS = ['Shared', 'Audit', 'Auth', 'Concerns'];
 
     /**
-     * The kit's own value objects in the shared kernel (numbers.md), which no manifest lists.
+     * The kit's own enums and value objects in the shared kernel (numbers.md, dates.md), which no
+     * manifest lists.
      */
-    public const array KIT_SHARED = ['Money', 'Percent'];
+    public const array KIT_SHARED = ['Money', 'Percent', 'CalendarDate', 'CalendarPeriod', 'TimeOfDay', 'Duration', 'Weekday'];
 
     /**
      * The kit's own exceptions in the shared kernel (exceptions.md), which no manifest lists.
      */
-    public const array KIT_SHARED_EXCEPTIONS = ['DomainValueException', 'EntityNotFoundException', 'InvalidMoneyException', 'InvalidPercentException', 'RepositoryException'];
+    public const array KIT_SHARED_EXCEPTIONS = ['DomainValueException', 'EntityNotFoundException', 'InvalidMoneyException', 'InvalidPercentException', 'InvalidCalendarDateException', 'InvalidCalendarPeriodException', 'InvalidTimeOfDayException', 'InvalidDurationException', 'RepositoryException'];
 
     private const string DOMAIN_VALUE_EXCEPTION = 'App\Domain\Shared\Exceptions\DomainValueException';
 

@@ -150,7 +150,7 @@ describe('wiring', function () {
     it('wires the providers, the exception responses, the actor and the shared props', function () {
         $this->setup->wiring();
 
-        expect(($this->read)('bootstrap/providers.php'))->toContain('use App\Infra\Persistence\PersistenceServiceProvider;', '    KitServiceProvider::class,')
+        expect(($this->read)('bootstrap/providers.php'))->toContain('use App\Infra\Persistence\PersistenceServiceProvider;', 'use App\Infra\Time\TimeServiceProvider;', '    KitServiceProvider::class,', '    TimeServiceProvider::class,')
             ->and(($this->read)('bootstrap/app.php'))->toContain('ExceptionResponses::register($exceptions);', "            HandleInertiaRequests::class,\n            InitializeUserContext::class,")
             ->and(($this->read)('app/Providers/AppServiceProvider.php'))->toContain('Inertia::handleExceptionsUsing(ExceptionResponses::respond(...));')
             ->and(($this->read)('app/Http/Middleware/HandleInertiaRequests.php'))->toContain("'translations' => \$this->translations(),", 'private function messagesFor(string $locale): array')

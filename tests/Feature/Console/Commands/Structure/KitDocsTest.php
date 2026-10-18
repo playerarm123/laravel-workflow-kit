@@ -40,7 +40,7 @@ describe('KitDocs', function () {
                 ->and($guidelines['structure']['summary'])->toStartWith('The structure of the project is written down in .kit/structure/')
                 ->and($guidelines['layers']['title'])->toBe('Layers')
                 ->and($guidelines['handlers']['summary'])->toBe('A use-case handler is the only way into the application (layers.md). Every handler follows the same outline.')
-                ->and($guidelines['dates']['summary'])->toBe('A date the user reads is formatted in one file, pinned to one time zone.');
+                ->and($guidelines['dates']['summary'])->toBe('The domain holds time in a few kit types and asks one port what time it is. A date the user reads is formatted in one file, pinned to one time zone.');
         });
     });
 

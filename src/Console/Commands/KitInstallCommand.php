@@ -22,7 +22,7 @@ class KitInstallCommand extends Command
      * What a project wires by hand once, because no file of the kit can say it for the project.
      */
     private const array BY_HAND = [
-        'Register App\Infra\Audit\AuditServiceProvider and App\Providers\KitServiceProvider in bootstrap/providers.php',
+        'Register App\Infra\Audit\AuditServiceProvider, App\Infra\Time\TimeServiceProvider and App\Providers\KitServiceProvider in bootstrap/providers.php',
         'Import the kit\'s ESLint rules from vendor/playerarm123/laravel-workflow-kit/tests/ESLint in eslint.config.js',
         'Include vendor/playerarm123/laravel-workflow-kit/tests/PHPStan/write-path.php from phpstan.neon',
         'Add the Architecture testsuite (vendor/playerarm123/laravel-workflow-kit/tests/Architecture) to phpunit.xml',
