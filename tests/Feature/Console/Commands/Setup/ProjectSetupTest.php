@@ -133,7 +133,7 @@ describe('config', function () {
         $this->setup->config();
 
         expect(($this->read)('.env.example'))->toContain("\n\nDB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=5432", 'NIGHTWATCH_TOKEN=')
-            ->and(($this->read)('phpunit.xml'))->toContain('<env name="DB_CONNECTION" value="pgsql"/>', 'vendor/playerarm123/laravel-workflow-kit/tests/Architecture')
+            ->and(($this->read)('phpunit.xml'))->toContain('<env name="DB_CONNECTION" value="pgsql"/>', "<testsuite name=\"Browser\">\n            <directory>tests/Browser</directory>\n        </testsuite>", 'vendor/playerarm123/laravel-workflow-kit/tests/Architecture')
             ->and(($this->read)('phpstan.neon'))->toContain('tests/PHPStan/write-path.php')
             ->and(($this->read)('config/app.php'))->toContain("'currency' => env('APP_CURRENCY', 'USD')")
             ->and(($this->read)('vite.config.ts'))->toContain("'resources/js/app.tsx', 'resources/js/kit/structure.tsx'");

@@ -31,6 +31,8 @@ require_once __DIR__.'/Support/rules.php';
  *     repository_suffix: string,
  *     service_suffix: string,
  *     pest_file: string,
+ *     phpunit_file: string,
+ *     suites: array<string, string>,
  *     booted_suites: list<string>,
  *     unit_path: string,
  *     unit_forbidden: array<string, string>,
@@ -66,6 +68,9 @@ function testingSpec(): array
         'repository_suffix' => 'Repository',
         'service_suffix' => 'Service',
         'pest_file' => 'tests/Pest.php',
+        'phpunit_file' => 'phpunit.xml',
+        // Each suite php artisan test --testsuite= runs, with the folder it reads.
+        'suites' => ['Unit' => 'tests/Unit', 'Feature' => 'tests/Feature', 'Browser' => 'tests/Browser'],
         'booted_suites' => ['Feature', 'Browser'],
         'unit_path' => 'tests/Unit',
         'unit_forbidden' => [
@@ -330,6 +335,26 @@ describe('testing', function () {
         }
 
         expect(ruleUnexcused('testing', 'pest-config', $violations))->toBe([]);
+    });
+
+    it('registers every suite in phpunit.xml, on its folder', function () {
+        $file = testingSpec()['phpunit_file'];
+        $xml = is_file(ruleProjectPath($file)) ? simplexml_load_file(ruleProjectPath($file)) : false;
+        $violations = [];
+
+        if ($xml === false) {
+            $violations[] = ['subject' => $file, 'message' => 'is missing'];
+        } else {
+            foreach (testingSpec()['suites'] as $suite => $folder) {
+                $directories = array_map(fn ($directory): string => rtrim(trim((string) $directory), '/'), $xml->xpath(sprintf('//testsuites/testsuite[@name="%s"]/directory', $suite)) ?: []);
+
+                if (! in_array($folder, $directories, true)) {
+                    $violations[] = ['subject' => $file, 'message' => sprintf('has no <testsuite name="%s"> on %s — `php artisan test --testsuite=%s` finds no tests', $suite, $folder, $suite)];
+                }
+            }
+        }
+
+        expect(ruleUnexcused('testing', 'suites', $violations))->toBe([]);
     });
 
     it('keeps Unit tests away from Laravel', function () {

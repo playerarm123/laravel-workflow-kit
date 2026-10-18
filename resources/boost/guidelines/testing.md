@@ -65,6 +65,8 @@ A second file about one subject is merged into its mirror, as its own `describe(
 
 `tests/Unit` runs on the bare PHPUnit TestCase. `tests/Pest.php` binds `TestCase` and `RefreshDatabase` to `Feature` and `Browser` only. *Check `pest-config`.*
 
+`phpunit.xml` registers the `Unit`, `Feature` and `Browser` suites on `tests/Unit`, `tests/Feature` and `tests/Browser`, beside the kit's `Architecture` suite, so `php artisan test --testsuite=Browser` runs the pages' tests. *Check `suites`.*
+
 **Do** build the subject by hand in a Unit test: `XEntity::create(…)`, `XValue::from(…)`, `new XService`. *Check `unit-pure`.*
 
 **Don't** reach for Laravel in `tests/Unit`:

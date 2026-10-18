@@ -301,6 +301,16 @@ final class ProjectSetup
             $code = (string) preg_replace('#<env name="DB_CONNECTION" value="[^"]*"\s*/>#', sprintf('<env name="DB_CONNECTION" value="%s"/>', $this->database), $code);
             $code = (string) preg_replace('#<env name="DB_DATABASE" value=":memory:"\s*/>#', '<env name="DB_DATABASE" value="testing"/>', $code);
 
+            // The starter kit registers Unit and Feature; the pages' tests need theirs too.
+            if (preg_match('#<testsuite name="Browser"#', $code) !== 1) {
+                $code = (string) preg_replace(
+                    '#(\n(\s*)</testsuites>)#',
+                    "\n$2    <testsuite name=\"Browser\">\n$2        <directory>tests/Browser</directory>\n$2    </testsuite>$1",
+                    $code,
+                    1,
+                );
+            }
+
             if (! str_contains($code, self::ARCHITECTURE_SUITE)) {
                 $code = (string) preg_replace(
                     '#(\n(\s*)</testsuites>)#',
@@ -311,7 +321,7 @@ final class ProjectSetup
             }
 
             return $code;
-        });
+        }, need: ['<testsuite name="Browser"', self::ARCHITECTURE_SUITE], hint: 'register the Browser suite on tests/Browser and the Architecture suite on '.self::ARCHITECTURE_SUITE.' in phpunit.xml (testing.md)');
 
         if (! is_file($this->path('phpstan.neon'))) {
             $this->put('phpstan.neon', "includes:\n    - vendor/larastan/larastan/extension.neon\n    - ".self::PHPSTAN_INCLUDE."\n\nparameters:\n    paths:\n        - app/\n        - bootstrap/app.php\n        - config/\n        - database/\n        - routes/\n\n    level: 7\n");
