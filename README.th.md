@@ -14,7 +14,7 @@
 
 ## สิ่งที่ต้องมี
 
-- PHP 8.4, Composer และ Node 22
+- PHP 8.4, Composer และ Node 22.18 ขึ้นไป หรือ 24.11 ขึ้นไป (ช่วงที่ `vite-plus` ของ starter kit ต้องการ ถ้าเป็น 22 ที่เก่ากว่านี้ npm จะเตือน `EBADENGINE`)
 - เซิร์ฟเวอร์ PostgreSQL, MySQL หรือ MariaDB อย่างใดอย่างหนึ่ง kit ไม่รองรับ sqlite เพราะเทสต์ต้องรันบน engine เดียวกับ production
 - โปรเจกต์ที่สร้างจาก React starter kit ของ Laravel (Laravel 13, Inertia 3, React 19) ส่วน stack ที่เหลือ `kit:setup` จะจัดให้ตาม [`stack.md`](resources/boost/guidelines/stack.md) ซึ่ง Architecture suite ใช้ตรวจ
 - starter kit แบบไม่มี teams ถ้าโปรเจกต์สร้างจากแบบที่มี teams `kit:setup` จะหยุดก่อนแก้อะไรทั้งสิ้น เพราะ migration ของแบบนั้นผูกสมาชิกทีมกับ `users.id` ที่เป็น bigint ขณะที่ kit ใช้ uuid และโค้ดส่วนทีมก็ไม่ได้เขียนตามกฎของ kit ถ้าโปรเจกต์ต้องมีทีม ให้สร้างเองด้วย kit
