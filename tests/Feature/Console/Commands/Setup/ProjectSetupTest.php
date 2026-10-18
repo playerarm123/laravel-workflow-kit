@@ -250,6 +250,25 @@ describe('packageManager', function () {
     })->with([['package-lock.json', 'npm'], ['pnpm-lock.yaml', 'pnpm'], ['bun.lock', 'bun']]);
 });
 
+describe('teamsMarkerOf', function () {
+    it('finds nothing on the starter kit without teams', function () {
+        expect(ProjectSetup::teamsMarkerOf($this->project))->toBeNull();
+    });
+
+    it('names the file the teams variant ships', function (string $marker) {
+        File::ensureDirectoryExists(dirname($this->project.'/'.$marker));
+        file_put_contents($this->project.'/'.$marker, "<?php\n");
+
+        expect(ProjectSetup::teamsMarkerOf($this->project))->toBe($marker);
+    })->with(['app/Concerns/HasTeams.php', 'database/migrations/2026_01_27_000001_create_teams_table.php']);
+
+    it('leaves a Team model of the project\'s own alone', function () {
+        file_put_contents($this->project.'/app/Models/Team.php', "<?php\n");
+
+        expect(ProjectSetup::teamsMarkerOf($this->project))->toBeNull();
+    });
+});
+
 describe('pnpm-workspace.yaml', function () {
     it('leaves a pnpm-workspace.yaml beside another lockfile to the user, since tools read it as pnpm', function () {
         touch($this->project.'/package-lock.json');

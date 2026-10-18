@@ -83,6 +83,15 @@ final class ProjectSetup
 
     private const string PHPSTAN_INCLUDE = 'vendor/playerarm123/laravel-workflow-kit/tests/PHPStan/write-path.php';
 
+    /**
+     * Files only the starter kit's teams variant ships (its `teams` and `workos-teams` branches),
+     * at paths a project's own teams, written with the kit, would not take.
+     */
+    private const array TEAMS_MARKERS = [
+        'app/Concerns/HasTeams.php',
+        'database/migrations/2026_01_27_000001_create_teams_table.php',
+    ];
+
     /** @var array{changed: list<string>, manual: list<string>} */
     private array $result = ['changed' => [], 'manual' => []];
 
@@ -549,6 +558,22 @@ final class ProjectSetup
             is_file($projectPath.'/bun.lock') || is_file($projectPath.'/bun.lockb') => 'bun',
             default => 'npm',
         };
+    }
+
+    /**
+     * The file that shows the project at $projectPath was made from the starter kit's teams
+     * variant, or null. kit:setup does not set that variant up: its migrations key team members
+     * on the bigint users.id the users step turns into a uuid, so the first migrate fails.
+     */
+    public static function teamsMarkerOf(string $projectPath): ?string
+    {
+        foreach (self::TEAMS_MARKERS as $marker) {
+            if (is_file($projectPath.'/'.$marker)) {
+                return $marker;
+            }
+        }
+
+        return null;
     }
 
     private function start(): void
