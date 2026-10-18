@@ -34,9 +34,10 @@ function auditLogReader(): User
 }
 
 /**
- * A signed-in user AuditEntryPolicy refuses.
+ * A signed-in user AuditEntryPolicy refuses. Return null when the policy lets every signed-in
+ * user read the log: the kit's tests that need somebody it refuses then skip.
  */
-function auditLogOutsider(): User
+function auditLogOutsider(): ?User
 {
     return User::factory()->unverified()->create();
 }

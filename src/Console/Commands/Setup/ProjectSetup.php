@@ -237,7 +237,7 @@ final class ProjectSetup
          */
         $this->edit('tests/Pest.php', fn (string $code): string => PestFile::complete($code, (string) file_get_contents($this->kitPath.'/setup/tests/Pest.php')),
             need: ['function auditLogReader(', 'function auditLogOutsider('],
-            hint: "bind TestCase with RefreshDatabase to 'Feature' and 'Browser', and declare auditLogReader(): User and auditLogOutsider(): User (testing.md, audit-log.md)");
+            hint: "bind TestCase with RefreshDatabase to 'Feature' and 'Browser', and declare auditLogReader(): User and auditLogOutsider(): ?User (testing.md, audit-log.md)");
 
         if (is_file($this->path('tests/Pest.php')) && ! PestFile::bindsAsTheKitWants((string) file_get_contents($this->path('tests/Pest.php')))) {
             $this->result['manual'][] = "tests/Pest.php: bind TestCase with RefreshDatabase to 'Feature' and 'Browser' as ".str_replace("\n", ' ', PestFile::BINDING).' (testing.md)';

@@ -106,7 +106,7 @@ describe('files on a starter kit made with Pest', function () {
 
         expect($result['manual'])->toBe([])
             ->and($pest)->toContain("pest()->extend(TestCase::class)\n    ->use(RefreshDatabase::class)\n    ->in('Feature', 'Browser');")
-            ->and($pest)->toContain('use Illuminate\Foundation\Testing\RefreshDatabase;', 'use App\Models\User;', 'function auditLogReader(): User', 'function auditLogOutsider(): User', "expect()->extend('toBeOne'", 'function something()')
+            ->and($pest)->toContain('use Illuminate\Foundation\Testing\RefreshDatabase;', 'use App\Models\User;', 'function auditLogReader(): User', 'function auditLogOutsider(): ?User', "expect()->extend('toBeOne'", 'function something()')
             ->and($pest)->not->toContain("->in('Feature');");
     })->with(['pest-init.php', 'uses.php']);
 
