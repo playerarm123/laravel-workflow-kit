@@ -197,8 +197,19 @@ final class ProjectSetup
          * Tools that detect the package manager (shadcn's CLI among them) read pnpm-workspace.yaml
          * as pnpm before they read package-lock.json, then install with pnpm and leave a second
          * lockfile. packageManager in package.json outranks every lockfile.
+         *
+         * The starter kit's own file names the project alone as its one package, with settings
+         * only pnpm reads, so it goes. One that names other packages is a workspace somebody
+         * set up, and stays theirs to decide.
          */
-        if (is_file($this->path('pnpm-workspace.yaml')) && $this->packageManager() !== 'pnpm' && ! isset($package['packageManager'])) {
+        $workspace = $this->path('pnpm-workspace.yaml');
+
+        if (is_file($workspace) && $this->packageManager() !== 'pnpm' && ! isset($package['packageManager']) && self::isSinglePackageWorkspace((string) file_get_contents($workspace))) {
+            unlink($workspace);
+            $this->result['changed'][] = 'pnpm-workspace.yaml (removed)';
+        }
+
+        if (is_file($workspace) && $this->packageManager() !== 'pnpm' && ! isset($package['packageManager'])) {
             $this->result['manual'][] = sprintf(
                 'pnpm-workspace.yaml makes shadcn and other tools install with pnpm, while the project locks with %s: delete pnpm-workspace.yaml, or set "packageManager" in package.json (e.g. "%s@<version>")',
                 $this->packageManager(),
@@ -723,6 +734,20 @@ final class ProjectSetup
     private function writeJson(string $relative, array $data): void
     {
         $this->put($relative, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+    }
+
+    /**
+     * Whether a pnpm-workspace.yaml lists the project itself, `'.'`, as its only package.
+     */
+    private static function isSinglePackageWorkspace(string $yaml): bool
+    {
+        if (preg_match('/^packages:[ \t]*\n((?:[ \t]+-.*\n?)+)/m', $yaml, $match) !== 1) {
+            return false;
+        }
+
+        preg_match_all('/^[ \t]+-[ \t]*[\'"]?([^\'"\s#]*)[\'"]?/m', $match[1], $entries);
+
+        return $entries[1] === ['.'];
     }
 
     /**

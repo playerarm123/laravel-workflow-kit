@@ -344,6 +344,25 @@ describe('teamsMarkerOf', function () {
 });
 
 describe('pnpm-workspace.yaml', function () {
+    it('removes the starter kit\'s own pnpm-workspace.yaml from a project that locks with npm', function () {
+        touch($this->project.'/package-lock.json');
+        file_put_contents($this->project.'/pnpm-workspace.yaml', "packages:\n    - '.'\n\npublicHoistPattern:\n    - '@inertiajs/core'\n");
+
+        $result = $this->setup->npmDependencies();
+
+        expect($result['manual'])->toBe([])
+            ->and($result['changed'])->toContain('pnpm-workspace.yaml (removed)')
+            ->and($this->project.'/pnpm-workspace.yaml')->not->toBeFile();
+    });
+
+    it('leaves a workspace that names other packages to the user', function () {
+        touch($this->project.'/package-lock.json');
+        file_put_contents($this->project.'/pnpm-workspace.yaml', "packages:\n    - '.'\n    - 'packages/*'\n");
+
+        expect($this->setup->npmDependencies()['manual'])->toHaveCount(1)
+            ->and($this->project.'/pnpm-workspace.yaml')->toBeFile();
+    });
+
     it('leaves a pnpm-workspace.yaml beside another lockfile to the user, since tools read it as pnpm', function () {
         touch($this->project.'/package-lock.json');
         file_put_contents($this->project.'/pnpm-workspace.yaml', "packages: []\n");
