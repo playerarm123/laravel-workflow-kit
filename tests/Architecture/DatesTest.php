@@ -19,6 +19,23 @@ function datesSpec(): array
 {
     return [
         'kit_files' => [
+            'app/Domain/Shared/Enums/Weekday.php',
+            'app/Domain/Shared/ValueObjects/CalendarDate.php',
+            'app/Domain/Shared/ValueObjects/CalendarPeriod.php',
+            'app/Domain/Shared/ValueObjects/TimeOfDay.php',
+            'app/Domain/Shared/ValueObjects/Duration.php',
+            'app/Domain/Shared/Exceptions/InvalidCalendarDateException.php',
+            'app/Domain/Shared/Exceptions/InvalidCalendarPeriodException.php',
+            'app/Domain/Shared/Exceptions/InvalidTimeOfDayException.php',
+            'app/Domain/Shared/Exceptions/InvalidDurationException.php',
+            'app/Domain/Shared/Ports/Clock.php',
+            'app/Infra/Time/SystemClock.php',
+            'app/Infra/Time/TimeServiceProvider.php',
+            'tests/Unit/Domain/Shared/ValueObjects/CalendarDateTest.php',
+            'tests/Unit/Domain/Shared/ValueObjects/CalendarPeriodTest.php',
+            'tests/Unit/Domain/Shared/ValueObjects/TimeOfDayTest.php',
+            'tests/Unit/Domain/Shared/ValueObjects/DurationTest.php',
+            'tests/Feature/Infra/Time/SystemClockTest.php',
             'resources/js/lib/dates.ts',
             'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/dates.js',
             'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/Support/rules.js',

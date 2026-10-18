@@ -77,6 +77,7 @@ final class ProjectSetup
         'App\Providers\KitServiceProvider',
         'App\Infra\Audit\AuditServiceProvider',
         'App\Infra\Persistence\PersistenceServiceProvider',
+        'App\Infra\Time\TimeServiceProvider',
     ];
 
     private const string ARCHITECTURE_SUITE = 'vendor/playerarm123/laravel-workflow-kit/tests/Architecture';
