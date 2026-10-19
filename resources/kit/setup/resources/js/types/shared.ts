@@ -1,5 +1,5 @@
 import type { Auth } from '@/types/auth';
-import type { MenuItem } from '@/types/ui';
+import type { MenuEntry } from '@/types/ui';
 
 /**
  * The props HandleInertiaRequests::share() sends with every response.
@@ -18,5 +18,5 @@ export type SharedProps = {
     currency: string;
     translations: Record<string, string>;
     /** @see app/Http/Navigation.php — the main menu, already narrowed to what the user may open */
-    menu: MenuItem[];
+    menu: MenuEntry[];
 };

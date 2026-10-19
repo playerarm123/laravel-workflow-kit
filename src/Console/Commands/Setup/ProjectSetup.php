@@ -414,12 +414,15 @@ final class ProjectSetup
         $this->edit('app/Http/Middleware/HandleInertiaRequests.php', fn (string $code): string => SharedProps::menu($code),
             need: ["'menu' =>"], hint: "return 'menu' => fn (): array => \\App\\Http\\Navigation::for(\$request->user()) from share() (list-pages.md, \"Menu\")");
 
-        $this->edit('resources/js/types/shared.ts', fn (string $code): string => SharedProps::declareMenu($code),
-            need: ['menu: MenuItem[];'], hint: 'declare menu: MenuItem[] (from @/types/ui) in SharedProps');
+        $this->edit('app/Http/Navigation.php', fn (string $code): string => NavigationFile::upgrade($code),
+            need: ['use BuildsMainMenu;'], hint: 'use App\Http\Concerns\BuildsMainMenu in Navigation in place of its own item(), and return $this->menu([ … ]) (list-pages.md, "Menu")');
 
-        foreach (['resources/js/components/app-sidebar.tsx', 'resources/js/components/app-header.tsx'] as $nav) {
+        $this->edit('resources/js/types/shared.ts', fn (string $code): string => SharedProps::declareMenu($code),
+            need: ['menu: MenuEntry[];'], hint: 'declare menu: MenuEntry[] (from @/types/ui) in SharedProps');
+
+        foreach (['resources/js/components/app-sidebar.tsx' => '<MainNavSidebar items={mainNavItems} />', 'resources/js/components/app-header.tsx' => '<MainNavHeader items={mainNavItems} /> and <MainNavMobile items={mainNavItems} />'] as $nav => $draw) {
             $this->edit($nav, fn (string $code): string => MainNav::rewire($code),
-                need: ['useMainNavItems()'], hint: 'take the main menu from useMainNavItems() (@/hooks/use-main-nav-items) instead of a list of its own (list-pages.md, "Menu")');
+                need: ['useMainNavItems()', explode(' ', $draw)[0]], hint: sprintf('take the main menu from useMainNavItems() (@/hooks/use-main-nav-items) instead of a list of its own, and draw it with %s (list-pages.md, "Menu")', $draw));
         }
 
         $this->edit('resources/js/types/global.d.ts', fn (string $code): string => SharedProps::declare($code),
