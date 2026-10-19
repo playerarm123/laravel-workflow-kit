@@ -227,6 +227,16 @@ final class StructureMarkers
     }
 
     /**
+     * The text of the file that holds a marker, or null.
+     */
+    public function textOf(string $marker): ?string
+    {
+        $files = $this->filesWith($marker);
+
+        return count($files) === 1 ? StructureFiles::text($files[0]) : null;
+    }
+
+    /**
      * @return list<string>
      */
     private function filesWith(string $marker): array

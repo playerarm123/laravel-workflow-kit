@@ -90,6 +90,17 @@ final class StructureReader
     ) {}
 
     /**
+     * The groups the main menu declares (list-pages.md, "Menu"), which a resource's menu entry may
+     * sit in.
+     *
+     * @return list<array{key: string, title: string, icon: string}>
+     */
+    public function menuGroups(): array
+    {
+        return (new StructureMenu($this->root))->groups();
+    }
+
+    /**
      * Every context the project declares under app/Domain or app/Application, the kit's own aside.
      * The shared kernel is one of them, because its manifest lists its enums and value objects.
      *
@@ -248,7 +259,7 @@ final class StructureReader
      *
      * `menu` is there only when the main menu has an entry for the resource's list page.
      *
-     * @return array{resource: string, model: string|null, controller: array<string, list<string>>, actions: array<string, array{row: bool, bulk: bool, useCases: list<string>}>, policy: list<string>|null, pages: array<string, string>, menu?: array{title: string, icon: string}}
+     * @return array{resource: string, model: string|null, controller: array<string, list<string>>, actions: array<string, array{row: bool, bulk: bool, useCases: list<string>}>, policy: list<string>|null, pages: array<string, string>, menu?: array{title: string, icon: string, group?: string, description?: string}}
      */
     public function readResource(string $resource): array
     {
@@ -308,7 +319,11 @@ final class StructureReader
         $entry = $listPage === null ? null : (new StructureMenu($this->root))->entryFor(self::listRouteOf($listPage));
 
         if ($entry !== null) {
-            $read['menu'] = ['title' => $entry['title'], 'icon' => $entry['icon']];
+            $read['menu'] = [
+                'title' => $entry['title'],
+                'icon' => $entry['icon'],
+                ...array_filter(['group' => $entry['group'], 'description' => $entry['description']], fn (?string $value): bool => $value !== null),
+            ];
         }
 
         return $read;

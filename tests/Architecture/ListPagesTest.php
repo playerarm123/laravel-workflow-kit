@@ -5,6 +5,7 @@ require_once __DIR__.'/Support/rules.php';
 use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureFiles;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureMenu;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureReader;
 
 /**
  * The machine-checked half of list-pages.md — change the two together.
@@ -13,7 +14,8 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureMenu;
  * tests/ESLint/list-pages.js, proven by ListPagesEslintTest. This file checks what spans
  * files: the kit, its translations, the shape of every list page, where domain toolbars
  * live, that every TypeScript row and filter set mirrors its PHP twin key for key, and that
- * every list page has its entry in the main menu (app/Http/Navigation.php).
+ * every list page has its entry in the main menu (app/Http/Navigation.php), in the group its
+ * manifest names.
  *
  * @return array{
  *     kit_files: list<string>,
@@ -58,13 +60,17 @@ function listPagesSpec(): array
             'resources/js/types/pagination.ts',
             'resources/js/types/ui.ts',
             'resources/js/hooks/use-main-nav-items.tsx',
+            'resources/js/components/main-nav-sidebar.tsx',
+            'resources/js/components/main-nav-header.tsx',
+            'app/Http/Concerns/BuildsMainMenu.php',
             StructureMenu::FILE,
             'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/list-pages.js',
             'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/Support/rules.js',
         ],
         'shadcn_components' => [
-            'badge', 'button', 'calendar', 'checkbox', 'dialog', 'dropdown-menu', 'input',
-            'label', 'pagination', 'popover', 'select', 'table', 'tooltip',
+            'badge', 'button', 'calendar', 'checkbox', 'collapsible', 'dialog', 'dropdown-menu',
+            'input', 'label', 'navigation-menu', 'pagination', 'popover', 'select', 'sidebar',
+            'table', 'tooltip',
         ],
         'eslint_config' => 'eslint.config.js',
         'eslint_rules' => './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/list-pages.js',
@@ -183,6 +189,30 @@ function listPagesOutOfMenu(): array
     }
 
     return $pages;
+}
+
+/**
+ * The group each list page's resource manifest puts its menu entry in, null for none, for the
+ * list pages whose manifest has a menu entry.
+ *
+ * @return array<string, string|null> page path from the project root => group key
+ */
+function listPagesMenuGroups(): array
+{
+    $files = new StructureFiles(ruleProjectPath());
+    $groups = [];
+
+    foreach ($files->resources() as $resource) {
+        $manifest = $files->readResource($resource);
+        $menu = is_array($manifest) ? $manifest['menu'] ?? null : null;
+        $page = is_array($menu) && is_array($manifest['pages'] ?? null) ? StructureReader::listPageOf($manifest['pages']) : null;
+
+        if ($page !== null) {
+            $groups[listPagesSpec()['pages_path'].'/'.$page.'.tsx'] = is_string($menu['group'] ?? null) ? $menu['group'] : null;
+        }
+    }
+
+    return $groups;
 }
 
 /**
@@ -350,13 +380,25 @@ describe('list pages', function () {
         expect(ruleUnexcused('list-pages', 'lang-keys', $violations))->toBe([]);
     });
 
-    it('puts every list page in the main menu', function () {
+    it('puts every list page in the main menu, in the group its manifest names', function () {
         $menu = new StructureMenu(ruleProjectPath());
         $kept = listPagesOutOfMenu();
+        $groups = listPagesMenuGroups();
         $violations = [];
 
         foreach (listPagesListPages() as $page) {
-            if (in_array($page, $kept, true) || $menu->entryFor(listPagesRouteOf($page)) !== null) {
+            $entry = $menu->entryFor(listPagesRouteOf($page));
+
+            if ($entry !== null && array_key_exists($page, $groups) && $groups[$page] !== $entry['group']) {
+                $violations[] = ['subject' => $page, 'message' => sprintf(
+                    'sits in %s in %s, while its resource manifest puts it in %s — move the line, or change `"menu".group`',
+                    $entry['group'] === null ? 'no group' : "the group '{$entry['group']}'",
+                    StructureMenu::FILE,
+                    $groups[$page] === null ? 'no group' : "the group '{$groups[$page]}'",
+                )];
+            }
+
+            if (in_array($page, $kept, true) || $entry !== null) {
                 continue;
             }
 
@@ -368,6 +410,34 @@ describe('list pages', function () {
         }
 
         expect(ruleUnexcused('list-pages', 'menu', $violations))->toBe([]);
+    });
+
+    it('declares every menu group once, and gives each entry a group it declares', function () {
+        $menu = new StructureMenu(ruleProjectPath());
+        $declared = array_column($menu->groups(), 'key');
+        $violations = [];
+
+        foreach (array_count_values($declared) as $key => $count) {
+            if ($count > 1) {
+                $violations[] = ['subject' => StructureMenu::FILE, 'message' => sprintf("declares the group '%s' %d times — declare a group once, where it should sit", $key, $count)];
+            }
+
+            if (preg_match(StructureFiles::MENU_GROUP, (string) $key) !== 1) {
+                $violations[] = ['subject' => StructureMenu::FILE, 'message' => sprintf("declares the group '%s', whose key is not a lowercase slug such as finance", $key)];
+            }
+        }
+
+        if ($declared !== [] && ! $menu->supportsGroups()) {
+            $violations[] = ['subject' => StructureMenu::FILE, 'message' => 'declares groups without BuildsMainMenu, which draws them — run `php artisan kit:setup`'];
+        }
+
+        foreach ($menu->entries() as $entry) {
+            if ($entry['group'] !== null && ! in_array($entry['group'], $declared, true)) {
+                $violations[] = ['subject' => $entry['route'], 'message' => sprintf("sits in the group '%s', which %s does not declare — add \$this->group('%s', '{title key}', '{lucide icon}') where the group should sit", $entry['group'], StructureMenu::FILE, $entry['group'])];
+            }
+        }
+
+        expect(ruleUnexcused('list-pages', 'menu-group', $violations))->toBe([]);
     });
 
     it('shows a menu entry about a model only to whom its policy lets view the list', function () {
@@ -395,25 +465,43 @@ describe('list pages', function () {
         $known = listPagesLucideIcons();
         $violations = [];
 
-        foreach ($known === null ? [] : (new StructureMenu(ruleProjectPath()))->entries() as $entry) {
-            if (! in_array($entry['icon'], $known, true)) {
-                $violations[] = ['subject' => $entry['route'], 'message' => sprintf('shows the icon "%s", which lucide-react does not have — pick a kebab-case name from lucide.dev', $entry['icon'])];
+        $menu = new StructureMenu(ruleProjectPath());
+        $lines = [
+            ...array_map(fn (array $entry): array => ['subject' => $entry['route'], 'icon' => $entry['icon']], $menu->entries()),
+            ...array_map(fn (array $group): array => ['subject' => "group '{$group['key']}'", 'icon' => $group['icon']], $menu->groups()),
+        ];
+
+        foreach ($known === null ? [] : $lines as $line) {
+            if (! in_array($line['icon'], $known, true)) {
+                $violations[] = ['subject' => $line['subject'], 'message' => sprintf('shows the icon "%s", which lucide-react does not have — pick a kebab-case name from lucide.dev', $line['icon'])];
             }
         }
 
         expect(ruleUnexcused('list-pages', 'menu-icon', $violations))->toBe([]);
     });
 
-    it('translates every menu title in every locale', function () {
+    it('translates every menu title, group title and description in every locale', function () {
         $violations = [];
 
         foreach (ruleGlob(ruleProjectPath(listPagesSpec()['lang_glob'])) as $path) {
             $file = ltrim(substr($path, strlen(ruleProjectPath())), '/');
             $translations = ruleReadJson($file);
 
-            foreach ((new StructureMenu(ruleProjectPath()))->entries() as $entry) {
+            $menu = new StructureMenu(ruleProjectPath());
+
+            foreach ($menu->entries() as $entry) {
                 if (! is_string($translations[$entry['title']] ?? null)) {
                     $violations[] = ['subject' => $file, 'message' => sprintf('is missing the menu title "%s"', $entry['title'])];
+                }
+
+                if ($entry['description'] !== null && ! is_string($translations[$entry['description']] ?? null)) {
+                    $violations[] = ['subject' => $file, 'message' => sprintf('is missing the menu description "%s"', $entry['description'])];
+                }
+            }
+
+            foreach ($menu->groups() as $group) {
+                if (! is_string($translations[$group['title']] ?? null)) {
+                    $violations[] = ['subject' => $file, 'message' => sprintf('is missing the menu group title "%s"', $group['title'])];
                 }
             }
         }

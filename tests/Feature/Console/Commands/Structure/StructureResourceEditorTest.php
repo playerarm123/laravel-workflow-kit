@@ -146,6 +146,15 @@ describe('StructureResourceEditor', function () {
                 ->and(samplingRouteManifest())->not->toHaveKey('menu');
         });
 
+        it('puts the list page in a group of the menu, with a description', function () {
+            $editor = samplingRouteEditor();
+            $editor->saveResource(SAMPLING_ROUTE_CASE, samplingRouteVersion(), SAMPLING_ROUTE_CASE, ['viewAny']);
+
+            expect($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), true, 'sampling-route-cases.title', 'briefcase', 'casework', 'sampling-route-cases.menu_description'))->toBe([])
+                ->and(samplingRouteManifest()['menu'])->toBe(['title' => 'sampling-route-cases.title', 'icon' => 'briefcase', 'group' => 'casework', 'description' => 'sampling-route-cases.menu_description'])
+                ->and($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), true, 'sampling-route-cases.title', 'briefcase', 'Case work', 'Every case'))->toHaveKeys(['group', 'description']);
+        });
+
         it('refuses an entry that does not fit, under the field that holds it', function () {
             $editor = samplingRouteEditor();
 

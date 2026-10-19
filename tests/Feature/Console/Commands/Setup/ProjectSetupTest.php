@@ -192,15 +192,42 @@ describe('wiring', function () {
 
         expect($this->project.'/app/Http/Navigation.php')->toBeFile()
             ->and(($this->read)('app/Http/Middleware/HandleInertiaRequests.php'))->toContain("'menu' => fn (): array => \\App\\Http\\Navigation::for(\$request->user()),")
-            ->and(($this->read)('resources/js/types/shared.ts'))->toContain('menu: MenuItem[];');
+            ->and(($this->read)('resources/js/types/shared.ts'))->toContain('menu: MenuEntry[];');
 
         foreach (['app-sidebar', 'app-header'] as $component) {
             $code = ($this->read)("resources/js/components/{$component}.tsx");
 
             expect($code)->toContain("import { useMainNavItems } from '@/hooks/use-main-nav-items';", '    const mainNavItems = useMainNavItems();')
                 ->not->toContain('const mainNavItems: NavItem[]')
-                ->not->toContain('LayoutGrid');
+                ->not->toContain('LayoutGrid')
+                ->not->toContain('mainNavItems.map(');
         }
+
+        expect(($this->read)('resources/js/components/app-sidebar.tsx'))->toContain("import { MainNavSidebar } from '@/components/main-nav-sidebar';", '<MainNavSidebar items={mainNavItems} />')
+            ->not->toContain('NavMain')
+            ->and(($this->read)('resources/js/components/app-header.tsx'))->toContain("import { MainNavHeader, MainNavMobile } from '@/components/main-nav-header';", '<MainNavHeader items={mainNavItems} />', "<MainNavMobile\n                                                items={mainNavItems}\n                                            />")
+            ->not->toContain('activeItemStyles')
+            ->not->toContain('useCurrentUrl')
+            ->not->toContain('navigationMenuTriggerStyle')
+            ->not->toContain('import { cn, toUrl }');
+    });
+
+    it('brings a project set up before menu groups onto them, as a fresh one gets them', function () {
+        $this->setup->files();
+        $this->setup->wiring();
+        $fresh = array_map($this->read, $files = [
+            'app/Http/Navigation.php',
+            'resources/js/types/shared.ts',
+            'resources/js/components/app-sidebar.tsx',
+            'resources/js/components/app-header.tsx',
+        ]);
+
+        foreach ($files as $file) {
+            copy(dirname(__DIR__, 4).'/Fixtures/BeforeMenuGroups/'.$file, $this->project.'/'.$file);
+        }
+
+        expect($this->setup->wiring()['manual'])->toBe([])
+            ->and(array_map($this->read, $files))->toBe($fresh);
     });
 
     it('adds the menu to a project set up before the menu existed', function () {
@@ -209,7 +236,7 @@ describe('wiring', function () {
         $middleware = ($this->read)('app/Http/Middleware/HandleInertiaRequests.php');
         file_put_contents($this->project.'/app/Http/Middleware/HandleInertiaRequests.php', str_replace("            'menu' => fn (): array => \\App\\Http\\Navigation::for(\$request->user()),\n", '', $middleware));
         $shared = ($this->read)('resources/js/types/shared.ts');
-        file_put_contents($this->project.'/resources/js/types/shared.ts', (string) preg_replace("/\n    \/\*\* @see app\/Http\/Navigation.php[^\n]*\n    menu: MenuItem\[\];|import type \{ MenuItem \} from '@\/types\/ui';\n/", '', $shared));
+        file_put_contents($this->project.'/resources/js/types/shared.ts', (string) preg_replace("/\n    \/\*\* @see app\/Http\/Navigation.php[^\n]*\n    menu: MenuEntry\[\];|import type \{ MenuEntry \} from '@\/types\/ui';\n/", '', $shared));
 
         $this->setup->wiring();
 
@@ -220,7 +247,7 @@ describe('wiring', function () {
     it('leaves a sidebar it cannot read the way it expects to the user', function () {
         file_put_contents($this->project.'/resources/js/components/app-sidebar.tsx', "export function AppSidebar() {\n    return null;\n}\n");
 
-        expect($this->setup->wiring()['manual'])->toContain('resources/js/components/app-sidebar.tsx: take the main menu from useMainNavItems() (@/hooks/use-main-nav-items) instead of a list of its own (list-pages.md, "Menu")');
+        expect($this->setup->wiring()['manual'])->toContain('resources/js/components/app-sidebar.tsx: take the main menu from useMainNavItems() (@/hooks/use-main-nav-items) instead of a list of its own, and draw it with <MainNavSidebar items={mainNavItems} /> (list-pages.md, "Menu")');
     });
 
     it('leaves a file it cannot read the way it expects to the user', function () {

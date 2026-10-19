@@ -341,6 +341,35 @@ describe('StructurePlanner', function () {
                 ->and($done)->toBe(StructurePlanner::DONE);
         });
 
+        it('waits to put a list page in its menu group until the group is declared, then writes it into the group', function () {
+            $files = new StructureFiles(base_path());
+            $files->writeResource([...$files->readResource(SAMPLING_PLAN_MODEL), 'menu' => ['title' => 'sampling-sacks.title', 'icon' => 'package', 'group' => 'stock', 'description' => 'sampling-sacks.menu_description']]);
+            $page = base_path('resources/js/pages/sampling-sacks/index.tsx');
+            $policy = app_path('Policies/'.SAMPLING_PLAN_MODEL.'Policy.php');
+            $navigation = samplingPlanMarkersRoot().'/app/Http/Navigation.php';
+
+            try {
+                File::ensureDirectoryExists(dirname($page));
+                File::put($page, "export default function Index() {}\n");
+                File::put($policy, "<?php\n\nnamespace App\\Policies;\n\nclass ".SAMPLING_PLAN_MODEL."Policy\n{\n    public function viewAny(): bool { return true; }\n}\n");
+                File::ensureDirectoryExists(dirname($navigation));
+                File::put($navigation, "<?php\n\nreturn array_values(array_filter([\n    // kit:menu\n]));\n");
+                $flat = samplingPlanSteps()['menu sampling-sacks.index'];
+                File::put($navigation, "<?php\n\nuse App\\Http\\Concerns\\BuildsMainMenu;\n\nreturn \$this->menu([\n    // kit:menu\n]);\n");
+                $undeclared = samplingPlanSteps()['menu sampling-sacks.index'];
+                File::put($navigation, "<?php\n\nuse App\\Http\\Concerns\\BuildsMainMenu;\n\nreturn \$this->menu([\n    \$this->group('stock', 'nav.stock', 'boxes'),\n    // kit:menu\n]);\n");
+                $ready = samplingPlanSteps()['menu sampling-sacks.index'];
+            } finally {
+                File::deleteDirectory(dirname($page));
+                File::delete($policy);
+                File::deleteDirectory(samplingPlanMarkersRoot().'/app');
+            }
+
+            expect($flat)->toBe([StructurePlanner::WAITING, 'kit:setup comes first: it brings app/Http/Navigation.php onto menu groups'])
+                ->and($undeclared)->toBe([StructurePlanner::WAITING, "the group 'stock' comes first: declare it in app/Http/Navigation.php with \$this->group('stock', '{title key}', '{lucide icon}')"])
+                ->and($ready)->toBe([StructurePlanner::READY, "\$this->item('sampling-sacks.title', 'sampling-sacks.index', 'package', \\App\\Models\\".SAMPLING_PLAN_MODEL."::class, group: 'stock', description: 'sampling-sacks.menu_description'),  (above // kit:menu)"]);
+        });
+
         it('waits to put a list page in the menu until its route is registered', function () {
             $files = new StructureFiles(base_path());
             $files->writeResource([...$files->readResource(SAMPLING_PLAN_MODEL), 'menu' => ['title' => 'sampling-sacks.title', 'icon' => 'package']]);

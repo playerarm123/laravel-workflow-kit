@@ -121,13 +121,15 @@ final class StructureResourceEditor
     }
 
     /**
-     * Puts the resource's list page in the main menu with a title and an icon, keeps it out with
-     * `"menu": null` (`$inMenu` false), or says nothing about it (`$inMenu` null), which leaves
-     * the list page to the `menu` check (list-pages.md, "Menu").
+     * Puts the resource's list page in the main menu with a title and an icon, and when given, the
+     * group it sits in and a description, keeps it out with `"menu": null` (`$inMenu` false), or
+     * says nothing about it (`$inMenu` null), which leaves the list page to the `menu` check
+     * (list-pages.md, "Menu"). A group Navigation.php does not declare yet is kept: kit:plan
+     * waits for it as for any other missing piece.
      *
      * @return array<string, list<string>> what is wrong, by field; empty when it was written
      */
-    public function saveMenu(string $resource, string $version, ?bool $inMenu, ?string $title, ?string $icon): array
+    public function saveMenu(string $resource, string $version, ?bool $inMenu, ?string $title, ?string $icon, ?string $group = null, ?string $description = null): array
     {
         $manifest = $this->manifest($resource);
         $refused = $this->refusal($resource, $manifest, $version);
@@ -162,6 +164,14 @@ final class StructureResourceEditor
             $errors['icon'][] = 'The icon is a lucide icon name in kebab-case, such as store or layout-grid.';
         }
 
+        if ($group !== null && preg_match(StructureFiles::MENU_GROUP, $group) !== 1) {
+            $errors['group'][] = 'The group is the key Navigation.php declares it with, such as finance.';
+        }
+
+        if ($description !== null && preg_match('/^[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)+$/', $description) !== 1) {
+            $errors['description'][] = 'The description is a translation key, such as merchants.menu_description.';
+        }
+
         if (! in_array('viewAny', is_array($manifest['policy']) ? $manifest['policy'] : [], true)) {
             $errors['inMenu'][] = 'The menu asks the policy\'s viewAny who sees the entry, so add viewAny to the policy first.';
         }
@@ -170,7 +180,10 @@ final class StructureResourceEditor
             return $errors;
         }
 
-        $manifest['menu'] = ['title' => (string) $title, 'icon' => (string) $icon];
+        $manifest['menu'] = array_filter(
+            ['title' => (string) $title, 'icon' => (string) $icon, 'group' => $group, 'description' => $description],
+            fn (?string $value): bool => $value !== null,
+        );
 
         return $this->write($resource, $manifest);
     }

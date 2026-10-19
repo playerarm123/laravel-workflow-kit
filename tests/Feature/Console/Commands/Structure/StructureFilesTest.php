@@ -516,14 +516,24 @@ JSON)
                 ->and($this->files->resourceProblems('Crate', [...$resource, 'menu' => ['title' => 'crates.title', 'icon' => 'package']]))->toBe([]);
         });
 
+        it('writes the group and the description of a menu entry when it has them', function () {
+            $resource = ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => []];
+            $menu = ['description' => 'crates.menu_description', 'group' => 'stock', 'icon' => 'package', 'title' => 'crates.title'];
+
+            expect($this->files->encodeResource([...$resource, 'menu' => $menu]))->toContain("\"menu\": {\n        \"title\": \"crates.title\",\n        \"icon\": \"package\",\n        \"group\": \"stock\",\n        \"description\": \"crates.menu_description\"\n    }")
+                ->and($this->files->resourceProblems('Crate', [...$resource, 'menu' => $menu]))->toBe([]);
+        });
+
         it('refuses a menu that is not a title key and a kebab-case icon', function (mixed $menu) {
             expect($this->files->resourceProblems('Crate', ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => [], 'menu' => $menu]))
-                ->toBe(['"menu" must be {"title": "a translation key", "icon": "a kebab-case lucide icon"}, or null to keep the list page out of the menu']);
+                ->toBe(['"menu" must be {"title": "a translation key", "icon": "a kebab-case lucide icon"}, with an optional "group" (the key of a group Navigation.php declares) and "description" (a translation key), or null to keep the list page out of the menu']);
         })->with([
             'no icon' => [['title' => 'crates.title']],
             'a PascalCase icon' => [['title' => 'crates.title', 'icon' => 'Package']],
             'a title that is not a key' => [['title' => 'Crates', 'icon' => 'package']],
             'an extra key' => [['title' => 'crates.title', 'icon' => 'package', 'order' => 1]],
+            'a group that is not a key' => [['title' => 'crates.title', 'icon' => 'package', 'group' => 'Stock room']],
+            'a description that is not a translation key' => [['title' => 'crates.title', 'icon' => 'package', 'description' => 'Every crate']],
             'true' => [true],
         ]);
 

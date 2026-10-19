@@ -181,7 +181,14 @@ export type ResourceManifest = {
     policy: string[] | null;
     pages: Partial<Record<string, PageKind>>;
     /** The list page's main menu entry; null keeps it out; absent says nothing yet. */
-    menu?: { title: string; icon: string } | null;
+    menu?: {
+        title: string;
+        icon: string;
+        /** The key of the group it sits in, as Navigation.php declares it */
+        group?: string;
+        /** A translation key */
+        description?: string;
+    } | null;
 };
 
 export type StructureGraph = {
@@ -199,6 +206,8 @@ export type StructureGraph = {
     childrenBuilt: Partial<Record<string, string[]>>;
     outOfStep: Partial<Record<string, string[]>>;
     resourceOutOfStep: Partial<Record<string, string[]>>;
+    /** The groups app/Http/Navigation.php declares, which a menu entry may sit in */
+    menuGroups: { key: string; title: string; icon: string }[];
 };
 
 /**

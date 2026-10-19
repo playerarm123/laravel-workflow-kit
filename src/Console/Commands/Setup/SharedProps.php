@@ -77,17 +77,27 @@ final class SharedProps
     }
 
     /**
-     * Adds the menu to the SharedProps type of a shared.ts written before the menu existed.
+     * Adds the menu to the SharedProps type of a shared.ts written before the menu existed, and
+     * widens the flat `MenuItem[]` of one written before menu groups to `MenuEntry[]`.
      */
     public static function declareMenu(string $code): string
     {
+        if (preg_match('/^\s*menu: MenuItem\[\];$/m', $code) === 1) {
+            $code = (string) preg_replace('/^(\s*)menu: MenuItem\[\];$/m', '$1menu: MenuEntry[];', $code, 1);
+            $import = "/^import type \{ MenuItem \} from '@\/types\/ui';$/m";
+
+            return preg_match('/\bMenuItem\b/', (string) preg_replace($import, '', $code)) === 1
+                ? (string) preg_replace("/^import type \{ ([^}]*) \} from '@\/types\/ui';$/m", "import type { MenuEntry, $1 } from '@/types/ui';", $code, 1)
+                : (string) preg_replace("/^import type \{ MenuItem \} from '@\/types\/ui';$/m", "import type { MenuEntry } from '@/types/ui';", $code, 1);
+        }
+
         if (preg_match('/^\s*menu: /m', $code) === 1) {
             return $code;
         }
 
-        $code = (string) preg_replace("/^(import type \{ Auth \} from '@\/types\/auth';\n)/m", "$1import type { MenuItem } from '@/types/ui';\n", $code, 1);
+        $code = (string) preg_replace("/^(import type \{ Auth \} from '@\/types\/auth';\n)/m", "$1import type { MenuEntry } from '@/types/ui';\n", $code, 1);
 
-        return (string) preg_replace('/(\n    translations: Record<string, string>;\n)(\};)/', "$1    /** @see app/Http/Navigation.php — the main menu, already narrowed to what the user may open */\n    menu: MenuItem[];\n$2", $code, 1);
+        return (string) preg_replace('/(\n    translations: Record<string, string>;\n)(\};)/', "$1    /** @see app/Http/Navigation.php — the main menu, already narrowed to what the user may open */\n    menu: MenuEntry[];\n$2", $code, 1);
     }
 
     /**
