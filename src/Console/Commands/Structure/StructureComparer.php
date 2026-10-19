@@ -435,7 +435,11 @@ final class StructureComparer
 
         if (is_array($menu)) {
             $pages = is_array($manifest['pages'] ?? null) ? $manifest['pages'] : [];
-            $entries['menu.'.(StructureReader::listPageOf($pages) ?? '')] = ['title' => $menu['title'] ?? null, 'icon' => $menu['icon'] ?? null];
+            $entries['menu.'.(StructureReader::listPageOf($pages) ?? '')] = [
+                'title' => $menu['title'] ?? null,
+                'icon' => $menu['icon'] ?? null,
+                ...array_filter(['group' => $menu['group'] ?? null, 'description' => $menu['description'] ?? null], fn (mixed $value): bool => $value !== null),
+            ];
         }
 
         return $entries;

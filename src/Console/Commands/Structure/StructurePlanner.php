@@ -649,20 +649,24 @@ final class StructurePlanner
 
     /**
      * The list page's line in the main menu (list-pages.md, "Menu"), done once the menu has an
-     * entry for its route, whatever its title or icon. It waits for the route, the page and the
-     * policy's viewAny, which the entry asks.
+     * entry for its route, whatever its title, icon or group. It waits for the route, the page and
+     * the policy's viewAny, which the entry asks, and for the group it names to be declared.
      *
-     * @param  array{title: string, icon: string}  $menu
+     * @param  array{title: string, icon: string, group?: string, description?: string}  $menu
      * @return PlannedStep
      */
     private function menuStep(string $resource, string $model, string $listPage, array $menu): array
     {
         $route = StructureReader::listRouteOf($listPage);
+        $group = $menu['group'] ?? null;
+        $navigation = $this->markers->textOf(StructureMarkers::MENU) ?? '';
         $done = $this->markers->matches(StructureMarkers::MENU, '/->item\\(\\s*([\'"])[^\'"]+\\1\\s*,\\s*([\'"])'.preg_quote($route, '/').'\\2/');
         $waiting = match (true) {
             ! in_array('index', $this->markers->resourceMethods("{$model}Controller") ?? [], true) => 'its route comes first',
             ! is_file($this->pagePath($listPage)) => 'its list page comes first',
             ! in_array('viewAny', $this->publicMethodsOf($this->rootOf()."/app/Policies/{$model}Policy.php"), true) => "{$model}Policy::viewAny() comes first: the menu asks it who sees the entry",
+            $group !== null && ! StructureMenu::groupsIn($navigation) => 'kit:setup comes first: it brings '.StructureMenu::FILE.' onto menu groups',
+            $group !== null && ! in_array($group, array_column(StructureMenu::parseGroups($navigation), 'key'), true) => sprintf("the group '%s' comes first: declare it in %s with \$this->group('%s', '{title key}', '{lucide icon}')", $group, StructureMenu::FILE, $group),
             default => null,
         };
 
@@ -675,7 +679,7 @@ final class StructurePlanner
             'command' => null,
             'arguments' => [],
             'marker' => StructureMarkers::MENU,
-            'line' => StructureMenu::line($menu['title'], $route, $menu['icon'], "App\\Models\\{$model}"),
+            'line' => StructureMenu::line($menu['title'], $route, $menu['icon'], "App\\Models\\{$model}", $group, $menu['description'] ?? null),
             'nodes' => ["page:{$resource}/{$listPage}"],
             'swap' => null,
         ];

@@ -406,6 +406,27 @@ describe('StructureReader', function () {
             }
         });
 
+        it('reads the group and the description of a menu entry, and lets sync take a change of group', function () {
+            $navigation = base_path('app/Http/Navigation.php');
+            $before = (string) file_get_contents($navigation);
+            $files = new StructureFiles(base_path());
+            $sync = new StructureSync($files, $this->reader);
+            file_put_contents($navigation, str_replace('// kit:menu', "\$this->group('stock', 'nav.stock', 'boxes'),\n            \$this->item('sampling-trays.title', 'sampling-trays.index', 'package', \\App\\Models\\SamplingTray::class, group: 'stock', description: 'sampling-trays.menu_description'),\n            // kit:menu", $before));
+
+            try {
+                $read = $this->reader->readResource('SamplingTray');
+                $files->writeResource([...$read, 'menu' => ['title' => 'sampling-trays.title', 'icon' => 'package']]);
+                $synced = $sync->syncResource('SamplingTray');
+
+                expect($read['menu'] ?? null)->toBe(['title' => 'sampling-trays.title', 'icon' => 'package', 'group' => 'stock', 'description' => 'sampling-trays.menu_description'])
+                    ->and($synced['manifest']['menu'])->toBe($read['menu'])
+                    ->and($synced['changes'])->toBe(['menu: group null → "stock", description null → "sampling-trays.menu_description"']);
+            } finally {
+                file_put_contents($navigation, $before);
+                File::delete($files->resourcePath('SamplingTray'));
+            }
+        });
+
         it('lets sync take the menu entry from the code, and keep one the code does not have yet', function () {
             $navigation = base_path('app/Http/Navigation.php');
             $before = (string) file_get_contents($navigation);

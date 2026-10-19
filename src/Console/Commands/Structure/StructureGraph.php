@@ -61,9 +61,10 @@ final class StructureGraph
      * `entityStateBuilt` each property of an entity's state the code already has, as
      * `{Entity}.{property}`, and `childrenBuilt` each child entity, as `{Aggregate}.{Child}`.
      * `outOfStep` and `resourceOutOfStep` name each built entry the code describes another way, by
-     * the path StructureSync takes it back from the code with.
+     * the path StructureSync takes it back from the code with. `menuGroups` are the groups the
+     * main menu declares, which a resource's menu entry may sit in.
      *
-     * @return array{overview: View, contexts: array<string, View>, resources: array<string, View>, byHand: list<Difference>, manifests: array<string, array<string, mixed>>, versions: array<string, string>, resourceManifests: array<string, array<string, mixed>>, resourceVersions: array<string, string>, resourceBuilt: array<string, list<string>>, entityMethodsBuilt: array<string, list<string>>, entityStateBuilt: array<string, list<string>>, childrenBuilt: array<string, list<string>>, outOfStep: array<string, list<string>>, resourceOutOfStep: array<string, list<string>>}
+     * @return array{overview: View, contexts: array<string, View>, resources: array<string, View>, byHand: list<Difference>, manifests: array<string, array<string, mixed>>, versions: array<string, string>, resourceManifests: array<string, array<string, mixed>>, resourceVersions: array<string, string>, resourceBuilt: array<string, list<string>>, entityMethodsBuilt: array<string, list<string>>, entityStateBuilt: array<string, list<string>>, childrenBuilt: array<string, list<string>>, outOfStep: array<string, list<string>>, resourceOutOfStep: array<string, list<string>>, menuGroups: list<array{key: string, title: string, icon: string}>}
      */
     public function graph(): array
     {
@@ -126,6 +127,7 @@ final class StructureGraph
             'childrenBuilt' => $childrenBuilt,
             'outOfStep' => $outOfStep,
             'resourceOutOfStep' => $resourceOutOfStep,
+            'menuGroups' => $this->reader->menuGroups(),
         ];
     }
 

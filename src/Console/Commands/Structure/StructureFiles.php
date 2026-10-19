@@ -21,6 +21,9 @@ final class StructureFiles
      */
     public const array RESOURCE_KEYS = ['resource', 'model', 'controller', 'actions', 'policy', 'pages', 'menu'];
 
+    /** The key of a main menu group, as `$this->group('{key}', …)` declares it. */
+    public const string MENU_GROUP = '/^[a-z][a-z0-9_-]*$/';
+
     public const array PAGE_KINDS = ['table', 'grid', 'form', 'page'];
 
     /**
@@ -724,7 +727,11 @@ final class StructureFiles
          */
         if (array_key_exists('menu', $manifest)) {
             $menu = $manifest['menu'];
-            $document['menu'] = is_array($menu) ? (object) ['title' => $menu['title'] ?? null, 'icon' => $menu['icon'] ?? null] : null;
+            $document['menu'] = is_array($menu) ? (object) array_filter(
+                ['title' => $menu['title'] ?? null, 'icon' => $menu['icon'] ?? null, 'group' => $menu['group'] ?? null, 'description' => $menu['description'] ?? null],
+                fn (mixed $value, string $key): bool => $value !== null || in_array($key, ['title', 'icon'], true),
+                ARRAY_FILTER_USE_BOTH,
+            ) : null;
         }
 
         return json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n";
@@ -732,16 +739,21 @@ final class StructureFiles
 
     /**
      * Whether a value is a menu entry: a translation key for its title and a kebab-case lucide
-     * icon name, nothing else.
+     * icon name, and, when it has them, the key of the group it sits in and the translation key
+     * of its description. Nothing else.
      *
-     * @phpstan-assert-if-true array{title: string, icon: string} $menu
+     * @phpstan-assert-if-true array{title: string, icon: string, group?: string, description?: string} $menu
      */
     public static function isMenuEntry(mixed $menu): bool
     {
+        $key = '/^[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)+$/';
+
         return is_array($menu)
-            && array_diff(array_keys($menu), ['title', 'icon']) === []
-            && is_string($menu['title'] ?? null) && preg_match('/^[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)+$/', $menu['title']) === 1
-            && is_string($menu['icon'] ?? null) && preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $menu['icon']) === 1;
+            && array_diff(array_keys($menu), ['title', 'icon', 'group', 'description']) === []
+            && is_string($menu['title'] ?? null) && preg_match($key, $menu['title']) === 1
+            && is_string($menu['icon'] ?? null) && preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $menu['icon']) === 1
+            && (! array_key_exists('group', $menu) || (is_string($menu['group']) && preg_match(self::MENU_GROUP, $menu['group']) === 1))
+            && (! array_key_exists('description', $menu) || (is_string($menu['description']) && preg_match($key, $menu['description']) === 1));
     }
 
     /**
@@ -828,7 +840,7 @@ final class StructureFiles
         }
 
         if (array_key_exists('menu', $document) && $document['menu'] !== null && ! self::isMenuEntry($document['menu'])) {
-            $problems[] = '"menu" must be {"title": "a translation key", "icon": "a kebab-case lucide icon"}, or null to keep the list page out of the menu';
+            $problems[] = '"menu" must be {"title": "a translation key", "icon": "a kebab-case lucide icon"}, with an optional "group" (the key of a group Navigation.php declares) and "description" (a translation key), or null to keep the list page out of the menu';
         }
 
         return $problems;

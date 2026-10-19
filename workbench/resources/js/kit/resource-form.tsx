@@ -97,9 +97,9 @@ export function NewResourceForm({
 }
 
 /**
- * Puts the resource's list page in the main menu with a title and a lucide icon, or keeps it out
- * (list-pages.md, "Menu"). kit:apply writes the entry once the route, the page and the policy's
- * viewAny exist.
+ * Puts the resource's list page in the main menu with a title and a lucide icon, and optionally
+ * in a group and with a description, or keeps it out (list-pages.md, "Menu"). kit:apply writes
+ * the entry once the route, the page, the policy's viewAny and the group exist.
  */
 export function ResourceMenuForm({
     graph,
@@ -114,13 +114,22 @@ export function ResourceMenuForm({
 }) {
     const menu = graph.resourceManifests[resource]?.menu;
     const form = useHttp<
-        { version: string; inMenu: boolean; title: string; icon: string },
+        {
+            version: string;
+            inMenu: boolean;
+            title: string;
+            icon: string;
+            group: string;
+            description: string;
+        },
         { graph: StructureGraph }
     >({
         version: graph.resourceVersions[resource] ?? '',
         inMenu: menu !== null,
         title: menu?.title ?? '',
         icon: menu?.icon ?? 'list',
+        group: menu?.group ?? '',
+        description: menu?.description ?? '',
     });
     const { data, setData, errors } = form;
 
@@ -174,6 +183,40 @@ export function ResourceMenuForm({
                     onChange={(event) => setData('icon', event.target.value)}
                 />
                 <InputError message={errors.icon} />
+            </div>
+            <div className="space-y-1.5">
+                <Label htmlFor="resource-menu-group">
+                    Group, the key Navigation.php declares it with (optional)
+                </Label>
+                <Input
+                    id="resource-menu-group"
+                    list="resource-menu-groups"
+                    value={data.group}
+                    disabled={!data.inMenu}
+                    onChange={(event) => setData('group', event.target.value)}
+                />
+                <datalist id="resource-menu-groups">
+                    {graph.menuGroups.map((group) => (
+                        <option key={group.key} value={group.key}>
+                            {group.title}
+                        </option>
+                    ))}
+                </datalist>
+                <InputError message={errors.group} />
+            </div>
+            <div className="space-y-1.5">
+                <Label htmlFor="resource-menu-description">
+                    Description, as a translation key (optional)
+                </Label>
+                <Input
+                    id="resource-menu-description"
+                    value={data.description}
+                    disabled={!data.inMenu}
+                    onChange={(event) =>
+                        setData('description', event.target.value)
+                    }
+                />
+                <InputError message={errors.description} />
             </div>
             <Button type="submit" size="sm" disabled={form.processing}>
                 Save menu

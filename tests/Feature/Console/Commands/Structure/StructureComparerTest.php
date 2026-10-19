@@ -218,4 +218,13 @@ describe('resourceEntries menu', function () {
             ->and(StructureComparer::resourceEntries([...$resource, 'menu' => null]))->toBe(StructureComparer::resourceEntries($resource))
             ->and(StructureComparer::resourceNode('Crate', 'menu.crates/index'))->toBe('page:Crate/crates/index');
     });
+
+    it('compares the group and the description of a menu entry only when it has them', function () {
+        $resource = ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => ['crates/index' => 'table']];
+
+        expect(StructureComparer::resourceEntries([...$resource, 'menu' => ['title' => 'crates.title', 'icon' => 'package', 'group' => 'stock']]))
+            ->toHaveKey('menu.crates/index', ['title' => 'crates.title', 'icon' => 'package', 'group' => 'stock'])
+            ->and(StructureComparer::resourceEntries([...$resource, 'menu' => ['title' => 'crates.title', 'icon' => 'package', 'group' => null]]))
+            ->toBe(StructureComparer::resourceEntries([...$resource, 'menu' => ['title' => 'crates.title', 'icon' => 'package']]));
+    });
 });
