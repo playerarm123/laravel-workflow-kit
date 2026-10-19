@@ -14,13 +14,14 @@ Enforced by the package's `tests/Architecture/ListPagesTest.php` and by the pack
 
 These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`). `php artisan kit:install` writes the rest from the kit, and the check fails when one is missing or differs from the kit's copy.
 - `resources/js/hooks/use-list-query.ts`, `use-data-table.tsx`, `use-data-table-toolbar.ts`, `use-actions.ts`, `use-dialog.ts`, `use-translation.ts`, `use-main-nav-items.tsx`
-- `resources/js/components/dt-table.tsx`, `dt-toolbar.tsx`, `dialog.tsx`, `buttons.tsx`, `icons.tsx`, `heading.tsx`, `ui/date-range-picker.tsx`
+- `resources/js/components/dt-table.tsx`, `dt-toolbar.tsx`, `dialog.tsx`, `buttons.tsx`, `icons.tsx`, `heading.tsx`, `ui/date-range-picker.tsx`, `main-nav-sidebar.tsx`, `main-nav-header.tsx`
 - `resources/js/types/data-table.ts`, `pagination.ts`, `ui.ts`
+- `app/Http/Concerns/BuildsMainMenu.php`, which builds the main menu from its lines
 - `app/Http/Navigation.php`, the main menu. `kit:install` writes it once, and the project owns it from then on: the check only wants it there
 - *package:* `tests/ESLint/list-pages.js`, imported by `eslint.config.js` (*check `eslint`*), and the fixtures its proof lints in `tests/ESLint/Fixtures/`
 - *package:* `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through. Its `internalAlias`, spread in first, ranks an unresolved `@/` import as internal, so a generated page passes import/order before `wayfinder:generate` runs
 
-The kit builds on these shadcn components, added with `php artisan kit:ui-add <name>`, never `npx shadcn add` directly (stack.md): badge, button, calendar, checkbox, dialog, dropdown-menu, input, label, pagination, popover, select, table, tooltip.
+The kit builds on these shadcn components, added with `php artisan kit:ui-add <name>`, never `npx shadcn add` directly (stack.md): badge, button, calendar, checkbox, collapsible, dialog, dropdown-menu, input, label, navigation-menu, pagination, popover, select, sidebar, table, tooltip. The starter kit already ships collapsible, navigation-menu and sidebar, which the main menu draws with.
 
 ## Scaffold, never hand-write
 
@@ -37,25 +38,32 @@ The controller half is `php artisan make:controller {Name} --domain={Context} --
 
 ## Menu
 
-Every list page has its entry in the main menu. The menu has one home, `app/Http/Navigation.php`, one line per entry:
+Every list page has its entry in the main menu. The menu has one home, `app/Http/Navigation.php`, one line per entry, and one line per group that gathers entries under a heading:
 
 ```
-manifest "menu" → kit:apply → $this->item('{title key}', '{route}', '{lucide icon}', Model::class) above // kit:menu
-  → Navigation::for($user) keeps the entries the policy's viewAny allows → shared as `menu`
-  → useMainNavItems() → the starter kit's sidebar and header
+manifest "menu" → kit:apply → $this->item('{title key}', '{route}', '{lucide icon}', Model::class, group: '{key}') above // kit:menu
+  → Navigation::for($user) keeps the entries the policy's viewAny allows, nests each under its
+    $this->group('{key}', '{title key}', '{lucide icon}'), and drops a group left empty → shared as `menu`
+  → useMainNavItems() → MainNavSidebar (a heading that folds) and MainNavHeader (a dropdown)
 ```
+
+A group holds pages, never another group. It sits where its `group()` line sits, whatever the order of its entries' lines. The kit's `BuildsMainMenu` trait (`app/Http/Concerns`) does the nesting, so `Navigation.php` keeps only the lines.
 
 **Do**
 - Give the list page's resource manifest `"menu": {"title": "{folder}.title", "icon": "{lucide icon}"}` (structure.md), and run `php artisan kit:apply`: it writes the entry once the index route, the page and the policy's `viewAny` exist. The structure screen starts a new list page at `{folder}/index` in the menu. *Check `menu`.*
 - Keep a list page out of the menu on purpose with `"menu": null`, such as a list under a parent (`{a}/{b}/index`) that only opens from the parent's page. *Check `menu`.*
 - Name the model of an entry about one, so the menu asks its policy's `viewAny` who sees it. An entry without a model (the dashboard, a report) shows to everyone signed in. *Check `menu-ability`.*
-- Name the icon as lucide.dev does, in kebab-case. *Check `menu-icon`.*
-- Translate every title in every `lang/*.json`. *Check `lang-keys`.*
-- Share the menu as `menu` from `HandleInertiaRequests::share()` and draw it through `useMainNavItems()` in the sidebar and the header, as `kit:setup` wires them. *Check `shared-props`.*
+- Gather pages under a heading once the menu grows past what the header holds (about seven entries): declare the group once in `Navigation.php` with `$this->group('{key}', '{title key}', '{lucide icon}')`, and give the manifest's entry `"group": "{key}"`. `kit:plan` waits for the group's line before it writes the entry. *Check `menu-group`.*
+- Keep each entry in the group its manifest names. *Check `menu`.*
+- Give an entry in a group a `"description"` (a translation key) when its title alone does not say what it holds: the header's dropdown shows it under the title. *Review only.*
+- Name the icon of every entry and every group as lucide.dev does, in kebab-case. *Check `menu-icon`.*
+- Translate every title, group title and description in every `lang/*.json`. *Check `lang-keys`.*
+- Share the menu as `menu` from `HandleInertiaRequests::share()` and draw it through `useMainNavItems()` with `MainNavSidebar` in the sidebar and `MainNavHeader` / `MainNavMobile` in the header, as `kit:setup` wires them, so both layouts show the same groups and pages. *Check `shared-props`.*
 - Move the lines into the order the menu should read; keep `// kit:menu` as the last line of the list. *Review only.*
 
 **Don't**
 - Keep a list of menu entries anywhere else, such as a `mainNavItems` in the sidebar, or hide an entry in the client with `can`: the server already left out what the user may not open.
+- Put a group in a group, or declare one group twice. *Check `menu-group`.*
 - Call it `can`: Inertia merges the shared props and a page's own props shallowly, so a page's `can` would replace it.
 
 **Why:** a page with no way to reach it is not finished, and nothing on screen says so. Keeping the menu on the server lets the policy that guards the page decide who sees its link, and keeps the sidebar and the header from drifting apart.

@@ -152,7 +152,7 @@ It has a file of its own, because an entry point calls into more than one contex
   - `grid` when it renders `<InfiniteScroll`;
   - `form` when it imports a form from `@/components/*/form`;
   - `page` for anything else.
-- `menu`: the list page's entry in the main menu, its title's translation key and its lucide icon, read from `app/Http/Navigation.php`; `null` keeps the list page out of the menu on purpose; left out, the manifest says nothing yet (list-pages.md, "Menu").
+- `menu`: the list page's entry in the main menu, its title's translation key and its lucide icon, and when it has them the key of the `group` it sits in and the translation key of its `description`, read from `app/Http/Navigation.php`; `null` keeps the list page out of the menu on purpose; left out, the manifest says nothing yet (list-pages.md, "Menu"). For example `"menu": { "title": "invoices.title", "icon": "wallet", "group": "finance" }`.
 
 The starter kit's controllers (`App\Http\Controllers\Settings`) and the kit's own audit log page (`AuditEntry`) have no resource manifest.
 
