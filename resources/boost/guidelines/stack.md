@@ -35,6 +35,7 @@ Node runs on 22.18+ or 24.11+, the range the starter kit's `vite-plus` declares 
 
 | Need | Use | Never |
 |---|---|---|
+| Formatting and linting JavaScript | Prettier and ESLint, through the `format`, `lint` and `check` scripts. `kit:setup` points the starter kit's `check` and `check:fix` at them in place of `vp check`. *Check `js-tools`.* | `vp check`, `vp fmt`, `vp lint` (vite-plus's oxfmt and oxlint), oxlint, oxfmt, biome |
 | Merging class names | `cn()` from `@/lib/utils` (clsx 2 + tailwind-merge 3), the alias shadcn generates against. *Check `cn-import`.* | the `cn` package, classnames |
 | Tables | @tanstack/react-table 9 | ag-grid-*, react-data-table-component |
 | Diagrams | @xyflow/react 12 (React Flow), laid out with @dagrejs/dagre 3 | reactflow (its old name), dagre (the unscoped, unmaintained one), elkjs, mermaid, cytoscape, jointjs |
@@ -50,7 +51,7 @@ Node runs on 22.18+ or 24.11+, the range the starter kit's `vite-plus` declares 
 | Excel / CSV import-export | maatwebsite/excel 4 (Laravel Excel) | spatie/simple-excel, rap2hpoutre/fast-excel, phpoffice/phpspreadsheet required directly |
 | PDF | mpdf/mpdf 8, with the Thai font shipped in the project | barryvdh/laravel-dompdf, dompdf/dompdf, spatie/laravel-pdf, spatie/browsershot, knplabs/knp-snappy, barryvdh/laravel-snappy |
 
-**Why:** a second library for the same need splits the codebase into two idioms, and an agent copies whichever one it read last. PDF tools that drive a headless browser cannot run on the deploy targets (see deployment.md).
+**Why:** a second library for the same need splits the codebase into two idioms, and an agent copies whichever one it read last. Two formatters over the same files disagree (oxfmt and Prettier order Tailwind classes and break union types differently), so one of them always fails, and the kit's files, which a project cannot edit, fail with it. PDF tools that drive a headless browser cannot run on the deploy targets (see deployment.md).
 
 ## Adding shadcn components
 **Do** add a shadcn component with `php artisan kit:ui-add <name> [<name>…]`. It runs the project's own shadcn CLI (`node_modules/.bin/shadcn`, never `shadcn@latest`) and then:
@@ -85,6 +86,8 @@ Node runs on 22.18+ or 24.11+, the range the starter kit's `vite-plus` declares 
 
 ## Database
 **Do** declare the engine with `DB_CONNECTION` in `.env.example`: `pgsql`, `mysql` or `mariadb`. Set the same value in `phpunit.xml`, so tests run on the engine production runs.
+
+**Do** run CI's tests on that engine too: a workflow that runs the tests declares a service on its image (`postgres`, `mysql` or `mariadb`), on the database, user and password `.env.example` names, creates the test database `phpunit.xml` names, and installs Playwright's Chromium for the Browser suite (`npx playwright install --with-deps chromium`). `kit:setup` adds all three to the starter kit's `.github/workflows/tests.yml`, and lists a workflow of another shape under *Left to do by hand*. *Check `ci-database`* reads the service; the test database and Chromium are *review only*.
 
 **Don't** test on sqlite. **Don't** use an engine-specific feature (deferrable constraints, generated columns, partial indexes, …) unless it belongs to the declared engine. `jsonb()` is not one: Laravel writes it as `json` on mysql/mariadb. The shape of the schema itself is migrations.md.
 

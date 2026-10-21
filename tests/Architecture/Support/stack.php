@@ -9,11 +9,17 @@
  * line. `forbidden` packages are the alternatives the stack already answered for.
  * A version is a major (`13`) or, on a 0.x line, a major.minor (`0.1`).
  *
+ * `ci_database_images` names the service image a CI workflow that runs the tests declares for
+ * each engine. `js_toolchains` are the formatters and linters besides Prettier and ESLint that
+ * a package.json script may not run.
+ *
  * @return array{
  *     php: string,
  *     composer: array{required: array<string, string>, optional: array<string, string>, forbidden: list<string>},
  *     npm: array{required: array<string, string>, optional: array<string, string>, forbidden: list<string>},
  *     databases: list<string>,
+ *     ci_database_images: array<string, string>,
+ *     js_toolchains: list<string>,
  *     redis_client: string,
  *     icon_library: string,
  * }
@@ -139,6 +145,8 @@ function stackSpec(): array
             ],
         ],
         'databases' => ['pgsql', 'mysql', 'mariadb'],
+        'ci_database_images' => ['pgsql' => 'postgres', 'mysql' => 'mysql', 'mariadb' => 'mariadb'],
+        'js_toolchains' => ['vp check', 'vp lint', 'vp fmt', 'oxlint', 'oxfmt', 'biome'],
         'redis_client' => 'phpredis',
         'icon_library' => 'lucide',
     ];

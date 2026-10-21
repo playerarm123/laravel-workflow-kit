@@ -23,12 +23,10 @@ const controlStatements = [
     'try',
     'throw',
 ];
-const paddingAroundControl = [
-    ...controlStatements.flatMap((stmt) => [
-        { blankLine: 'always', prev: '*', next: stmt },
-        { blankLine: 'always', prev: stmt, next: '*' },
-    ]),
-];
+const paddingAroundControl = controlStatements.flatMap((stmt) => [
+    { blankLine: 'always', prev: '*', next: stmt },
+    { blankLine: 'always', prev: stmt, next: '*' },
+]);
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [

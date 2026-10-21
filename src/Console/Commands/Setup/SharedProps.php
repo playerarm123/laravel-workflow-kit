@@ -68,12 +68,14 @@ final class SharedProps
             return $code;
         }
 
-        return (string) preg_replace(
+        $code = (string) preg_replace(
             '/(public function share\(Request \$request\): array\n    \{\n(?:.*\n)*?)(        \];\n    \})/',
-            "$1            'menu' => fn (): array => \\App\\Http\\Navigation::for(\$request->user()),\n$2",
+            "$1            'menu' => fn (): array => Navigation::for(\$request->user()),\n$2",
             $code,
             1,
         );
+
+        return str_contains($code, "'menu' =>") ? PhpFile::addUse($code, 'App\Http\Navigation') : $code;
     }
 
     /**

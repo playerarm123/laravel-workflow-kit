@@ -73,6 +73,17 @@ final class ProjectSetup
         'lint:check' => 'eslint .',
     ];
 
+    /**
+     * The starter kit's `check` scripts run vite-plus's own formatter and linter, a second tool
+     * for each need the kit's Prettier and ESLint answer, and the two disagree (stack.md, "One
+     * library per need"). Each takes the kit's checks in their place: script => [the starter
+     * kit's, the kit's].
+     */
+    private const array NPM_CHECK_SCRIPTS = [
+        'check' => ['vp check', 'prettier --check resources/ && eslint .'],
+        'check:fix' => ['vp check --fix', 'eslint . --fix && prettier --write resources/'],
+    ];
+
     private const array PROVIDERS = [
         'App\Providers\KitServiceProvider',
         'App\Infra\Audit\AuditServiceProvider',
@@ -81,6 +92,9 @@ final class ProjectSetup
     ];
 
     private const string ARCHITECTURE_SUITE = 'vendor/playerarm123/laravel-workflow-kit/tests/Architecture';
+
+    /** What runs vite-plus's formatter or linter, or the oxc tools under them. */
+    private const string SECOND_JS_TOOLCHAIN = '/\\bvp\\s+(?:check|lint|fmt)\\b|\\box(?:lint|fmt)\\b/';
 
     private const string PHPSTAN_INCLUDE = 'vendor/playerarm123/laravel-workflow-kit/tests/PHPStan/write-path.php';
 
@@ -185,6 +199,23 @@ final class ProjectSetup
             $package['scripts'][$script] ??= $command;
         }
 
+        foreach (self::NPM_CHECK_SCRIPTS as $script => [$theirs, $ours]) {
+            if (($package['scripts'][$script] ?? null) === $theirs) {
+                $package['scripts'][$script] = $ours;
+            }
+        }
+
+        foreach ($package['scripts'] ?? [] as $script => $command) {
+            if (is_string($command) && preg_match(self::SECOND_JS_TOOLCHAIN, $command, $tool) === 1) {
+                $this->result['manual'][] = sprintf(
+                    'package.json: the "%s" script runs `%s`, which formats and lints a second time with rules of its own; run the kit\'s checks there instead (`%s`, stack.md)',
+                    $script,
+                    $tool[0],
+                    self::NPM_CHECK_SCRIPTS['check'][1],
+                );
+            }
+        }
+
         if ($package !== $before) {
             $this->writeJson('package.json', $package);
         }
@@ -269,7 +300,7 @@ final class ProjectSetup
     }
 
     /**
-     * The engine every environment and the tests run on, the env keys the kit asks for, the
+     * The engine every environment, the tests and CI run on, the env keys the kit asks for, the
      * Architecture suite, the PHPStan rule and the one currency every amount is in.
      *
      * @return array{changed: list<string>, manual: list<string>}
@@ -344,7 +375,7 @@ final class ProjectSetup
 
         $this->edit('vite.config.ts', fn (string $code): string => str_contains($code, "'resources/js/kit/structure.tsx'")
             ? $code
-            : (string) preg_replace("/(input: \\[[^\\]]*'resources\\/js\\/app\\.tsx')/", "$1, 'resources/js/kit/structure.tsx'", $code, 1),
+            : self::withViteInput($code, 'resources/js/kit/structure.tsx'),
             need: ["'resources/js/kit/structure.tsx'"], hint: 'add resources/js/kit/structure.tsx to the inputs of laravel() in vite.config.ts');
 
         $this->edit('config/app.php', fn (string $code): string => str_contains($code, "'currency' =>")
@@ -355,6 +386,26 @@ final class ProjectSetup
                 $code,
                 1,
             ));
+
+        /*
+         * The starter kit's CI migrates and runs every suite on the sqlite file it ships. A
+         * project without a workflow has nothing to bring along.
+         */
+        if (is_file($this->path(CiWorkflow::PATH))) {
+            $testDatabase = preg_match('#<env name="DB_DATABASE" value="([^"]+)"#', is_file($this->path('phpunit.xml')) ? (string) file_get_contents($this->path('phpunit.xml')) : '', $match) === 1 ? $match[1] : 'testing';
+            $this->edit(CiWorkflow::PATH, fn (string $code): string => CiWorkflow::bringAlong($code, $this->database, $testDatabase));
+            $workflow = (string) file_get_contents($this->path(CiWorkflow::PATH));
+
+            if (! CiWorkflow::declaresService($workflow, $this->database) || ! str_contains($workflow, "create database {$testDatabase}") || ! str_contains($workflow, 'playwright install')) {
+                $this->result['manual'][] = sprintf(
+                    '%s: run the job with a %s service on the database, user and password .env.example names, create the %s database phpunit.xml names before the tests, and run `%s` before them for the Browser suite (stack.md, "Database")',
+                    CiWorkflow::PATH,
+                    CiWorkflow::IMAGES[$this->database],
+                    $testDatabase,
+                    CiWorkflow::PLAYWRIGHT,
+                );
+            }
+        }
 
         return $this->finish();
     }
@@ -412,7 +463,7 @@ final class ProjectSetup
             need: ["'translations' =>"], hint: "return 'locale', 'timezone', 'currency' and 'translations' from share()");
 
         $this->edit('app/Http/Middleware/HandleInertiaRequests.php', fn (string $code): string => SharedProps::menu($code),
-            need: ["'menu' =>"], hint: "return 'menu' => fn (): array => \\App\\Http\\Navigation::for(\$request->user()) from share() (list-pages.md, \"Menu\")");
+            need: ["'menu' =>"], hint: "return 'menu' => fn (): array => Navigation::for(\$request->user()) from share(), with App\\Http\\Navigation imported (list-pages.md, \"Menu\")");
 
         $this->edit('app/Http/Navigation.php', fn (string $code): string => NavigationFile::upgrade($code),
             need: ['use BuildsMainMenu;'], hint: 'use App\Http\Concerns\BuildsMainMenu in Navigation in place of its own item(), and return $this->menu([ … ]) (list-pages.md, "Menu")');
@@ -630,6 +681,25 @@ final class ProjectSetup
     }
 
     /**
+     * Whether the built assets hold the kit's pages: the Vite manifest names each entry it was
+     * built from.
+     */
+    public function builtWithTheKitsPages(): bool
+    {
+        $manifest = $this->readJson('public/build/manifest.json');
+
+        return isset($manifest['resources/js/kit/structure.tsx'], $manifest['resources/js/pages/audit-entries/index.tsx']);
+    }
+
+    /**
+     * Whether boost.json has Boost load the kit's guidelines and skills.
+     */
+    public function boostLoadsTheKit(): bool
+    {
+        return in_array('playerarm123/laravel-workflow-kit', (array) ($this->readJson('boost.json')['packages'] ?? []), true);
+    }
+
+    /**
      * The JavaScript package manager the project chose at `laravel new`, read from its lockfile.
      */
     public function packageManager(): string
@@ -759,6 +829,27 @@ final class ProjectSetup
         preg_match_all('/^[ \t]+-[ \t]*[\'"]?([^\'"\s#]*)[\'"]?/m', $match[1], $entries);
 
         return $entries[1] === ['.'];
+    }
+
+    /**
+     * Adds $input to the inputs of laravel() beside resources/js/app.tsx, laid out as Prettier
+     * lays the array out: on the line while it fits in 80 columns, one entry a line once not.
+     */
+    private static function withViteInput(string $code, string $input): string
+    {
+        if (preg_match('/^([ \t]*)input: \[([^\]]*)\]/m', $code, $match, PREG_OFFSET_CAPTURE) !== 1
+            || preg_match_all("/'[^']*'/", $match[2][0], $entries) === 0
+            || ! in_array("'resources/js/app.tsx'", $entries[0], true)) {
+            return $code;
+        }
+
+        $indent = $match[1][0];
+        $entries = [...$entries[0], "'{$input}'"];
+        $array = strlen("{$indent}input: [".implode(', ', $entries).'],') <= 80
+            ? '['.implode(', ', $entries).']'
+            : "[\n".implode('', array_map(fn (string $entry): string => "{$indent}    {$entry},\n", $entries))."{$indent}]";
+
+        return substr_replace($code, "{$indent}input: {$array}", $match[0][1], strlen($match[0][0]));
     }
 
     /**

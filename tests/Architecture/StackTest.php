@@ -6,6 +6,9 @@ require_once __DIR__.'/Support/stack.php';
 /** The ESLint half of stack.md, which eslint.config.js imports from vendor/ and spreads in. */
 const STACK_ESLINT_RULES = './vendor/playerarm123/laravel-workflow-kit/tests/ESLint/stack.js';
 
+/** A workflow step that runs the project's test suites, directly or through a Composer script. */
+const STACK_CI_RUNS_TESTS = '/\\b(?:artisan test|composer (?:run(?:-script)? )?(?:ci:check|test)|vendor\\/bin\\/(?:pest|phpunit))\\b/';
+
 /**
  * @param  array<string, string>  $locked
  * @param  array<string, string>  $declared
@@ -165,6 +168,46 @@ describe('stack', function () {
         }
 
         expect(ruleUnexcused('stack', 'database', $violations))->toBe([]);
+    });
+
+    it('runs the tests in CI on the declared engine', function () {
+        $declared = ruleEnvValue('.env.example', 'DB_CONNECTION');
+        $image = stackSpec()['ci_database_images'][$declared ?? ''] ?? null;
+        $violations = [];
+
+        foreach ([...ruleGlob(ruleProjectPath('.github/workflows/*.yml')), ...ruleGlob(ruleProjectPath('.github/workflows/*.yaml'))] as $path) {
+            $yaml = (string) file_get_contents($path);
+
+            if ($image === null || preg_match(STACK_CI_RUNS_TESTS, $yaml) !== 1) {
+                continue;
+            }
+
+            if (preg_match('/^[ \t]*image:[ \t]*[\'"]?(?:docker\.io\/)?(?:library\/)?'.preg_quote($image, '/').'(?::|[\'"\s]|$)/m', $yaml) !== 1) {
+                $violations[] = [
+                    'subject' => ltrim(substr($path, strlen(ruleProjectPath())), '/'),
+                    'message' => sprintf('runs the tests without a %s service, the engine .env.example declares (%s), so they run on no database or another one', $image, $declared),
+                ];
+            }
+        }
+
+        expect(ruleUnexcused('stack', 'ci-database', $violations))->toBe([]);
+    });
+
+    it('formats and lints JavaScript with Prettier and ESLint alone', function () {
+        $violations = [];
+
+        foreach (ruleReadJson('package.json')['scripts'] ?? [] as $script => $command) {
+            foreach (stackSpec()['js_toolchains'] as $tool) {
+                if (is_string($command) && preg_match('/(?<![\w-])'.preg_quote($tool, '/').'(?![\w-])/', $command) === 1) {
+                    $violations[] = [
+                        'subject' => "package.json scripts.{$script}",
+                        'message' => sprintf('runs `%s`, a second formatter or linter beside Prettier and ESLint, with rules of its own', $tool),
+                    ];
+                }
+            }
+        }
+
+        expect(ruleUnexcused('stack', 'js-tools', $violations))->toBe([]);
     });
 
     it('generates shadcn components with the stack icon library', function () {

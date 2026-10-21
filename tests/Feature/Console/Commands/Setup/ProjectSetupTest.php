@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\File;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Setup\ProjectSetup;
 use Playerarm123\LaravelWorkflowKit\WorkflowKit;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * kit:setup's steps on a copy of the files Laravel's React starter kit ships
@@ -82,6 +83,27 @@ describe('npmDependencies', function () {
             ->and($package['dependencies']['lucide-react'])->toBe('^1.45.0')
             ->and($package['scripts'])->toHaveKeys(['lint', 'lint:check', 'format', 'format:check']);
     });
+
+    it('checks with the kit\'s Prettier and ESLint in place of vite-plus\'s formatter and linter', function () {
+        $result = $this->setup->npmDependencies();
+        $scripts = json_decode(($this->read)('package.json'), true)['scripts'];
+
+        expect($scripts['check'])->toBe('prettier --check resources/ && eslint .')
+            ->and($scripts['check:fix'])->toBe('eslint . --fix && prettier --write resources/')
+            ->and($scripts['build'])->toBe('vp build')
+            ->and($result['manual'])->toBe([]);
+    });
+
+    it('leaves a script of the project\'s own that runs vite-plus\'s linter to the user', function () {
+        $package = json_decode(($this->read)('package.json'), true);
+        $package['scripts']['check'] = 'vp lint && tsc --noEmit';
+        file_put_contents($this->project.'/package.json', json_encode($package));
+
+        $manual = $this->setup->npmDependencies()['manual'];
+
+        expect($manual)->toBe(['package.json: the "check" script runs `vp lint`, which formats and lints a second time with rules of its own; run the kit\'s checks there instead (`prettier --check resources/ && eslint .`, stack.md)'])
+            ->and(json_decode(($this->read)('package.json'), true)['scripts']['check'])->toBe('vp lint && tsc --noEmit');
+    });
 });
 
 describe('files', function () {
@@ -136,7 +158,15 @@ describe('config', function () {
             ->and(($this->read)('phpunit.xml'))->toContain('<env name="DB_CONNECTION" value="pgsql"/>', "<testsuite name=\"Browser\">\n            <directory>tests/Browser</directory>\n        </testsuite>", 'vendor/playerarm123/laravel-workflow-kit/tests/Architecture')
             ->and(($this->read)('phpstan.neon'))->toContain('tests/PHPStan/write-path.php')
             ->and(($this->read)('config/app.php'))->toContain("'currency' => env('APP_CURRENCY', 'USD')")
-            ->and(($this->read)('vite.config.ts'))->toContain("'resources/js/app.tsx', 'resources/js/kit/structure.tsx'");
+            ->and(($this->read)('vite.config.ts'))->toContain("            input: [\n                'resources/css/app.css',\n                'resources/js/app.tsx',\n                'resources/js/kit/structure.tsx',\n            ],\n");
+    });
+
+    it('keeps the inputs of laravel() on one line while they fit', function () {
+        file_put_contents($this->project.'/vite.config.ts', str_replace("input: ['resources/css/app.css', 'resources/js/app.tsx']", "input: ['resources/js/app.tsx']", ($this->read)('vite.config.ts')));
+
+        $this->setup->config();
+
+        expect(($this->read)('vite.config.ts'))->toContain("            input: ['resources/js/app.tsx', 'resources/js/kit/structure.tsx'],\n");
     });
 
     it('sets mysql with its own port and user', function () {
@@ -172,6 +202,51 @@ describe('config', function () {
     });
 });
 
+describe('the CI workflow', function () {
+    it('runs the starter kit\'s workflow on the chosen engine, with the test database and Chromium', function () {
+        $this->setup->config();
+        $workflow = ($this->read)('.github/workflows/tests.yml');
+
+        expect($workflow)->toContain(
+            "    runs-on: ubuntu-latest\n\n    services:\n      postgres:\n        image: postgres:17\n        env:\n          POSTGRES_USER: postgres\n          POSTGRES_DB: laravel\n          POSTGRES_HOST_AUTH_METHOD: trust\n        ports:\n          - 5432:5432\n",
+            "      - name: Create the testing database phpunit.xml names\n        run: psql -h 127.0.0.1 -U postgres -c 'create database testing'\n\n      - name: Setup Application\n        run: composer setup\n\n      - name: Install Chromium for the Browser tests\n        run: npx playwright install --with-deps chromium\n\n      - name: Run CI Checks\n",
+            "php-version: '8.4'",
+        )->and(Yaml::parse($workflow)['jobs']['ci']['services']['postgres']['ports'])->toBe(['5432:5432']);
+    });
+
+    it('declares the mysql and mariadb services with the root user and no password', function (string $database, string $service, string $image) {
+        (new ProjectSetup(WorkflowKit::kitPath(), $this->project, $database))->config();
+        $workflow = Yaml::parse(($this->read)('.github/workflows/tests.yml'));
+
+        expect($workflow['jobs']['ci']['services'][$service]['image'])->toBe($image)
+            ->and($workflow['jobs']['ci']['services'][$service]['ports'])->toBe(['3306:3306'])
+            ->and(array_column($workflow['jobs']['ci']['steps'], 'run'))->toContain("mysql -h 127.0.0.1 -u root -e 'create database testing'");
+    })->with([['mysql', 'mysql', 'mysql:8.4'], ['mariadb', 'mariadb', 'mariadb:11.4']]);
+
+    it('leaves a workflow of another shape to the user', function () {
+        file_put_contents($this->project.'/.github/workflows/tests.yml', "name: tests\n\non: push\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: php artisan test\n");
+
+        $manual = $this->setup->config()['manual'];
+
+        expect($manual)->toHaveCount(1)
+            ->and($manual[0])->toStartWith('.github/workflows/tests.yml: run the job with a postgres:17 service')
+            ->and(($this->read)('.github/workflows/tests.yml'))->not->toContain('services:');
+    });
+
+    it('leaves a workflow whose services run another engine to the user', function () {
+        (new ProjectSetup(WorkflowKit::kitPath(), $this->project, 'mysql'))->config();
+
+        expect($this->setup->config()['manual'])->toHaveCount(1)
+            ->and(($this->read)('.github/workflows/tests.yml'))->not->toContain('image: postgres');
+    });
+
+    it('asks nothing of a project without a workflow', function () {
+        File::deleteDirectory($this->project.'/.github');
+
+        expect($this->setup->config()['manual'])->toBe([]);
+    });
+});
+
 describe('wiring', function () {
     it('wires the providers, the exception responses, the actor and the shared props', function () {
         $this->setup->wiring();
@@ -191,7 +266,7 @@ describe('wiring', function () {
         $this->setup->wiring();
 
         expect($this->project.'/app/Http/Navigation.php')->toBeFile()
-            ->and(($this->read)('app/Http/Middleware/HandleInertiaRequests.php'))->toContain("'menu' => fn (): array => \\App\\Http\\Navigation::for(\$request->user()),")
+            ->and(($this->read)('app/Http/Middleware/HandleInertiaRequests.php'))->toContain("'menu' => fn (): array => Navigation::for(\$request->user()),", "use App\\Http\\Navigation;\nuse Illuminate\\Http\\Request;")
             ->and(($this->read)('resources/js/types/shared.ts'))->toContain('menu: MenuEntry[];');
 
         foreach (['app-sidebar', 'app-header'] as $component) {
@@ -234,7 +309,7 @@ describe('wiring', function () {
         $this->setup->files();
         $this->setup->wiring();
         $middleware = ($this->read)('app/Http/Middleware/HandleInertiaRequests.php');
-        file_put_contents($this->project.'/app/Http/Middleware/HandleInertiaRequests.php', str_replace("            'menu' => fn (): array => \\App\\Http\\Navigation::for(\$request->user()),\n", '', $middleware));
+        file_put_contents($this->project.'/app/Http/Middleware/HandleInertiaRequests.php', str_replace("            'menu' => fn (): array => Navigation::for(\$request->user()),\n", '', $middleware));
         $shared = ($this->read)('resources/js/types/shared.ts');
         file_put_contents($this->project.'/resources/js/types/shared.ts', (string) preg_replace("/\n    \/\*\* @see app\/Http\/Navigation.php[^\n]*\n    menu: MenuEntry\[\];|import type \{ MenuEntry \} from '@\/types\/ui';\n/", '', $shared));
 
@@ -350,6 +425,39 @@ describe('auditPage', function () {
 
         expect($this->setup->auditPage()['manual'])->toBe([]);
     });
+});
+
+describe('boostLoadsTheKit', function () {
+    it('reads the kit from the packages of boost.json', function (?string $boost, bool $loads) {
+        if ($boost !== null) {
+            file_put_contents($this->project.'/boost.json', $boost);
+        }
+
+        expect($this->setup->boostLoadsTheKit())->toBe($loads);
+    })->with([
+        'no boost.json' => [null, false],
+        'no packages' => ['{"agents": ["claude_code"]}', false],
+        'the kit' => ['{"packages": ["playerarm123/laravel-workflow-kit"]}', true],
+    ]);
+});
+
+describe('builtWithTheKitsPages', function () {
+    it('reads the kit\'s pages from the Vite manifest', function (?array $manifest, bool $built) {
+        if ($manifest !== null) {
+            File::ensureDirectoryExists($this->project.'/public/build');
+            file_put_contents($this->project.'/public/build/manifest.json', json_encode($manifest));
+        }
+
+        expect($this->setup->builtWithTheKitsPages())->toBe($built);
+    })->with([
+        'never built' => [null, false],
+        'built before the kit' => [['resources/js/app.tsx' => ['file' => 'assets/app.js']], false],
+        'built with the kit' => [[
+            'resources/js/app.tsx' => ['file' => 'assets/app.js'],
+            'resources/js/kit/structure.tsx' => ['file' => 'assets/structure.js'],
+            'resources/js/pages/audit-entries/index.tsx' => ['file' => 'assets/audit-entries.js'],
+        ], true],
+    ]);
 });
 
 describe('packageManager', function () {

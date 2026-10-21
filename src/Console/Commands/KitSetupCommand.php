@@ -56,11 +56,22 @@ class KitSetupCommand extends Command
             }
         }
 
-        $this->step('Kit files', fn () => $setup->files(), $manual);
-        $this->step('Config', fn () => $setup->config(), $manual);
-        $this->step('Wiring', fn () => $setup->wiring(), $manual);
-        $this->step('Users on uuids', fn () => $setup->users(), $manual);
-        $this->step('Audit log page', fn () => $setup->auditPage(), $manual);
+        $kitFiles = $this->step('Kit files', fn () => $setup->files(), $manual);
+        $config = $this->step('Config', fn () => $setup->config(), $manual);
+        $wiring = $this->step('Wiring', fn () => $setup->wiring(), $manual);
+        $users = $this->step('Users on uuids', fn () => $setup->users(), $manual);
+        $auditPage = $this->step('Audit log page', fn () => $setup->auditPage(), $manual);
+
+        /*
+         * The steps keep each file's own layout, which is not always Pint's. The kit's own files
+         * stay as the kit ships them ([kit-files]).
+         */
+        $edited = [...$config['changed'], ...$wiring['changed'], ...$users['changed'], ...$auditPage['changed']];
+        $php = array_values(array_filter($edited, fn (string $path): bool => str_ends_with($path, '.php') && is_file(base_path($path))));
+
+        if ($php !== [] && is_file(base_path('vendor/bin/pint'))) {
+            $this->runProcess([PHP_BINARY, 'vendor/bin/pint', ...$php]);
+        }
 
         $built = false;
 
@@ -82,14 +93,36 @@ class KitSetupCommand extends Command
 
         $this->components->info('Next:');
         $this->components->bulletList([
-            ...($built ? [] : [sprintf('Run `%s run build`: the Feature tests render the kit\'s pages from the Vite manifest', $setup->packageManager())]),
-            sprintf('Create the %s database your .env names, then run `php artisan migrate:fresh`', $database),
-            'Run `php artisan boost:install` and add "playerarm123/laravel-workflow-kit" to "packages" in boost.json',
-            'Run `npx playwright install chromium` for the Browser tests',
+            ...($built || ($kitFiles['changed'] === [] && $setup->builtWithTheKitsPages()) ? [] : [sprintf('Run `%s run build`: the Feature tests render the kit\'s pages from the Vite manifest', $setup->packageManager())]),
+            // A users table already migrated on a bigint id needs migrate:fresh after the step.
+            ...($users['changed'] === [] && $this->migrated() ? [] : [sprintf('Create the %s database your .env names, then run `php artisan migrate:fresh`', $database)]),
+            ...($setup->boostLoadsTheKit() ? [] : ['Run `php artisan boost:install` and add "playerarm123/laravel-workflow-kit" to "packages" in boost.json']),
+            ...($this->chromiumInstalled() ? [] : ['Run `npx playwright install chromium` for the Browser tests']),
             'Run `php artisan test --testsuite=Architecture`',
         ]);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Whether the database .env names, as it reads now, has run every migration. A fresh process
+     * reads it: the run may have just moved .env to another engine.
+     */
+    private function migrated(): bool
+    {
+        $result = Process::path(base_path())->run([PHP_BINARY, 'artisan', 'migrate:status', '--no-ansi', '--no-interaction']);
+
+        return $result->successful() && preg_match('/\bPending\b/', $result->output()) !== 1;
+    }
+
+    /**
+     * Whether Playwright has the Chromium it launches for the Browser tests on this machine.
+     */
+    private function chromiumInstalled(): bool
+    {
+        $result = Process::path(base_path())->run(['node', '-e', "process.stdout.write(require('playwright').chromium.executablePath())"]);
+
+        return $result->successful() && is_file(trim($result->output()));
     }
 
     private function database(): ?string
