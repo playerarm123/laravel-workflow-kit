@@ -143,6 +143,15 @@ jobs:
           git status --porcelain -- . ':!.kit' ':!resources/js/actions' ':!resources/js/routes' ':!resources/js/wayfinder'
           test -z "$(git status --porcelain -- . ':!.kit' ':!resources/js/actions' ':!resources/js/routes' ':!resources/js/wayfinder')"
 
+      # kit:setup moved the starter kit's own workflow onto the engine, the test database and
+      # Chromium; this job's postgres service and the next two steps do what it now does.
+      - name: The starter kit's workflow runs on postgres
+        working-directory: app
+        run: |
+          grep -q 'image: postgres' .github/workflows/tests.yml
+          grep -q "create database testing" .github/workflows/tests.yml
+          grep -q 'playwright install --with-deps chromium' .github/workflows/tests.yml
+
       # No build of its own: kit:setup builds the assets, and the Feature suite fails on the
       # kit's pages when it does not.
       - name: Migrate
@@ -151,22 +160,12 @@ jobs:
           psql -h 127.0.0.1 -U postgres -c 'create database testing'
           php artisan migrate:fresh --force
 
-      - name: Architecture
+      - name: Install Chromium for the Browser tests
         working-directory: app
-        run: vendor/bin/pest --testsuite=Architecture
+        run: npx playwright install --with-deps chromium
 
-      - name: Unit
+      # What the starter kit's own CI runs: Prettier and ESLint (`npm run check`), tsc, Pint,
+      # PHPStan and every suite, the Architecture and Browser ones among them.
+      - name: composer ci:check
         working-directory: app
-        run: vendor/bin/pest --testsuite=Unit
-
-      - name: Feature
-        working-directory: app
-        run: vendor/bin/pest --testsuite=Feature
-
-      - name: PHPStan
-        working-directory: app
-        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
-
-      - name: ESLint
-        working-directory: app
-        run: npm run lint:check
+        run: composer ci:check

@@ -45,14 +45,14 @@ php artisan test --testsuite=Architecture
 | ขั้น | สิ่งที่แก้ |
 |---|---|
 | Composer packages | ตั้ง `php` เป็น `^8.4`, เอา PHPUnit ออกแล้วใส่ Pest 5 (พร้อม plugin Laravel และ Browser), ใส่ Boost, Nightwatch, spatie/laravel-data และ s3 driver แล้วรัน `composer update` |
-| JavaScript packages | เปลี่ยน `@radix-ui/*` เป็น `radix-ui` (แก้ import ให้ทุกไฟล์), ใส่ ESLint, Prettier, Playwright และไลบรารีตาราง วันที่ และไดอะแกรม, เพิ่ม script `lint` และ `format`, ลบ `pnpm-workspace.yaml` ที่ starter kit ให้มาแบบ package เดียวเมื่อโปรเจกต์ใช้ npm หรือ bun แล้วรัน install ด้วย package manager ที่โปรเจกต์ใช้ |
+| JavaScript packages | เปลี่ยน `@radix-ui/*` เป็น `radix-ui` (แก้ import ให้ทุกไฟล์), ใส่ ESLint, Prettier, Playwright และไลบรารีตาราง วันที่ และไดอะแกรม, เพิ่ม script `lint` และ `format`, ให้ script `check` และ `check:fix` ของ starter kit รัน Prettier กับ ESLint แทน `vp check` ซึ่งจัด format และ lint ไม่ตรงกับสองตัวนี้, ลบ `pnpm-workspace.yaml` ที่ starter kit ให้มาแบบ package เดียวเมื่อโปรเจกต์ใช้ npm หรือ bun แล้วรัน install ด้วย package manager ที่โปรเจกต์ใช้ |
 | Kit files | ไฟล์ทุกตัวที่ `kit:install` เขียน และไฟล์ที่เขียนให้ครั้งเดียวแล้วเป็นของโปรเจกต์: `IdGenerator` แบบ UUIDv7 พร้อม provider, middleware `InitializeUserContext`, `AuditEntryPolicy`, `tests/Pest.php`, `eslint.config.js`, `.prettierrc`, type `SharedProps`, เมนูหลัก `app/Http/Navigation.php`, shadcn component สี่ตัวที่หน้าของ kit ใช้, เทสต์ของ middleware ใน starter kit และ `rule-overrides.json` เปล่า ส่วน `ExampleTest` ถูกลบออก |
-| Config | ฐานข้อมูลใน `.env.example` และ `phpunit.xml` และใน `.env` ถ้ายังไม่ได้ใช้ engine นั้น (ถ้าใช้อยู่แล้วจะเติมเฉพาะ key ที่ขาด), `NIGHTWATCH_TOKEN`, Browser และ Architecture suite, กฎ write-path ของ PHPStan, `app.currency` และ Vite entry ของหน้า structure |
+| Config | ฐานข้อมูลใน `.env.example` และ `phpunit.xml` และใน `.env` ถ้ายังไม่ได้ใช้ engine นั้น (ถ้าใช้อยู่แล้วจะเติมเฉพาะ key ที่ขาด), `NIGHTWATCH_TOKEN`, Browser และ Architecture suite, กฎ write-path ของ PHPStan, `app.currency`, Vite entry ของหน้า structure และ `.github/workflows/tests.yml` ของ starter kit ซึ่งได้ service ของ engine นั้น ขั้นสร้างฐานข้อมูล `testing` และขั้นติดตั้ง Chromium ของ Playwright และรันบน PHP 8.4 |
 | Wiring | providers, `ExceptionResponses`, `InitializeUserContext`, props ที่ส่งไปทุกหน้า (`locale`, `timezone`, `currency`, `translations`, `menu`) ทั้งฝั่ง PHP และ TypeScript, ให้ sidebar กับ header วาดเมนูที่ส่งมาผ่าน `useMainNavItems()` ด้วย `MainNavSidebar` / `MainNavHeader` ของ kit (กลุ่มเป็นหัวข้อพับได้ใน sidebar และเป็น dropdown ใน header), ย้าย `Navigation.php` ที่สร้างก่อนมีกลุ่มเมนูไปใช้ trait `BuildsMainMenu` และ `<FlashToast />` |
 | Users on uuids | ตาราง users พร้อม sessions และ passkeys, `User`, `UserFactory` และ `CreateNewUser` (เมื่อเปิด registration) เปลี่ยนเป็น key แบบ uuid ขั้นนี้แก้ migration เดิมตรง ๆ จึงทำได้เฉพาะก่อน deploy ครั้งแรก |
 | Audit log page | route, marker `// kit:routes` และคำแปลทุกคำที่หน้าของ kit ใช้ ในทุกไฟล์ `lang/*.json` และในไฟล์ของ `APP_LOCALE` กับ `APP_FALLBACK_LOCALE` ภาษาที่ไม่ใช่ `en` จะได้คำภาษาอังกฤษไปก่อน และถูกแจ้งไว้ให้แปล |
 
-สุดท้ายรัน `wayfinder:generate`, `lint` (ESLint แบบ `--fix`), `build` ของ package manager ซึ่ง Feature test ของหน้าใน kit ต้องใช้ และ `kit:import`
+สุดท้ายรัน Pint กับไฟล์ PHP ที่แก้, `wayfinder:generate`, `lint` (ESLint แบบ `--fix`), `build` ของ package manager ซึ่ง Feature test ของหน้าใน kit ต้องใช้ และ `kit:import` หัวข้อ *Next* จะแสดงเฉพาะสิ่งที่ยังไม่ได้ทำ ถ้า build, migrate, `boost.json` หรือ Chromium เรียบร้อยแล้วจะไม่แสดงอีก
 
 ใส่ `--database=pgsql` เพื่อข้ามคำถาม ส่วน `--skip-dependencies` จะแก้ `composer.json` และ `package.json` โดยไม่รัน install
 
@@ -69,6 +69,8 @@ php artisan test --testsuite=Architecture
 | `[stack:major] x: is declared but missing from composer.lock` (หรือ lockfile ฝั่ง JS) | รัน `composer update` หรือ install ด้วย package manager ของโปรเจกต์ |
 | `[stack:required] x: is required but not declared` | รัน `php artisan kit:setup` อีกรอบ หรือ require แพ็กเกจนั้นเอง |
 | `[stack:database] .env.example DB_CONNECTION: is "sqlite"` | `php artisan kit:setup --database=pgsql` |
+| `[stack:ci-database] .github/workflows/x.yml: runs the tests without a postgres service` | เพิ่ม service ของ engine ให้ job นั้น ([stack.md](resources/boost/guidelines/stack.md) หัวข้อ "Database") ถ้าเป็น workflow ของ starter kit เอง `kit:setup` จะเพิ่มให้ |
+| ``[stack:js-tools] package.json scripts.check: runs `vp check` …`` | เปลี่ยนเป็น `prettier --check resources/ && eslint .` ถ้าเป็น script ของ starter kit เอง `kit:setup` จะเปลี่ยนให้ |
 | `[stack:forbidden] cn` หรือ `[stack:cn-import] …` หลังรัน `npx shadcn add` | เพิ่ม component ด้วย `php artisan kit:ui-add <name>` ซึ่งจะ import `cn` จาก `@/lib/utils` และไม่ติดตั้งแพ็กเกจ `cn` |
 | `[list-pages:menu] resources/js/pages/x/index.tsx: has no entry …` | ใส่ `"menu"` ใน manifest ของ resource แล้วรัน `php artisan kit:apply` หรือใส่ `"menu": null` ถ้าตั้งใจไม่ให้อยู่ในเมนู ([list-pages.md](resources/boost/guidelines/list-pages.md)) |
 | `[list-pages:menu-group] x.index: sits in the group 'y', which … does not declare` | เพิ่ม `$this->group('y', '{title key}', '{lucide icon}')` ใน `app/Http/Navigation.php` ตรงตำแหน่งที่อยากให้กลุ่มอยู่ ([list-pages.md](resources/boost/guidelines/list-pages.md)) |
@@ -181,7 +183,7 @@ composer analyse                # PHPStan
 
 เปลี่ยนกฎข้อไหน ให้แก้ guideline ใน `resources/boost/guidelines` กับ spec ใน `tests/Architecture` ไปพร้อมกัน เปลี่ยนไฟล์ของ kit ให้แก้สำเนาใน `resources/kit` แล้วรัน `php vendor/bin/testbench kit:install --force` เพื่อวางลง workbench
 
-CI ของ kit ยังสร้างโปรเจกต์ใหม่จาก `laravel/react-starter-kit` ติดตั้ง kit จากไฟล์ชุดเดียวกับที่ Packagist แจก แล้วรัน `kit:setup` ตามด้วย Architecture, Unit, Feature suite, PHPStan และ ESLint (job `starter-kit`)
+CI ของ kit ยังสร้างโปรเจกต์ใหม่จาก `laravel/react-starter-kit` ติดตั้ง kit จากไฟล์ชุดเดียวกับที่ Packagist แจก แล้วรัน `kit:setup` ตามด้วย `composer ci:check` ของ starter kit เอง ได้แก่ Prettier, ESLint, tsc, Pint, PHPStan และทุก suite รวม Architecture และ Browser (job `starter-kit`) ส่วน Feature suite รัน Prettier กับไฟล์ TypeScript ของ kit ด้วย `.prettierrc` ที่ `kit:setup` เขียนและ stylesheet ของ starter kit
 
 ## License
 

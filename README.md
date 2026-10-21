@@ -45,14 +45,14 @@ It changes only what is not in shape yet, so you can run it again at any time; a
 | Step | What it changes |
 |---|---|
 | Composer packages | `php` to `^8.4`; PHPUnit out, Pest 5 (with the Laravel and Browser plugins) in; Boost, Nightwatch, spatie/laravel-data and the s3 driver; then `composer update` |
-| JavaScript packages | the `@radix-ui/*` packages for `radix-ui` (every import rewritten); ESLint, Prettier, Playwright, the table, date and diagram libraries; `lint` and `format` scripts; the starter kit's single-package `pnpm-workspace.yaml` goes when you lock with npm or bun; then your package manager's install |
+| JavaScript packages | the `@radix-ui/*` packages for `radix-ui` (every import rewritten); ESLint, Prettier, Playwright, the table, date and diagram libraries; `lint` and `format` scripts; the starter kit's `check` and `check:fix` run Prettier and ESLint in place of `vp check`, whose formatter and linter disagree with them; the starter kit's single-package `pnpm-workspace.yaml` goes when you lock with npm or bun; then your package manager's install |
 | Kit files | every file `kit:install` writes, plus files written once and yours from then on: the UUIDv7 `IdGenerator` and its provider, the `InitializeUserContext` middleware, `AuditEntryPolicy`, `tests/Pest.php`, `eslint.config.js`, `.prettierrc`, the `SharedProps` type, the main menu `app/Http/Navigation.php`, the four shadcn components the kit's pages use, tests for the starter kit's middleware, and an empty `rule-overrides.json`. The `ExampleTest`s go. |
-| Config | the database in `.env.example` and `phpunit.xml`, and in `.env` unless it is already on that engine (then only the keys it lacks); `NIGHTWATCH_TOKEN`; the Browser and Architecture suites; the PHPStan write-path rule; `app.currency`; the structure screen's Vite entry |
+| Config | the database in `.env.example` and `phpunit.xml`, and in `.env` unless it is already on that engine (then only the keys it lacks); `NIGHTWATCH_TOKEN`; the Browser and Architecture suites; the PHPStan write-path rule; `app.currency`; the structure screen's Vite entry; the starter kit's `.github/workflows/tests.yml`, which gets a service on that engine, a step creating the `testing` database and one installing Playwright's Chromium, and runs on PHP 8.4 |
 | Wiring | the providers, `ExceptionResponses`, `InitializeUserContext`, the props every page shares (`locale`, `timezone`, `currency`, `translations`, `menu`) in PHP and TypeScript, the sidebar and the header drawing the shared menu through `useMainNavItems()` and the kit's `MainNavSidebar` / `MainNavHeader` (a group shows as a folding heading in the sidebar and a dropdown in the header), a `Navigation.php` from before menu groups moved onto the `BuildsMainMenu` trait, and `<FlashToast />` |
 | Users on uuids | the users table, its sessions and passkeys, `User`, `UserFactory` and `CreateNewUser` (when registration is on) move to uuid keys. This edits the migrations in place, which is safe only before the first deploy. |
 | Audit log page | its route, the `// kit:routes` marker, and every word the kit's pages speak in every `lang/*.json` and in the file of `APP_LOCALE` and `APP_FALLBACK_LOCALE`. A locale other than `en` gets the English words, listed for you to translate. |
 
-Finally it runs `wayfinder:generate`, `lint` (ESLint with `--fix`), your package manager's `build`, which the Feature tests of the kit's pages need, and `kit:import`.
+Finally it runs Pint on the PHP files it edited, `wayfinder:generate`, `lint` (ESLint with `--fix`), your package manager's `build`, which the Feature tests of the kit's pages need, and `kit:import`. Under *Next* it lists only what is not done yet: the build, the migration, `boost.json` and Chromium drop out once they are.
 
 `--database=pgsql` skips the question. `--skip-dependencies` edits `composer.json` and `package.json` but runs no install.
 
@@ -69,6 +69,8 @@ Every failure reads `[rule:check] subject: message — see rule.md in the workfl
 | `[stack:major] x: is declared but missing from composer.lock` (or the JS lockfile) | run `composer update` or your package manager's install |
 | `[stack:required] x: is required but not declared` | run `php artisan kit:setup` again, or require the package |
 | `[stack:database] .env.example DB_CONNECTION: is "sqlite"` | `php artisan kit:setup --database=pgsql` |
+| `[stack:ci-database] .github/workflows/x.yml: runs the tests without a postgres service` | add the engine's service to the job ([stack.md](resources/boost/guidelines/stack.md), "Database"); `kit:setup` adds it to the starter kit's own workflow |
+| ``[stack:js-tools] package.json scripts.check: runs `vp check` …`` | run `prettier --check resources/ && eslint .` there instead; `kit:setup` does it for the starter kit's script |
 | `[stack:forbidden] cn` or `[stack:cn-import] …` after `npx shadcn add` | add components with `php artisan kit:ui-add <name>`, which imports `cn` from `@/lib/utils` and never installs the `cn` package |
 | `[list-pages:menu] resources/js/pages/x/index.tsx: has no entry …` | add `"menu"` to the resource manifest and run `php artisan kit:apply`, or set `"menu": null` ([list-pages.md](resources/boost/guidelines/list-pages.md)) |
 | `[list-pages:menu-group] x.index: sits in the group 'y', which … does not declare` | add `$this->group('y', '{title key}', '{lucide icon}')` to `app/Http/Navigation.php` where the group should sit ([list-pages.md](resources/boost/guidelines/list-pages.md)) |
@@ -181,7 +183,7 @@ composer analyse                # PHPStan
 
 A change to a rule changes its guideline in `resources/boost/guidelines` and its spec in `tests/Architecture` together. A change to a kit file changes its copy in `resources/kit`; run `php vendor/bin/testbench kit:install --force` to put it into the workbench.
 
-The kit's CI also builds a project with `laravel/react-starter-kit`, installs the kit from the archive Packagist would serve, runs `kit:setup` and holds it to the Architecture, Unit and Feature suites, PHPStan and ESLint (the `starter-kit` job).
+The kit's CI also builds a project with `laravel/react-starter-kit`, installs the kit from the archive Packagist would serve, runs `kit:setup` and holds it to the starter kit's own `composer ci:check`: Prettier, ESLint, tsc, Pint, PHPStan and every suite, the Architecture and Browser ones among them (the `starter-kit` job). The Feature suite runs Prettier over the kit's own TypeScript with the `.prettierrc` `kit:setup` writes and the starter kit's stylesheet.
 
 ## License
 
