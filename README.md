@@ -74,6 +74,7 @@ Every failure reads `[rule:check] subject: message — see rule.md in the workfl
 | `[stack:forbidden] cn` or `[stack:cn-import] …` after `npx shadcn add` | add components with `php artisan kit:ui-add <name>`, which imports `cn` from `@/lib/utils` and never installs the `cn` package |
 | `[list-pages:menu] resources/js/pages/x/index.tsx: has no entry …` | add `"menu"` to the resource manifest and run `php artisan kit:apply`, or set `"menu": null` ([list-pages.md](resources/boost/guidelines/list-pages.md)) |
 | `[list-pages:menu-group] x.index: sits in the group 'y', which … does not declare` | add `$this->group('y', '{title key}', '{lucide icon}')` to `app/Http/Navigation.php` where the group should sit ([list-pages.md](resources/boost/guidelines/list-pages.md)) |
+| `[list-pages:menu-ability] x.index: asks y of Model, whose policy does not answer it` | add `y()` to the policy, or give the manifest's entry `"ability"` the ability the page's controller asks, and run `php artisan kit:apply` ([list-pages.md](resources/boost/guidelines/list-pages.md)) |
 | `[…:kit-files] x: differs from the kit` | `php artisan kit:install --force` takes the kit's copy |
 | `[testing:mirror] X: has no tests/…Test.php` | write that test at that path (testing.md) |
 | `[structure:in-json] .kit/structure/X.json: is missing` | `php artisan kit:import` |

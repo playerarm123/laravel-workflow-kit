@@ -440,7 +440,7 @@ describe('list pages', function () {
         expect(ruleUnexcused('list-pages', 'menu-group', $violations))->toBe([]);
     });
 
-    it('shows a menu entry about a model only to whom its policy lets view the list', function () {
+    it('shows a menu entry about a model only to whom its policy lets open the page', function () {
         $violations = [];
 
         foreach ((new StructureMenu(ruleProjectPath()))->entries() as $entry) {
@@ -453,8 +453,13 @@ describe('list pages', function () {
                 : null;
             $class = $policy?->getArguments()[0] ?? null;
 
-            if (! is_string($class) || ! method_exists($class, 'viewAny')) {
-                $violations[] = ['subject' => $entry['route'], 'message' => sprintf('asks viewAny of %s, whose policy does not answer it — add viewAny() to its policy (authorization.md)', $entry['model'])];
+            if (! is_string($class) || ! method_exists($class, $entry['ability'])) {
+                $violations[] = ['subject' => $entry['route'], 'message' => sprintf(
+                    'asks %s of %s, whose policy does not answer it — add %s() to its policy, or name with `ability:` the one the page asks (authorization.md)',
+                    $entry['ability'],
+                    $entry['model'],
+                    $entry['ability'],
+                )];
             }
         }
 

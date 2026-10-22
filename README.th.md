@@ -74,6 +74,7 @@ php artisan test --testsuite=Architecture
 | `[stack:forbidden] cn` หรือ `[stack:cn-import] …` หลังรัน `npx shadcn add` | เพิ่ม component ด้วย `php artisan kit:ui-add <name>` ซึ่งจะ import `cn` จาก `@/lib/utils` และไม่ติดตั้งแพ็กเกจ `cn` |
 | `[list-pages:menu] resources/js/pages/x/index.tsx: has no entry …` | ใส่ `"menu"` ใน manifest ของ resource แล้วรัน `php artisan kit:apply` หรือใส่ `"menu": null` ถ้าตั้งใจไม่ให้อยู่ในเมนู ([list-pages.md](resources/boost/guidelines/list-pages.md)) |
 | `[list-pages:menu-group] x.index: sits in the group 'y', which … does not declare` | เพิ่ม `$this->group('y', '{title key}', '{lucide icon}')` ใน `app/Http/Navigation.php` ตรงตำแหน่งที่อยากให้กลุ่มอยู่ ([list-pages.md](resources/boost/guidelines/list-pages.md)) |
+| `[list-pages:menu-ability] x.index: asks y of Model, whose policy does not answer it` | เพิ่ม `y()` ใน policy หรือใส่ `"ability"` ในรายการเมนูของ manifest ให้เป็น ability ที่ controller ของหน้านั้นถาม แล้วรัน `php artisan kit:apply` ([list-pages.md](resources/boost/guidelines/list-pages.md)) |
 | `[…:kit-files] x: differs from the kit` | `php artisan kit:install --force` เพื่อเอาไฟล์ของ kit กลับมา |
 | `[testing:mirror] X: has no tests/…Test.php` | เขียนเทสต์ไว้ที่ path นั้น (testing.md) |
 | `[structure:in-json] .kit/structure/X.json: is missing` | `php artisan kit:import` |

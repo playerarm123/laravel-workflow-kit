@@ -33,7 +33,7 @@ class CustomerPolicy
 - Give every ability the user as its first parameter, and return `bool` (or an `Illuminate\Auth\Access\Response` to carry a deny message). `before()` returns `?bool`. *Check `policies`.*
 - Pair a row ability with an `{ability}Any` that takes no model, when a list page must decide on a button before it has a row (`deleteAny`, `updateAny`). *Review only.*
 - Read only the user and the model the Gate passes in. A policy never calls a use case, a repository or a port (layers.md). *Review only.*
-- Declare only abilities something in `app/Http` asks of the policy's model, through `Gate::authorize()`, `Gate::allows()`, `Gate::forUser(…)->allows()` or a closure that wraps one. Laravel denies an ability a policy does not declare, so a stub that returns `false` adds nothing. A helper another ability calls is private. *Check `unused-ability`.*
+- Declare only abilities something in `app/Http` asks of the policy's model, through `Gate::authorize()`, `Gate::allows()`, `Gate::forUser(…)->allows()` or a closure that wraps one, or that a main menu entry about the model asks (`viewAny`, or the `ability:` it names, list-pages.md). Laravel denies an ability a policy does not declare, so a stub that returns `false` adds nothing. A helper another ability calls is private. *Check `unused-ability`.*
 - Test every policy in `tests/Feature/Policies/{Model}PolicyTest.php`, through `Gate::forUser($user)->allows(…)`, with each ability allowed and denied. *Check `tests`.*
 
 **Don't**

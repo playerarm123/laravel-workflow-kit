@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Illuminate\Foundation\Http\FormRequest;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureMenu;
 
 require_once __DIR__.'/Support/rules.php';
 
@@ -280,7 +281,8 @@ function authorizationSubjectModel(string $file, string $code, string $subject):
  * subject the code does not name, which then counts for every policy.
  *
  * It reads `Gate::authorize()`, `Gate::allows()`, `Gate::forUser(…)->allows()` and a closure
- * that wraps one (`$can('viewAny', Agent::class)`), each with the ability as a literal.
+ * that wraps one (`$can('viewAny', Agent::class)`), each with the ability as a literal, and the
+ * ability each main menu entry about a model asks of its policy (list-pages.md, "Menu").
  *
  * @return array<string, array<string, true>>
  */
@@ -295,6 +297,12 @@ function authorizationAskedAbilities(): array
         foreach ($calls as $call) {
             $model = authorizationSubjectModel($file, $code, $call[3]) ?? '*';
             $asked[$model][$call[2]] = true;
+        }
+    }
+
+    foreach ((new StructureMenu(ruleProjectPath()))->entries() as $entry) {
+        if ($entry['model'] !== null) {
+            $asked[$entry['model']][$entry['ability']] = true;
         }
     }
 
