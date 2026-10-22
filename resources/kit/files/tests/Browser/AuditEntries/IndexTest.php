@@ -54,6 +54,15 @@ it('opens an entry with its data in the view dialog', function () {
         ->assertNoJavaScriptErrors();
 });
 
+it('shows no actions menu on a row with nothing in it', function () {
+    AuditEntry::factory()->about('invoice', 'invoice-0001', 'invoice.issued')->create();
+
+    visit(route('audit-entries.index'))
+        ->assertPresent(sprintf('button[aria-label="%s"]', __('audit-entries.action_view')))
+        ->assertMissing(sprintf('button[aria-label="%s"]', __('common.actions')))
+        ->assertNoJavaScriptErrors();
+});
+
 it('still renders a page for a hand edited url', function () {
     visit(route('audit-entries.index', ['sort' => 'password', 'subject_type' => 'nothing', 'per_page' => 'all']))
         ->assertSee(__('audit-entries.no_results_title'))
