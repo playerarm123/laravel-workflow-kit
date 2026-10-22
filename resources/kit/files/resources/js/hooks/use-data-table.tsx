@@ -93,8 +93,9 @@ export type DtQuery = {
 
 /**
  * Row buttons: `view`/`edit` are shown directly, while `extra` (domain-specific items) followed by
- * `delete` go into the ⋯ menu. The table only calls `click`; the dialog that follows (view dialog, delete confirm)
- * is rendered by the page.
+ * `delete` go into the ⋯ menu, which a row shows only when one of them is visible on it. The
+ * table only calls `click`; the dialog that follows (view dialog, delete confirm) is rendered by
+ * the page.
  */
 export type RowAction<TData extends DtRowData> = {
     view?: Action<TData>;
@@ -215,32 +216,37 @@ function RowActionCell<TData extends DtRowData>({
                 />
             )}
 
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={t('common.actions')}
-                    >
-                        <MoreHorizontal className="size-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {dropdownActions.map((item) => (
-                        <DropdownMenuItem
-                            key={item.title}
-                            disabled={item.disabled}
-                            onSelect={() => item.click(data)}
-                            variant={item.variant}
+            {/* With every action hidden, the menu would hold its label alone */}
+            {dropdownActions.length > 0 && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={t('common.actions')}
                         >
-                            <item.icon />
-                            {item.title}
-                        </DropdownMenuItem>
-                    ))}
-                </DropdownMenuContent>
-            </DropdownMenu>
+                            <MoreHorizontal className="size-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>
+                            {t('common.actions')}
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {dropdownActions.map((item) => (
+                            <DropdownMenuItem
+                                key={item.title}
+                                disabled={item.disabled}
+                                onSelect={() => item.click(data)}
+                                variant={item.variant}
+                            >
+                                <item.icon />
+                                {item.title}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
         </div>
     );
 }
