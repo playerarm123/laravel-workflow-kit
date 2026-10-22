@@ -45,6 +45,11 @@ beforeEach(function () {
         {
             return false;
         }
+
+        public function viewAnyInClinic(?User $user): bool
+        {
+            return true;
+        }
     };
 
     Gate::policy(Product::class, $shown::class);
@@ -59,6 +64,16 @@ it('keeps a menu with no group as the flat list it always was', function () {
     ])))->toBe([
         ['title' => 'common.dashboard', 'href' => '/dashboard', 'icon' => 'layout-grid'],
         ['title' => 'products.title', 'href' => '/products', 'icon' => 'package'],
+    ]);
+});
+
+it('asks the ability an entry names in place of viewAny', function () {
+    expect(kitMenu(fn () => $this->menu([
+        $this->item('audit-entries.title', 'audit-entries.index', 'scroll-text', AuditEntry::class),
+        $this->item('reports.title', 'reports.index', 'chart-bar', AuditEntry::class, ability: 'viewAnyInClinic'),
+        $this->item('products.title', 'products.index', 'package', Product::class, ability: 'viewAnyInClinic'),
+    ])))->toBe([
+        ['title' => 'reports.title', 'href' => '/reports', 'icon' => 'chart-bar'],
     ]);
 });
 

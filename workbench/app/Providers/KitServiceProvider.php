@@ -271,6 +271,7 @@ class KitServiceProvider extends ServiceProvider
                     $request->filled('icon') ? $request->string('icon')->toString() : null,
                     $request->filled('group') ? $request->string('group')->toString() : null,
                     $request->filled('description') ? $request->string('description')->toString() : null,
+                    $request->filled('ability') ? $request->string('ability')->toString() : null,
                 ),
             ))->name('.resources.menu');
 

@@ -7,17 +7,24 @@ namespace Playerarm123\LaravelWorkflowKit\Console\Commands\Structure;
  * planner, `kit:import` and the checks.
  *
  * An entry is one `$this->item('title', 'route', 'icon', Model::class)` call, which may name the
- * group it sits in and a description as `group: '{key}'` and `description: '{key}'`. A group is
+ * group it sits in, a description and the policy's ability it asks as `group: '{key}'`,
+ * `description: '{key}'` and `ability: '{method}'`; an entry that names none asks `viewAny`. A group is
  * one `$this->group('{key}', 'title', 'icon')` call. The model is read as written: in full with
  * a leading backslash, as `kit:apply` writes it, or by its short name through the file's `use`
  * lines, as Pint leaves it.
  *
- * @phpstan-type MenuLine array{title: string, route: string, icon: string, model: string|null, group: string|null, description: string|null}
+ * @phpstan-type MenuLine array{title: string, route: string, icon: string, model: string|null, group: string|null, description: string|null, ability: string}
  * @phpstan-type MenuGroupLine array{key: string, title: string, icon: string}
  */
 final class StructureMenu
 {
     public const string FILE = 'app/Http/Navigation.php';
+
+    /** The ability an entry asks when it names none. */
+    public const string DEFAULT_ABILITY = 'viewAny';
+
+    /** The name of a policy's ability: a public method, camelCase. */
+    public const string ABILITY = '/^[a-z][A-Za-z0-9]*$/';
 
     /** A call's arguments: none of them holds a parenthesis. */
     private const string ITEM = '/->item\(([^()]*)\)/';
@@ -28,7 +35,7 @@ final class StructureMenu
     private const string ARGUMENT = '/\G\s*(?:(\w+)\s*:\s*)?(?:([\'"])([^\'"]*)\2|(\\\\?[\w\\\\]+)::class|(null))\s*(?:,|$)/';
 
     /** The names item() gives its arguments, in their order. */
-    private const array PARAMETERS = ['title', 'route', 'icon', 'model', 'group', 'description'];
+    private const array PARAMETERS = ['title', 'route', 'icon', 'model', 'group', 'description', 'ability'];
 
     public function __construct(private readonly string $root) {}
 
@@ -91,7 +98,7 @@ final class StructureMenu
     /**
      * The line `kit:apply` writes above `// kit:menu` for an entry.
      */
-    public static function line(string $title, string $route, string $icon, ?string $model, ?string $group = null, ?string $description = null): string
+    public static function line(string $title, string $route, string $icon, ?string $model, ?string $group = null, ?string $description = null, ?string $ability = null): string
     {
         $arguments = [sprintf("'%s'", $title), sprintf("'%s'", $route), sprintf("'%s'", $icon)];
 
@@ -105,6 +112,10 @@ final class StructureMenu
 
         if ($description !== null) {
             $arguments[] = sprintf("description: '%s'", $description);
+        }
+
+        if ($model !== null && $ability !== null && $ability !== self::DEFAULT_ABILITY) {
+            $arguments[] = sprintf("ability: '%s'", $ability);
         }
 
         return sprintf('$this->item(%s),', implode(', ', $arguments));
@@ -135,6 +146,7 @@ final class StructureMenu
                 'model' => is_array($model) ? self::resolve($model['class'], $uses, $code) : null,
                 'group' => is_string($arguments['group'] ?? null) ? $arguments['group'] : null,
                 'description' => is_string($arguments['description'] ?? null) ? $arguments['description'] : null,
+                'ability' => is_string($arguments['ability'] ?? null) && $arguments['ability'] !== '' ? $arguments['ability'] : self::DEFAULT_ABILITY,
             ];
         }
 

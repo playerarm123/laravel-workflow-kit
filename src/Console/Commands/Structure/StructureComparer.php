@@ -439,6 +439,8 @@ final class StructureComparer
                 'title' => $menu['title'] ?? null,
                 'icon' => $menu['icon'] ?? null,
                 ...array_filter(['group' => $menu['group'] ?? null, 'description' => $menu['description'] ?? null], fn (mixed $value): bool => $value !== null),
+                // viewAny is what an entry that names no ability asks, so naming it changes nothing.
+                ...(($menu['ability'] ?? StructureMenu::DEFAULT_ABILITY) === StructureMenu::DEFAULT_ABILITY ? [] : ['ability' => $menu['ability']]),
             ];
         }
 

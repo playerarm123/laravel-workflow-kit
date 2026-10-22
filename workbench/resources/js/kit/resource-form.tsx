@@ -98,8 +98,9 @@ export function NewResourceForm({
 
 /**
  * Puts the resource's list page in the main menu with a title and a lucide icon, and optionally
- * in a group and with a description, or keeps it out (list-pages.md, "Menu"). kit:apply writes
- * the entry once the route, the page, the policy's viewAny and the group exist.
+ * in a group, with a description and asking another ability of the policy than viewAny, or keeps
+ * it out (list-pages.md, "Menu"). kit:apply writes the entry once the route, the page, the
+ * policy's ability and the group exist.
  */
 export function ResourceMenuForm({
     graph,
@@ -113,6 +114,7 @@ export function ResourceMenuForm({
     onSaved: (graph: StructureGraph) => void;
 }) {
     const menu = graph.resourceManifests[resource]?.menu;
+    const abilities = graph.resourceManifests[resource]?.policy ?? [];
     const form = useHttp<
         {
             version: string;
@@ -121,6 +123,7 @@ export function ResourceMenuForm({
             icon: string;
             group: string;
             description: string;
+            ability: string;
         },
         { graph: StructureGraph }
     >({
@@ -130,6 +133,7 @@ export function ResourceMenuForm({
         icon: menu?.icon ?? 'list',
         group: menu?.group ?? '',
         description: menu?.description ?? '',
+        ability: menu?.ability ?? 'viewAny',
     });
     const { data, setData, errors } = form;
 
@@ -217,6 +221,25 @@ export function ResourceMenuForm({
                     }
                 />
                 <InputError message={errors.description} />
+            </div>
+            <div className="space-y-1.5">
+                <Label htmlFor="resource-menu-ability">
+                    Ability the menu asks of the policy, viewAny unless the page
+                    asks another
+                </Label>
+                <Input
+                    id="resource-menu-ability"
+                    list="resource-menu-abilities"
+                    value={data.ability}
+                    disabled={!data.inMenu}
+                    onChange={(event) => setData('ability', event.target.value)}
+                />
+                <datalist id="resource-menu-abilities">
+                    {abilities.map((ability) => (
+                        <option key={ability} value={ability} />
+                    ))}
+                </datalist>
+                <InputError message={errors.ability} />
             </div>
             <Button type="submit" size="sm" disabled={form.processing}>
                 Save menu

@@ -370,6 +370,28 @@ describe('StructurePlanner', function () {
                 ->and($ready)->toBe([StructurePlanner::READY, "\$this->item('sampling-sacks.title', 'sampling-sacks.index', 'package', \\App\\Models\\".SAMPLING_PLAN_MODEL."::class, group: 'stock', description: 'sampling-sacks.menu_description'),  (above // kit:menu)"]);
         });
 
+        it('waits for the ability a menu entry asks in place of viewAny, then writes it on the line', function () {
+            $files = new StructureFiles(base_path());
+            $files->writeResource([...$files->readResource(SAMPLING_PLAN_MODEL), 'menu' => ['title' => 'sampling-sacks.title', 'icon' => 'package', 'ability' => 'viewAnyInClinic']]);
+            $page = base_path('resources/js/pages/sampling-sacks/index.tsx');
+            $policy = app_path('Policies/'.SAMPLING_PLAN_MODEL.'Policy.php');
+
+            try {
+                File::ensureDirectoryExists(dirname($page));
+                File::put($page, "export default function Index() {}\n");
+                File::put($policy, "<?php\n\nnamespace App\\Policies;\n\nclass ".SAMPLING_PLAN_MODEL."Policy\n{\n    public function viewAny(): bool { return true; }\n}\n");
+                $waiting = samplingPlanSteps()['menu sampling-sacks.index'];
+                File::put($policy, "<?php\n\nnamespace App\\Policies;\n\nclass ".SAMPLING_PLAN_MODEL."Policy\n{\n    public function viewAnyInClinic(): bool { return true; }\n}\n");
+                $ready = samplingPlanSteps()['menu sampling-sacks.index'];
+            } finally {
+                File::deleteDirectory(dirname($page));
+                File::delete($policy);
+            }
+
+            expect($waiting)->toBe([StructurePlanner::WAITING, SAMPLING_PLAN_MODEL.'Policy::viewAnyInClinic() comes first: the menu asks it who sees the entry'])
+                ->and($ready)->toBe([StructurePlanner::READY, "\$this->item('sampling-sacks.title', 'sampling-sacks.index', 'package', \\App\\Models\\".SAMPLING_PLAN_MODEL."::class, ability: 'viewAnyInClinic'),  (above // kit:menu)"]);
+        });
+
         it('waits to put a list page in the menu until its route is registered', function () {
             $files = new StructureFiles(base_path());
             $files->writeResource([...$files->readResource(SAMPLING_PLAN_MODEL), 'menu' => ['title' => 'sampling-sacks.title', 'icon' => 'package']]);

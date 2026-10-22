@@ -227,4 +227,13 @@ describe('resourceEntries menu', function () {
             ->and(StructureComparer::resourceEntries([...$resource, 'menu' => ['title' => 'crates.title', 'icon' => 'package', 'group' => null]]))
             ->toBe(StructureComparer::resourceEntries([...$resource, 'menu' => ['title' => 'crates.title', 'icon' => 'package']]));
     });
+
+    it('compares the ability of a menu entry, viewAny named or not as one', function () {
+        $resource = ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => ['crates/index' => 'table']];
+        $plain = StructureComparer::resourceEntries([...$resource, 'menu' => ['title' => 'crates.title', 'icon' => 'package']]);
+
+        expect(StructureComparer::resourceEntries([...$resource, 'menu' => ['title' => 'crates.title', 'icon' => 'package', 'ability' => 'viewAnyInClinic']]))
+            ->toHaveKey('menu.crates/index', ['title' => 'crates.title', 'icon' => 'package', 'ability' => 'viewAnyInClinic'])
+            ->and(StructureComparer::resourceEntries([...$resource, 'menu' => ['title' => 'crates.title', 'icon' => 'package', 'ability' => 'viewAny']]))->toBe($plain);
+    });
 });
