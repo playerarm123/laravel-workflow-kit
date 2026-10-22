@@ -155,6 +155,25 @@ describe('StructureResourceEditor', function () {
                 ->and($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), true, 'sampling-route-cases.title', 'briefcase', 'Case work', 'Every case'))->toHaveKeys(['group', 'description']);
         });
 
+        it('asks another ability of the policy once the policy answers it, and writes none for viewAny', function () {
+            $editor = samplingRouteEditor();
+            $editor->saveResource(SAMPLING_ROUTE_CASE, samplingRouteVersion(), SAMPLING_ROUTE_CASE, ['viewAny']);
+
+            expect($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), true, 'sampling-route-cases.title', 'briefcase', null, null, 'viewAnyInClinic'))
+                ->toBe(['ability' => ["The menu asks the policy's viewAnyInClinic who sees the entry, so add viewAnyInClinic to the policy first."]])
+                ->and($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), true, 'sampling-route-cases.title', 'briefcase', null, null, 'view any'))->toHaveKey('ability');
+
+            $editor->saveResource(SAMPLING_ROUTE_CASE, samplingRouteVersion(), SAMPLING_ROUTE_CASE, ['viewAnyInClinic']);
+
+            expect($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), true, 'sampling-route-cases.title', 'briefcase', null, null, 'viewAnyInClinic'))->toBe([])
+                ->and(samplingRouteManifest()['menu'])->toBe(['title' => 'sampling-route-cases.title', 'icon' => 'briefcase', 'ability' => 'viewAnyInClinic']);
+
+            $editor->saveResource(SAMPLING_ROUTE_CASE, samplingRouteVersion(), SAMPLING_ROUTE_CASE, ['viewAny', 'viewAnyInClinic']);
+
+            expect($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), true, 'sampling-route-cases.title', 'briefcase', null, null, 'viewAny'))->toBe([])
+                ->and(samplingRouteManifest()['menu'])->toBe(['title' => 'sampling-route-cases.title', 'icon' => 'briefcase']);
+        });
+
         it('refuses an entry that does not fit, under the field that holds it', function () {
             $editor = samplingRouteEditor();
 

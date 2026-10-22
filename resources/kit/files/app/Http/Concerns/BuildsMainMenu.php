@@ -23,16 +23,18 @@ trait BuildsMainMenu
     /**
      * An entry: the translation key of its title, the name of the route it opens, the lucide
      * icon it shows (kebab-case, as lucide.dev names it) and, for a page about a model, the model
-     * whose policy answers `viewAny` for the user. An entry without a model shows to everyone
-     * signed in. `group` names the group it sits in, `description` the translation key of a
-     * second line the header's dropdown shows under the title.
+     * whose policy decides who sees it. An entry without a model shows to everyone signed in.
+     * `group` names the group it sits in, `description` the translation key of a second line the
+     * header's dropdown shows under the title. `ability` is the policy's ability the entry asks:
+     * `viewAny` unless the page asks another, such as a list of the same model for another
+     * audience, whose controller asks `viewAnyInClinic`.
      *
      * @param  class-string|null  $model
      * @return array{title: string, href: string, icon: string, description?: string, group?: string}|null
      */
-    private function item(string $title, string $route, string $icon, ?string $model = null, ?string $group = null, ?string $description = null): ?array
+    private function item(string $title, string $route, string $icon, ?string $model = null, ?string $group = null, ?string $description = null, string $ability = 'viewAny'): ?array
     {
-        if ($model !== null && ! Gate::forUser($this->user)->allows('viewAny', $model)) {
+        if ($model !== null && ! Gate::forUser($this->user)->allows($ability, $model)) {
             return null;
         }
 

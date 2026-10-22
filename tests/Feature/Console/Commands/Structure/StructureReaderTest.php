@@ -427,6 +427,27 @@ describe('StructureReader', function () {
             }
         });
 
+        it('reads the ability a menu entry asks in place of viewAny, and lets sync take it', function () {
+            $navigation = base_path('app/Http/Navigation.php');
+            $before = (string) file_get_contents($navigation);
+            $files = new StructureFiles(base_path());
+            $sync = new StructureSync($files, $this->reader);
+            file_put_contents($navigation, str_replace('// kit:menu', "\$this->item('sampling-trays.title', 'sampling-trays.index', 'package', \\App\\Models\\SamplingTray::class, ability: 'viewAnyInClinic'),\n            // kit:menu", $before));
+
+            try {
+                $read = $this->reader->readResource('SamplingTray');
+                $files->writeResource([...$read, 'menu' => ['title' => 'sampling-trays.title', 'icon' => 'package']]);
+                $synced = $sync->syncResource('SamplingTray');
+
+                expect($read['menu'] ?? null)->toBe(['title' => 'sampling-trays.title', 'icon' => 'package', 'ability' => 'viewAnyInClinic'])
+                    ->and($synced['manifest']['menu'])->toBe($read['menu'])
+                    ->and($synced['changes'])->toBe(['menu: ability null → "viewAnyInClinic"']);
+            } finally {
+                file_put_contents($navigation, $before);
+                File::delete($files->resourcePath('SamplingTray'));
+            }
+        });
+
         it('lets sync take the menu entry from the code, and keep one the code does not have yet', function () {
             $navigation = base_path('app/Http/Navigation.php');
             $before = (string) file_get_contents($navigation);

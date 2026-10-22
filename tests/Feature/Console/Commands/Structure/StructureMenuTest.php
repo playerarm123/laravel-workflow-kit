@@ -33,10 +33,10 @@ describe('StructureMenu', function () {
             PHP;
 
         expect(StructureMenu::parse($code))->toBe([
-            ['title' => 'common.dashboard', 'route' => 'dashboard', 'icon' => 'layout-grid', 'model' => null, 'group' => null, 'description' => null],
-            ['title' => 'audit-entries.title', 'route' => 'audit-entries.index', 'icon' => 'scroll-text', 'model' => 'App\Models\AuditEntry', 'group' => null, 'description' => null],
-            ['title' => 'merchants.title', 'route' => 'merchants.index', 'icon' => 'store', 'model' => 'App\Models\Merchant', 'group' => null, 'description' => null],
-            ['title' => 'crates.title', 'route' => 'crates.index', 'icon' => 'package', 'model' => 'App\Models\Crate', 'group' => null, 'description' => null],
+            ['title' => 'common.dashboard', 'route' => 'dashboard', 'icon' => 'layout-grid', 'model' => null, 'group' => null, 'description' => null, 'ability' => 'viewAny'],
+            ['title' => 'audit-entries.title', 'route' => 'audit-entries.index', 'icon' => 'scroll-text', 'model' => 'App\Models\AuditEntry', 'group' => null, 'description' => null, 'ability' => 'viewAny'],
+            ['title' => 'merchants.title', 'route' => 'merchants.index', 'icon' => 'store', 'model' => 'App\Models\Merchant', 'group' => null, 'description' => null, 'ability' => 'viewAny'],
+            ['title' => 'crates.title', 'route' => 'crates.index', 'icon' => 'package', 'model' => 'App\Models\Crate', 'group' => null, 'description' => null, 'ability' => 'viewAny'],
         ]);
     });
 
@@ -44,8 +44,37 @@ describe('StructureMenu', function () {
         $line = StructureMenu::line('crates.title', 'crates.index', 'package', 'App\Models\Crate');
 
         expect($line)->toBe("\$this->item('crates.title', 'crates.index', 'package', \\App\\Models\\Crate::class),")
-            ->and(StructureMenu::parse("<?php\n{$line}\n"))->toBe([['title' => 'crates.title', 'route' => 'crates.index', 'icon' => 'package', 'model' => 'App\Models\Crate', 'group' => null, 'description' => null]])
+            ->and(StructureMenu::parse("<?php\n{$line}\n"))->toBe([['title' => 'crates.title', 'route' => 'crates.index', 'icon' => 'package', 'model' => 'App\Models\Crate', 'group' => null, 'description' => null, 'ability' => 'viewAny']])
             ->and(StructureMenu::line('reports.title', 'reports.index', 'chart-bar', null))->toBe("\$this->item('reports.title', 'reports.index', 'chart-bar'),");
+    });
+
+    it('reads the ability an entry asks, viewAny when it names none', function () {
+        $code = <<<'PHP'
+            <?php
+
+            use App\Models\SupportAccess;
+
+            $this->menu([
+                $this->item('support-accesses.title', 'support-accesses.index', 'life-buoy', SupportAccess::class),
+                $this->item('clinic-support-accesses.title', 'clinic-support-accesses.index', 'life-buoy', SupportAccess::class, group: 'system', ability: 'viewAnyInClinic'),
+                $this->item('reports.title', 'reports.index', 'chart-bar', null, null, null, 'viewReports'),
+            ]);
+            PHP;
+
+        expect(array_column(StructureMenu::parse($code), 'ability', 'route'))->toBe([
+            'support-accesses.index' => 'viewAny',
+            'clinic-support-accesses.index' => 'viewAnyInClinic',
+            'reports.index' => 'viewReports',
+        ]);
+    });
+
+    it('writes the ability only when it is not viewAny, and only for an entry about a model', function () {
+        $line = StructureMenu::line('clinic-support-accesses.title', 'clinic-support-accesses.index', 'life-buoy', 'App\Models\SupportAccess', 'system', null, 'viewAnyInClinic');
+
+        expect($line)->toBe("\$this->item('clinic-support-accesses.title', 'clinic-support-accesses.index', 'life-buoy', \\App\\Models\\SupportAccess::class, group: 'system', ability: 'viewAnyInClinic'),")
+            ->and(StructureMenu::parse("<?php\n{$line}\n")[0]['ability'])->toBe('viewAnyInClinic')
+            ->and(StructureMenu::line('crates.title', 'crates.index', 'package', 'App\Models\Crate', null, null, 'viewAny'))->not->toContain('ability:')
+            ->and(StructureMenu::line('reports.title', 'reports.index', 'chart-bar', null, null, null, 'viewReports'))->not->toContain('ability:');
     });
 
     it('reads the group an entry sits in, its description, and the groups the menu declares', function () {
@@ -79,9 +108,9 @@ describe('StructureMenu', function () {
             PHP;
 
         expect(StructureMenu::parse($code))->toBe([
-            ['title' => 'invoices.title', 'route' => 'invoices.index', 'icon' => 'wallet', 'model' => 'App\Models\Invoice', 'group' => 'finance', 'description' => 'invoices.menu_description'],
-            ['title' => 'refunds.title', 'route' => 'refunds.index', 'icon' => 'undo-2', 'model' => null, 'group' => 'finance', 'description' => 'refunds.menu_description'],
-            ['title' => 'reports.title', 'route' => 'reports.index', 'icon' => 'chart-bar', 'model' => null, 'group' => 'reports', 'description' => null],
+            ['title' => 'invoices.title', 'route' => 'invoices.index', 'icon' => 'wallet', 'model' => 'App\Models\Invoice', 'group' => 'finance', 'description' => 'invoices.menu_description', 'ability' => 'viewAny'],
+            ['title' => 'refunds.title', 'route' => 'refunds.index', 'icon' => 'undo-2', 'model' => null, 'group' => 'finance', 'description' => 'refunds.menu_description', 'ability' => 'viewAny'],
+            ['title' => 'reports.title', 'route' => 'reports.index', 'icon' => 'chart-bar', 'model' => null, 'group' => 'reports', 'description' => null, 'ability' => 'viewAny'],
         ])->and(StructureMenu::parseGroups($code))->toBe([
             ['key' => 'finance', 'title' => 'nav.finance', 'icon' => 'receipt'],
         ]);
@@ -91,7 +120,7 @@ describe('StructureMenu', function () {
         $line = StructureMenu::line('invoices.title', 'invoices.index', 'wallet', 'App\Models\Invoice', 'finance', 'invoices.menu_description');
 
         expect($line)->toBe("\$this->item('invoices.title', 'invoices.index', 'wallet', \\App\\Models\\Invoice::class, group: 'finance', description: 'invoices.menu_description'),")
-            ->and(StructureMenu::parse("<?php\n{$line}\n")[0])->toMatchArray(['model' => 'App\Models\Invoice', 'group' => 'finance', 'description' => 'invoices.menu_description'])
+            ->and(StructureMenu::parse("<?php\n{$line}\n")[0])->toMatchArray(['model' => 'App\Models\Invoice', 'group' => 'finance', 'description' => 'invoices.menu_description', 'ability' => 'viewAny'])
             ->and(StructureMenu::line('reports.title', 'reports.index', 'chart-bar', null, 'insights'))->toBe("\$this->item('reports.title', 'reports.index', 'chart-bar', group: 'insights'),");
     });
 
@@ -101,7 +130,7 @@ describe('StructureMenu', function () {
         expect($menu->exists())->toBeTrue()
             ->and($menu->supportsGroups())->toBeTrue()
             ->and($menu->groups())->toBe([])
-            ->and($menu->entryFor('audit-entries.index'))->toBe(['title' => 'audit-entries.title', 'route' => 'audit-entries.index', 'icon' => 'scroll-text', 'model' => 'App\Models\AuditEntry', 'group' => null, 'description' => null])
+            ->and($menu->entryFor('audit-entries.index'))->toBe(['title' => 'audit-entries.title', 'route' => 'audit-entries.index', 'icon' => 'scroll-text', 'model' => 'App\Models\AuditEntry', 'group' => null, 'description' => null, 'ability' => 'viewAny'])
             ->and($menu->entryFor('nowhere.index'))->toBeNull();
     });
 });

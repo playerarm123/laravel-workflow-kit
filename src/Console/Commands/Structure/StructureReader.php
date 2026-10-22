@@ -259,7 +259,7 @@ final class StructureReader
      *
      * `menu` is there only when the main menu has an entry for the resource's list page.
      *
-     * @return array{resource: string, model: string|null, controller: array<string, list<string>>, actions: array<string, array{row: bool, bulk: bool, useCases: list<string>}>, policy: list<string>|null, pages: array<string, string>, menu?: array{title: string, icon: string, group?: string, description?: string}}
+     * @return array{resource: string, model: string|null, controller: array<string, list<string>>, actions: array<string, array{row: bool, bulk: bool, useCases: list<string>}>, policy: list<string>|null, pages: array<string, string>, menu?: array{title: string, icon: string, group?: string, description?: string, ability?: string}}
      */
     public function readResource(string $resource): array
     {
@@ -323,6 +323,7 @@ final class StructureReader
                 'title' => $entry['title'],
                 'icon' => $entry['icon'],
                 ...array_filter(['group' => $entry['group'], 'description' => $entry['description']], fn (?string $value): bool => $value !== null),
+                ...($entry['ability'] === StructureMenu::DEFAULT_ABILITY ? [] : ['ability' => $entry['ability']]),
             ];
         }
 

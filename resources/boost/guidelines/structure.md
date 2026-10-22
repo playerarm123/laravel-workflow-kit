@@ -152,7 +152,7 @@ It has a file of its own, because an entry point calls into more than one contex
   - `grid` when it renders `<InfiniteScroll`;
   - `form` when it imports a form from `@/components/*/form`;
   - `page` for anything else.
-- `menu`: the list page's entry in the main menu, its title's translation key and its lucide icon, and when it has them the key of the `group` it sits in and the translation key of its `description`, read from `app/Http/Navigation.php`; `null` keeps the list page out of the menu on purpose; left out, the manifest says nothing yet (list-pages.md, "Menu"). For example `"menu": { "title": "invoices.title", "icon": "wallet", "group": "finance" }`.
+- `menu`: the list page's entry in the main menu, its title's translation key and its lucide icon, and when it has them the key of the `group` it sits in, the translation key of its `description` and the policy's `ability` it asks in place of `viewAny`, read from `app/Http/Navigation.php`; `null` keeps the list page out of the menu on purpose; left out, the manifest says nothing yet (list-pages.md, "Menu"). For example `"menu": { "title": "invoices.title", "icon": "wallet", "group": "finance" }`.
 
 The starter kit's controllers (`App\Http\Controllers\Settings`) and the kit's own audit log page (`AuditEntry`) have no resource manifest.
 
@@ -202,7 +202,7 @@ Each step is a `make:*` generator or one line written into a project file. They 
 | form request, form pages | `make:form-request`, `make:form-page` | the fields of the create Command, then `{Model}FormValues` |
 | list page | `make:list-page` | a key other than `id` in its Row's `toArray()` |
 | route | a line above `// kit:routes` | the controller |
-| menu | a line above `// kit:menu` in `app/Http/Navigation.php` | the index route, the list page and the policy's `viewAny` |
+| menu | a line above `// kit:menu` in `app/Http/Navigation.php` | the index route, the list page, the policy's `viewAny` (or the `ability` the entry names) and the `group` it names |
 
 An exception step builds each exception `exceptions` designs, of its own kind and in its own home, and a domain service's step passes `--exception` when its `exception` is true. A name a method throws that no manifest designs is built as a refusal of the method's own aggregate when it is named bare. One of the shared kernel or of another aggregate is built from the manifest that designs it, and the method waits for it; one no manifest designs is built by hand. `make:entity-method` writes the method with `@throws` and an empty body, and gives the entity's Unit test a `describe()` for it with a todo for the case that passes and one per exception. The `throw` lines are written by hand, and `matches` names each one the body still lacks.
 

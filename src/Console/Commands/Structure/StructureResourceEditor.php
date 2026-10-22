@@ -122,14 +122,14 @@ final class StructureResourceEditor
 
     /**
      * Puts the resource's list page in the main menu with a title and an icon, and when given, the
-     * group it sits in and a description, keeps it out with `"menu": null` (`$inMenu` false), or
+     * group it sits in, a description and the policy's ability it asks in place of viewAny, keeps it out with `"menu": null` (`$inMenu` false), or
      * says nothing about it (`$inMenu` null), which leaves the list page to the `menu` check
      * (list-pages.md, "Menu"). A group Navigation.php does not declare yet is kept: kit:plan
      * waits for it as for any other missing piece.
      *
      * @return array<string, list<string>> what is wrong, by field; empty when it was written
      */
-    public function saveMenu(string $resource, string $version, ?bool $inMenu, ?string $title, ?string $icon, ?string $group = null, ?string $description = null): array
+    public function saveMenu(string $resource, string $version, ?bool $inMenu, ?string $title, ?string $icon, ?string $group = null, ?string $description = null, ?string $ability = null): array
     {
         $manifest = $this->manifest($resource);
         $refused = $this->refusal($resource, $manifest, $version);
@@ -172,8 +172,12 @@ final class StructureResourceEditor
             $errors['description'][] = 'The description is a translation key, such as merchants.menu_description.';
         }
 
-        if (! in_array('viewAny', is_array($manifest['policy']) ? $manifest['policy'] : [], true)) {
-            $errors['inMenu'][] = 'The menu asks the policy\'s viewAny who sees the entry, so add viewAny to the policy first.';
+        $ability ??= StructureMenu::DEFAULT_ABILITY;
+
+        if (preg_match(StructureMenu::ABILITY, $ability) !== 1) {
+            $errors['ability'][] = 'The ability is the name of a policy method, such as viewAny or viewAnyInClinic.';
+        } elseif (! in_array($ability, is_array($manifest['policy']) ? $manifest['policy'] : [], true)) {
+            $errors[$ability === StructureMenu::DEFAULT_ABILITY ? 'inMenu' : 'ability'][] = sprintf('The menu asks the policy\'s %s who sees the entry, so add %s to the policy first.', $ability, $ability);
         }
 
         if ($errors !== []) {
@@ -181,7 +185,7 @@ final class StructureResourceEditor
         }
 
         $manifest['menu'] = array_filter(
-            ['title' => (string) $title, 'icon' => (string) $icon, 'group' => $group, 'description' => $description],
+            ['title' => (string) $title, 'icon' => (string) $icon, 'group' => $group, 'description' => $description, 'ability' => $ability === StructureMenu::DEFAULT_ABILITY ? null : $ability],
             fn (?string $value): bool => $value !== null,
         );
 

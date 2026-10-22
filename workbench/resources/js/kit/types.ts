@@ -188,6 +188,8 @@ export type ResourceManifest = {
         group?: string;
         /** A translation key */
         description?: string;
+        /** The policy's ability the entry asks; viewAny when absent */
+        ability?: string;
     } | null;
 };
 

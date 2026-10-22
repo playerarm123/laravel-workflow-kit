@@ -524,9 +524,17 @@ JSON)
                 ->and($this->files->resourceProblems('Crate', [...$resource, 'menu' => $menu]))->toBe([]);
         });
 
+        it('writes the ability a menu entry asks in place of viewAny', function () {
+            $resource = ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => []];
+            $menu = ['ability' => 'viewAnyInClinic', 'icon' => 'package', 'title' => 'crates.title'];
+
+            expect($this->files->encodeResource([...$resource, 'menu' => $menu]))->toContain("\"menu\": {\n        \"title\": \"crates.title\",\n        \"icon\": \"package\",\n        \"ability\": \"viewAnyInClinic\"\n    }")
+                ->and($this->files->resourceProblems('Crate', [...$resource, 'menu' => $menu]))->toBe([]);
+        });
+
         it('refuses a menu that is not a title key and a kebab-case icon', function (mixed $menu) {
             expect($this->files->resourceProblems('Crate', ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => [], 'menu' => $menu]))
-                ->toBe(['"menu" must be {"title": "a translation key", "icon": "a kebab-case lucide icon"}, with an optional "group" (the key of a group Navigation.php declares) and "description" (a translation key), or null to keep the list page out of the menu']);
+                ->toBe(['"menu" must be {"title": "a translation key", "icon": "a kebab-case lucide icon"}, with an optional "group" (the key of a group Navigation.php declares), "description" (a translation key) and "ability" (the policy ability the entry asks, viewAny when left out), or null to keep the list page out of the menu']);
         })->with([
             'no icon' => [['title' => 'crates.title']],
             'a PascalCase icon' => [['title' => 'crates.title', 'icon' => 'Package']],
@@ -534,6 +542,7 @@ JSON)
             'an extra key' => [['title' => 'crates.title', 'icon' => 'package', 'order' => 1]],
             'a group that is not a key' => [['title' => 'crates.title', 'icon' => 'package', 'group' => 'Stock room']],
             'a description that is not a translation key' => [['title' => 'crates.title', 'icon' => 'package', 'description' => 'Every crate']],
+            'an ability that is not a method name' => [['title' => 'crates.title', 'icon' => 'package', 'ability' => 'view-any']],
             'true' => [true],
         ]);
 

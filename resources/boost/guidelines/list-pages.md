@@ -42,7 +42,7 @@ Every list page has its entry in the main menu. The menu has one home, `app/Http
 
 ```
 manifest "menu" → kit:apply → $this->item('{title key}', '{route}', '{lucide icon}', Model::class, group: '{key}') above // kit:menu
-  → Navigation::for($user) keeps the entries the policy's viewAny allows, nests each under its
+  → Navigation::for($user) keeps the entries the policy allows (viewAny, or the `ability:` named), nests each under its
     $this->group('{key}', '{title key}', '{lucide icon}'), and drops a group left empty → shared as `menu`
   → useMainNavItems() → MainNavSidebar (a heading that folds) and MainNavHeader (a dropdown)
 ```
@@ -50,9 +50,10 @@ manifest "menu" → kit:apply → $this->item('{title key}', '{route}', '{lucide
 A group holds pages, never another group. It sits where its `group()` line sits, whatever the order of its entries' lines. The kit's `BuildsMainMenu` trait (`app/Http/Concerns`) does the nesting, so `Navigation.php` keeps only the lines.
 
 **Do**
-- Give the list page's resource manifest `"menu": {"title": "{folder}.title", "icon": "{lucide icon}"}` (structure.md), and run `php artisan kit:apply`: it writes the entry once the index route, the page and the policy's `viewAny` exist. The structure screen starts a new list page at `{folder}/index` in the menu. *Check `menu`.*
+- Give the list page's resource manifest `"menu": {"title": "{folder}.title", "icon": "{lucide icon}"}` (structure.md), and run `php artisan kit:apply`: it writes the entry once the index route, the page and the policy's ability the entry asks exist. The structure screen starts a new list page at `{folder}/index` in the menu. *Check `menu`.*
 - Keep a list page out of the menu on purpose with `"menu": null`, such as a list under a parent (`{a}/{b}/index`) that only opens from the parent's page. *Check `menu`.*
 - Name the model of an entry about one, so the menu asks its policy's `viewAny` who sees it. An entry without a model (the dashboard, a report) shows to everyone signed in. *Check `menu-ability`.*
+- Name the ability when the page asks another than `viewAny`, such as a second list of the same model for another audience: give the manifest's entry `"ability": "{method}"` (`kit:apply` writes `ability: '{method}'`), and ask the same ability in the page's controller, so the menu shows the entry to exactly whom the page lets in. The policy must declare it. *Check `menu-ability`.*
 - Gather pages under a heading once the menu grows past what the header holds (about seven entries): declare the group once in `Navigation.php` with `$this->group('{key}', '{title key}', '{lucide icon}')`, and give the manifest's entry `"group": "{key}"`. `kit:plan` waits for the group's line before it writes the entry. *Check `menu-group`.*
 - Keep each entry in the group its manifest names. *Check `menu`.*
 - Give an entry in a group a `"description"` (a translation key) when its title alone does not say what it holds: the header's dropdown shows it under the title. *Review only.*
