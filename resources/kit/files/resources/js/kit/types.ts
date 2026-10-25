@@ -36,6 +36,8 @@ export type StructureNodeData = {
     target: StructureTarget | null;
     editable: boolean;
     variant: string | null;
+    /** The aggregate node a card belongs to, which the screen frames together */
+    group: string | null;
 };
 
 export type StructureEdgeData = {
