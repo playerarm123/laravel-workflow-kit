@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\File;
+
 require_once dirname(__DIR__).'/Architecture/Support/rules.php';
 
 /**
@@ -71,5 +73,32 @@ describe('ruleBunInstalled', function () {
             JSONC;
 
         expect(ruleBunInstalled($lock))->toBe(['@inertiajs/react' => '3.7.0', 'react' => '19.2.8']);
+    });
+});
+
+describe('ruleNpmBundledVersions', function () {
+    beforeEach(function () {
+        $this->nodeModules = sys_get_temp_dir().'/kit-bundled-'.getmypid().'-'.uniqid();
+
+        $write = function (string $package, array $manifest): void {
+            mkdir($this->nodeModules.'/'.$package, 0777, true);
+            file_put_contents($this->nodeModules.'/'.$package.'/package.json', json_encode($manifest));
+        };
+
+        $write('vite', ['name' => '@voidzero-dev/vite-plus-core', 'version' => '1.4.0', 'bundledVersions' => ['vite' => '8.3.5', 'rolldown' => '1.2.15']]);
+        $write('react', ['name' => 'react', 'version' => '19.2.0', 'bundledVersions' => ['react' => '0.0.1']]);
+    });
+
+    afterEach(function () {
+        File::deleteDirectory($this->nodeModules);
+    });
+
+    it('reads an alias of a toolchain as the version it bundles', function () {
+        expect(ruleNpmBundledVersions(['vite' => '1.4.0', 'react' => '19.2.0'], $this->nodeModules))
+            ->toBe(['vite' => '8.3.5', 'react' => '19.2.0']);
+    });
+
+    it('keeps the lockfile\'s version without node_modules', function () {
+        expect(ruleNpmBundledVersions(['vite' => '1.4.0'], $this->nodeModules.'/missing'))->toBe(['vite' => '1.4.0']);
     });
 });
