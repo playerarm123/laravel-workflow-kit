@@ -267,11 +267,41 @@ function ruleNpmLockfile(): string
  */
 function ruleNpmInstalled(): array
 {
-    return match (ruleNpmLockfile()) {
+    return ruleNpmBundledVersions(match (ruleNpmLockfile()) {
         'pnpm-lock.yaml' => rulePnpmInstalled((string) file_get_contents(ruleProjectPath('pnpm-lock.yaml'))),
         'bun.lock' => ruleBunInstalled((string) file_get_contents(ruleProjectPath('bun.lock'))),
         default => ruleNpmLockInstalled(ruleReadJson('package-lock.json')),
-    };
+    }, ruleProjectPath('node_modules'));
+}
+
+/**
+ * A package installed as an npm alias of a toolchain that bundles it reads as the version it
+ * bundles. The starter kit installs `vite` as `npm:@voidzero-dev/vite-plus-core@…`: the lockfile
+ * records the toolchain's own version, and the Vite inside is the `bundledVersions.vite` of its
+ * package.json. No lockfile records that, so it is read from node_modules; without node_modules
+ * the lockfile's version stands.
+ *
+ * @param  array<string, string>  $installed
+ * @return array<string, string>
+ */
+function ruleNpmBundledVersions(array $installed, string $nodeModules): array
+{
+    foreach (array_keys($installed) as $package) {
+        $manifest = $nodeModules.'/'.$package.'/package.json';
+
+        if (! is_file($manifest)) {
+            continue;
+        }
+
+        $decoded = json_decode((string) file_get_contents($manifest), true);
+        $bundled = is_array($decoded) && ($decoded['name'] ?? $package) !== $package ? $decoded['bundledVersions'][$package] ?? null : null;
+
+        if (is_string($bundled)) {
+            $installed[$package] = $bundled;
+        }
+    }
+
+    return $installed;
 }
 
 /**

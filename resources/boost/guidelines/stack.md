@@ -24,6 +24,8 @@ Enforced by the package's `tests/Architecture/StackTest.php` (`php artisan test 
 | Icons | lucide-react 1, and `components.json` `"iconLibrary": "lucide"` |
 | Rule kit (dev) | playerarm123/laravel-workflow-kit 0.2, which ships these guidelines and their skills through Boost (`boost.json` `"packages"`) |
 
+The starter kit installs `vite` as `npm:@voidzero-dev/vite-plus-core@…`, the Vite that vite-plus bundles. The check reads that one as the Vite it bundles (`bundledVersions.vite` in `node_modules/vite/package.json`), so it must be on line 8 like any other `vite`.
+
 Node runs on 22.18+ or 24.11+, the range the starter kit's `vite-plus` declares (`^22.18.0 || >=24.11.0`). *Review only:* no file records the Node a machine runs.
 
 **Don't** move a package to a new major on your own. A major upgrade changes this file, `stackSpec()` and the code in one reviewed change.
