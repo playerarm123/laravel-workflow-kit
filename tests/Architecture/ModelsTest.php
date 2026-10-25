@@ -13,7 +13,7 @@ require_once __DIR__.'/Support/rules.php';
  * `key_trait` is the kit trait that keys a model on a uuid it never mints and refuses a
  * route value that is not one. `model_stub` and `factory_stub` are what `make:model` copies;
  * each must already carry the shape its check asks for. `allowed_methods` are the methods a model may declare besides
- * its relations.
+ * its relations. `connection` keeps every model on the default connection, the one the handler's transaction opens on.
  *
  * @return array{
  *     kit_files: list<string>,
@@ -28,6 +28,7 @@ require_once __DIR__.'/Support/rules.php';
  *     attributes: array<string, string>,
  *     unguard: array<string, string>,
  *     events: array<string, string>,
+ *     connection: array<string, string>,
  *     allowed_methods: list<string>,
  *     factory_id: string,
  *     factory_banned: array<string, string>,
@@ -67,6 +68,9 @@ function modelsSpec(): array
         'events' => [
             '/#\[\s*\\\\?(\w+\\\\)*ObservedBy\b/' => 'observes model events — repositories write with upsert and insert, which fire none',
             '/\$dispatchesEvents\b/' => 'dispatches model events — repositories write with upsert and insert, which fire none',
+        ],
+        'connection' => [
+            '/\$connection\b/' => 'names its own connection — the handler\'s DB::transaction() opens on the default one, so this model\'s writes would not roll back with it',
         ],
         'allowed_methods' => ['casts', 'getRouteKeyName', 'resolveRouteBinding'],
         'factory_id' => '/[\'"]id[\'"]\s*=>\s*fake\(\)\s*->\s*uuid\(\)/',
@@ -173,7 +177,10 @@ describe('models', function () {
     });
 
     it('holds casts, typed relations and route binding, and nothing else', function () {
-        $violations = modelsMatches(array_keys(modelsClasses()), modelsSpec()['events'], fn (string $file): string => modelsClasses()[$file]);
+        $violations = [
+            ...modelsMatches(array_keys(modelsClasses()), modelsSpec()['events'], fn (string $file): string => modelsClasses()[$file]),
+            ...modelsMatches(array_keys(modelsClasses()), modelsSpec()['connection'], fn (string $file): string => modelsClasses()[$file]),
+        ];
 
         foreach (modelsClasses() as $class) {
             $reflection = new ReflectionClass($class);
