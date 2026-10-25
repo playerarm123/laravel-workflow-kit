@@ -2,7 +2,7 @@
 
 Every aggregate reaches the database through one repository. Every repository is written the same way: one-line public methods over `EloquentRepository`, two mapping methods, and nothing else.
 
-Enforced by the package's `tests/Architecture/RepositoriesTest.php`. The spec in `repositoriesSpec()` is the machine-checked copy of this file: change the two together. The behaviour of the base class is proven in `tests/Feature/Infra/Persistence/Eloquent/Repositories/EloquentRepositoryTest.php`.
+Enforced by the package's `tests/Architecture/RepositoriesTest.php`. The spec in `repositoriesSpec()` is the machine-checked copy of this file: change the two together. The behaviour of the base class is proven on PostgreSQL in the package's `tests/Feature/KitFiles/EloquentRepositoryTest.php`. The MySQL/MariaDB path below is not run there.
 
 ## Kit files
 These live at fixed paths. `php artisan kit:install` writes them from the kit, and *check `kit-files`* fails when one is missing or differs from the kit's copy, so a change to one is a change to the kit.
@@ -80,10 +80,11 @@ save()/update()/clone() → base → transaction { write($entities, WriteMode) }
 - Domain exceptions (for example a concurrency failure) pass through unwrapped. Only database failures are wrapped.
 - The repository never reads the entity back. The entity passed in is the truth.
 - No Eloquent model events fire. Audit through the application's `AuditLog` port (stack.md).
+- `toModel()` assigns attributes, so every cast's set side runs. A `hashed` cast hashes a plain value without a word, and throws a `RuntimeException` for a hash it cannot verify against the current hashing config (a higher bcrypt cost), which no `{X}RepositoryException` wraps. Hash a secret through a port before it reaches the entity (layers.md), so the repository only ever passes a hash on.
 
 `write()` has three shapes. Use one of them, never a fourth:
 1. **One table**: the default, so no override.
-2. **Owned child tables**: override `write()`. Call `writeRoots($entities, $mode)`, then `syncChildren(Child::class, 'parent_id', $parentIds, $childModels, $mode)` once per child table. `syncChildren` deletes the parents' children that are gone, then upserts the rest. Deleting comes first because a replacement child often reuses the old one's unique key. Also override `newQuery()` to eager load every child table (`Member::query()->with('paymentAccounts')`).
+2. **Owned child tables**: override `write()`. Call `writeRoots($entities, $mode)`, then `syncChildren(Child::class, 'parent_id', $parentIds, $childModels, $mode)` once per child table. `syncChildren` deletes the parents' children that are gone, then upserts the rest. Deleting comes first because a replacement child often reuses the old one's unique key. A child model never uses `SoftDeletes`: its delete would only stamp `deleted_at`, so a removed child would stay in the table and keep its unique key. `syncChildren` refuses one with a `LogicException`. Also override `newQuery()` to eager load every child table (`Member::query()->with('paymentAccounts')`).
 3. **Optimistic locking**: the aggregate carries a `version`. Override `write()`: version 0 means INSERT. A higher version means `UPDATE … WHERE id = ? AND version = ?`, and 0 rows means `{X}ConcurrencyException`. Never rewrite `created_at`. `update()` on version 0 is NotFound.
 
 A repository opens a transaction for one reason only: to keep a multi-table aggregate atomic. The business transaction belongs to the use-case handler (layers.md).
