@@ -73,8 +73,9 @@ A model holds `casts()`, its relations and, when a route binds by another column
 **Don't**
 - Add an accessor or mutator (`Attribute`), a local scope (`scope*()`, `#[Scope]`), a helper method, or `boot()`/`booted()`. *Check `members`.*
 - Listen to model events: no `#[ObservedBy]`, no `$dispatchesEvents`. *Check `members`.*
+- Name a connection with `$connection`. Every model stays on the default connection, the one the handler's `DB::transaction()` opens on. *Check `members`.*
 
-**Why:** the business rules live in the entity, and a list's filters live in its query adapter (layers.md, list-queries.md). Repositories write with upsert and insert, which fire no model events, so an observer or a `booted()` hook runs on some writes and silently skips the rest (repositories.md).
+**Why:** the business rules live in the entity, and a list's filters live in its query adapter (layers.md, list-queries.md). Repositories write with upsert and insert, which fire no model events, so an observer or a `booted()` hook runs on some writes and silently skips the rest (repositories.md). A repository opens its transaction on its model's connection, so a model on another connection would keep its writes when the use case rolls back.
 
 ## Polymorphic relations
 

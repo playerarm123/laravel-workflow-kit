@@ -272,12 +272,19 @@ abstract class EloquentRepository
      * no longer there, then write the rest. Deleting first matters — a child replaced by one
      * with a new id often reuses the old one's unique key.
      *
+     * A child model may not use SoftDeletes: its delete() would only stamp deleted_at, so a removed
+     * child would stay in the table and still hold its unique key.
+     *
      * @param  class-string<Model>  $childModel
      * @param  list<string>  $parentIds
      * @param  list<Model>  $children
      */
     protected function syncChildren(string $childModel, string $foreignKey, array $parentIds, array $children, WriteMode $mode): void
     {
+        if (in_array(SoftDeletes::class, class_uses_recursive($childModel), true)) {
+            throw new LogicException(sprintf('Cannot sync %s: a child model that uses SoftDeletes is never deleted, only stamped.', $childModel));
+        }
+
         if ($parentIds === []) {
             return;
         }
