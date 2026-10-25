@@ -2,6 +2,8 @@
 
 The stack is fixed so every project reads and is written the same way. Use only what this file names, on the version line it names, and use the installed version's API — confirm with `composer show <package>` or `package.json` before relying on one.
 
+**Do** read the implementation in `vendor/` (or `node_modules/`) before relying on a method whose behaviour is unclear or decides correctness: what it writes, which events, observers and callbacks it fires, what it persists without being asked (`push()`, `touch()`, `firstOrCreate()`), and what it transforms (a `hashed` cast, mutators, `updated_at`). The installed version's documentation supports that reading, it does not replace it. *Review only.*
+
 Enforced by the package's `tests/Architecture/StackTest.php` (`php artisan test --testsuite=Architecture`) and by the package's ESLint rules in `tests/ESLint/stack.js`, which `eslint.config.js` imports from `vendor/` and spreads in (*check `eslint`*). The spec in `stackSpec()`, in the package's `tests/Architecture/Support/stack.php`, is the machine-checked copy of this file: change the two together, in the same commit. The package's `tests/Architecture/StackEslintTest.php` proves the ESLint rules against fixtures.
 
 ## Required packages, locked to a major

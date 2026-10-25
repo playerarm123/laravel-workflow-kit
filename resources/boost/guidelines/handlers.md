@@ -69,6 +69,10 @@ Every handler that writes also records an audit entry, which is a write of its o
 
 **Why:** a use case is the unit that must land whole. If a handler writes twice with no transaction around it, a failure in the second write leaves the first one behind.
 
+**Do** start what leaves the database only once the transaction commits: a queued job, mail, a notification, a broadcast, a call to another system. Call the port that does it inside `DB::afterCommit(fn () => …)`, or have its adapter dispatch with `->afterCommit()` or implement `ShouldQueueAfterCommit`. Write a file after the commit too, or delete it again in `DB::afterRollBack(fn () => …)`. *Review only.*
+
+**Why:** the queue's `after_commit` is `false` by default, so a job dispatched inside the transaction is pushed at once. A worker can then run it before the rows exist, or after they rolled back. Mail already sent and a file already written are not taken back by a rollback.
+
 ## Stepping outside this file
 
 Use `rule-overrides.json` with `"rule": "handlers"`, exactly as stack.md describes. Only the user may add an entry.

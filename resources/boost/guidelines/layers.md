@@ -58,7 +58,7 @@ Put a rule in the first place that can own it:
    - the transaction (`DB::transaction`) and who is acting
    - minting the id of the root it creates
    - calling into several contexts
-   - side effects: files, mail, notifications, audit log
+   - side effects: files, mail, notifications, audit log. Everything but the audit log starts after the commit (handlers.md)
    - turning input into domain types and domain results into a `Result`
 
 **Domain service**

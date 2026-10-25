@@ -113,6 +113,16 @@ Feature tests run on the engine production runs (stack.md), through the real rep
   - The Browser suite runs on `public/build`, so run `npm run build` first, or it tests stale JavaScript.
 - **Every kind:** assert a message the app translates through its key, `__('common.forbidden')`, never through its English words, so the suite passes in whatever locale the app runs in. A dataset takes the key as `fn (): string => __('…')`, which Pest calls once the app has booted. Keep a literal only for text the test itself chose: a policy's own message, a name a factory was given.
 
+## Before calling a change done
+
+*Review only.*
+
+**Do** run the narrowest tests that cover the change (`php artisan test --compact --filter={Name}`, or the one file), read what they report, and say which ones ran. A change to a write also proves its rollback: a case where a later step fails and nothing of the first step stays.
+
+**Don't** call a change verified because Pint, PHPStan, the generators or the build passed. They prove the code is shaped right, not that it does the right thing at runtime.
+
+**Why:** a cast, an event or a transaction behaves the way the framework implements it, and only running it shows that. Static analysis reads types, not side effects.
+
 ## Scaffold, never hand-write
 
 The generators write each test at its mirrored path, with a `->todo()` for every case:
