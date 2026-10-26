@@ -1,20 +1,45 @@
 import { useHttp } from '@inertiajs/react';
 import {
     Background,
+    ControlButton,
     Controls,
     MiniMap,
     ReactFlow,
     useReactFlow,
 } from '@xyflow/react';
-import { ArrowUpRight, Copy, Pencil, Replace, Settings2 } from 'lucide-react';
+import type { NodeChange, XYPosition } from '@xyflow/react';
+import {
+    ArrowUpRight,
+    Copy,
+    FoldVertical,
+    Pencil,
+    Replace,
+    RotateCcw,
+    Settings2,
+    UnfoldVertical,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    useSyncExternalStore,
+} from 'react';
 import { toast } from 'sonner';
 import { CommandDialog } from '@/kit/command-runner';
 import type { CommandRequest } from '@/kit/command-runner';
 import { ContextForm } from '@/kit/context-form';
 import { ExceptionForm } from '@/kit/exception-form';
-import { layoutView, NODE_WIDTH, withoutKinds } from '@/kit/layout';
+import {
+    EMPTY_LAYOUT,
+    focusOf,
+    forgetPlaced,
+    layoutView,
+    NODE_WIDTH,
+    withoutLooks,
+} from '@/kit/layout';
+import type { CanvasLayout, CanvasNode, CardSize } from '@/kit/layout';
 import { Legend } from '@/kit/legend';
 import { MethodForm } from '@/kit/method-form';
 import { styleOf } from '@/kit/node-styles';
@@ -45,7 +70,14 @@ import {
 } from '@/kit/resource-form';
 import { ResourcePieceForm } from '@/kit/resource-piece-form';
 import { StateForm } from '@/kit/state-form';
-import { KIND_LABELS, StatusBadge, StructureNode } from '@/kit/structure-node';
+import {
+    CardActionsContext,
+    FrameNode,
+    KIND_LABELS,
+    StatusBadge,
+    StructureNode,
+} from '@/kit/structure-node';
+import type { CardActions } from '@/kit/structure-node';
 import { StructureToolbar } from '@/kit/structure-toolbar';
 import type {
     ReplaceableSection,
@@ -61,7 +93,28 @@ import type {
 } from '@/kit/types';
 import { VocabularyForm } from '@/kit/vocabulary-form';
 
-const NODE_TYPES = { structure: StructureNode };
+const NODE_TYPES = { structure: StructureNode, frame: FrameNode };
+
+const NOTHING_IN_HAND: ReadonlySet<string> = new Set();
+
+const NO_LOOKS: string[] = [];
+
+/** React Flow fills the icons of its control buttons, which outlines lucide's. */
+const STROKED = { fill: 'none' };
+
+/**
+ * The looks a context view leaves out until the developer shows them: its vocabulary, its entities
+ * and its exceptions, which a context of any size draws many of.
+ */
+const HIDDEN_IN_CONTEXT = [
+    'enum',
+    'status',
+    'valueObject',
+    'entity',
+    'exception',
+];
+
+const VOCABULARY = ['enum', 'status', 'valueObject'];
 
 const FIT_VIEW = { minZoom: 0.5, maxZoom: 1 };
 
@@ -150,30 +203,96 @@ function belongsHere(editing: Editing, place: StructureTarget | null): boolean {
 }
 
 /**
- * A view switch the browser remembers, so a reload opens the views the developer last had on.
- * The browser may refuse storage (a private window, a policy), and then the switch starts off.
+ * What the browser keeps under a key, or the fallback. The browser may refuse storage (a private
+ * window, a policy), and then the screen starts from the fallback every time.
  */
-function useRememberedSwitch(name: string): [boolean, (on: boolean) => void] {
+function readStored<T>(key: string, fallback: T): T {
+    try {
+        const stored = window.localStorage.getItem(key);
+
+        return stored === null ? fallback : (JSON.parse(stored) as T);
+    } catch {
+        return fallback;
+    }
+}
+
+function writeStored(key: string, value: unknown): void {
+    try {
+        window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+        // Storage is off: the screen still works until the page reloads.
+    }
+}
+
+/**
+ * A list the browser remembers, so a reload opens the screen as the developer left it.
+ */
+function useRememberedList(
+    name: string,
+    fallback: string[],
+): [string[], (list: string[]) => void] {
     const key = `kit.structure.${name}`;
-    const [on, setOn] = useState(() => {
-        try {
-            return window.localStorage.getItem(key) === '1';
-        } catch {
-            return false;
-        }
+    const [list, setList] = useState(() => readStored(key, fallback));
+
+    const remember = (next: string[]) => {
+        setList(next);
+        writeStored(key, next);
+    };
+
+    return [list, remember];
+}
+
+/**
+ * The canvas of the view open now as the developer left it, which the browser keeps per view.
+ * `update` changes it, and keeps the change unless `keep` is false: a drag changes it on every
+ * move, and is kept once the card is put down.
+ */
+function useCanvasLayout(
+    hash: string,
+): [
+    CanvasLayout,
+    (change: (canvas: CanvasLayout) => CanvasLayout, keep?: boolean) => void,
+] {
+    const key = `kit.structure.layout:${hash === '' ? '#' : hash}`;
+    const load = (): CanvasLayout => ({
+        ...EMPTY_LAYOUT,
+        ...readStored<Partial<CanvasLayout>>(key, {}),
     });
+    const [state, setState] = useState(() => ({ key, canvas: load() }));
+    let current = state;
 
-    const remember = (next: boolean) => {
-        setOn(next);
+    if (state.key !== key) {
+        current = { key, canvas: load() };
+        setState(current);
+    }
 
-        try {
-            window.localStorage.setItem(key, next ? '1' : '0');
-        } catch {
-            // Storage is off: the switch still works until the page reloads.
+    // A resize ends in the same moment as its last change, before the screen draws it again, so
+    // a change builds on the latest one rather than on what was drawn.
+    const latest = useRef(state);
+
+    const update = (
+        change: (canvas: CanvasLayout) => CanvasLayout,
+        keep = true,
+    ) => {
+        const next = change(
+            latest.current.key === key ? latest.current.canvas : current.canvas,
+        );
+
+        latest.current = { key, canvas: next };
+        setState(latest.current);
+
+        if (keep) {
+            writeStored(key, next);
         }
     };
 
-    return [on, remember];
+    return [current.canvas, update];
+}
+
+function toggled(list: string[], id: string): string[] {
+    return list.includes(id)
+        ? list.filter((other) => other !== id)
+        : [...list, id];
 }
 
 /**
@@ -187,12 +306,17 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
     const [graph, setGraph] = useState(payload.graph);
     const [editing, setEditing] = useState<Editing | null>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [showVocabulary, setShowVocabulary] =
-        useRememberedSwitch('vocabulary');
-    const [showBehaviour, setShowBehaviour] = useRememberedSwitch('behaviour');
-    const [showExceptions, setShowExceptions] =
-        useRememberedSwitch('exceptions');
-    const flow = useReactFlow();
+    const [hiddenInContext, setHiddenInContext] = useRememberedList(
+        'hidden.context',
+        HIDDEN_IN_CONTEXT,
+    );
+    const [hiddenInResource, setHiddenInResource] = useRememberedList(
+        'hidden.resource',
+        [],
+    );
+    const [hoveredId, setHoveredId] = useState<string | null>(null);
+    const [inHand, setInHand] = useState(NOTHING_IN_HAND);
+    const flow = useReactFlow<CanvasNode>();
     const focus = useRef<string | null>(null);
     const hash = useSyncExternalStore(
         subscribeToHash,
@@ -204,21 +328,70 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
     const resource = place?.view === 'resource' ? place.name : null;
     const shared = context === SHARED;
     const fullView = viewOf(graph, place);
-    const hidden = (
-        context === null || shared
-            ? []
-            : [
-                  ...(showVocabulary ? [] : ['enum', 'valueObject']),
-                  ...(showBehaviour ? [] : ['entity']),
-                  ...(showExceptions ? [] : ['exception']),
-              ]
-    ).join(',');
-    const view = withoutKinds(
-        fullView,
-        hidden === '' ? [] : (hidden.split(',') as StructureNodeKind[]),
-    );
-    const { nodes, edges } = layoutView(view, `${hash}|${hidden}`);
+    const [canvas, updateCanvas] = useCanvasLayout(hash);
+    const filter =
+        context !== null && !shared
+            ? { hidden: hiddenInContext, set: setHiddenInContext }
+            : resource !== null
+              ? { hidden: hiddenInResource, set: setHiddenInResource }
+              : null;
+    const hidden = filter?.hidden ?? NO_LOOKS;
+    const { view, laidOut, lines, placed } = useMemo(() => {
+        const shown = withoutLooks(viewOf(graph, placeOf(hash)), hidden);
+        const drawn = layoutView(
+            shown,
+            `${hash}|${hidden.join(',')}`,
+            canvas,
+            inHand,
+        );
+
+        return {
+            view: shown,
+            laidOut: drawn.nodes,
+            lines: drawn.edges,
+            placed: drawn.placed,
+        };
+    }, [graph, hidden, hash, canvas, inHand]);
+    const lit = focusOf(lines, hoveredId ?? selectedId);
+    const nodes = laidOut.map((node): CanvasNode => {
+        const dim =
+            lit !== null &&
+            (node.type === 'frame'
+                ? !node.data.members.some((id) => lit.nodes.has(id))
+                : !lit.nodes.has(node.id));
+        const style = {
+            ...node.style,
+            opacity: dim ? 0.25 : 1,
+            transition: 'opacity 150ms',
+        };
+
+        return node.type === 'frame'
+            ? { ...node, style }
+            : { ...node, style, selected: node.id === selectedId };
+    });
+    const edges = lines.map((edge) => {
+        if (lit === null) {
+            return edge;
+        }
+
+        return lit.edges.has(edge.id)
+            ? {
+                  ...edge,
+                  animated: true,
+                  zIndex: 1,
+                  style: {
+                      ...edge.style,
+                      stroke: 'var(--ring)',
+                      strokeWidth: 2,
+                  },
+              }
+            : { ...edge, className: 'opacity-15' };
+    });
     const selected = view.nodes.find((node) => node.id === selectedId) ?? null;
+    const shownCards = laidOut.filter((node) => node.type === 'structure');
+    const allFolded =
+        shownCards.length > 0 &&
+        shownCards.every((node) => canvas.folded.includes(node.id));
     const panel =
         editing !== null && belongsHere(editing, place) ? editing : null;
     const endpoints = payload.endpoints;
@@ -235,7 +408,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
 
         if (node !== undefined) {
             void flow.setCenter(
-                node.position.x + NODE_WIDTH / 2,
+                node.position.x + (node.width ?? NODE_WIDTH) / 2,
                 node.position.y + (node.height ?? 0) / 2,
                 { zoom: flow.getZoom(), duration: 300 },
             );
@@ -297,29 +470,143 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
         });
     };
 
-    const switches =
-        context === null || shared
-            ? []
-            : [
-                  {
-                      label: 'Vocabulary',
-                      icon: 'enum' as const,
-                      on: showVocabulary,
-                      set: setShowVocabulary,
-                  },
-                  {
-                      label: 'Behaviour',
-                      icon: 'entity' as const,
-                      on: showBehaviour,
-                      set: setShowBehaviour,
-                  },
-                  {
-                      label: 'Exceptions',
-                      icon: 'exception' as const,
-                      on: showExceptions,
-                      set: setShowExceptions,
-                  },
-              ];
+    /**
+     * Shows looks the context view leaves out, so a card a form just saved is on the canvas.
+     */
+    const reveal = (looks: string[]) =>
+        setHiddenInContext(
+            hiddenInContext.filter((look) => !looks.includes(look)),
+        );
+
+    /**
+     * Where every card is drawn now, kept as the developer's own once they move one, with the
+     * places of the cards a filter or a collapse leaves out.
+     */
+    const pinned = (positions: Record<string, XYPosition>) => ({
+        ...positions,
+        ...placed,
+    });
+
+    /**
+     * Follows a drag and a resize. A card in hand claims its room first, and dragging a frame
+     * drags every card in it. What is in hand is kept once it is put down.
+     */
+    const onNodesChange = (changes: NodeChange<CanvasNode>[]) => {
+        const moves: Record<string, XYPosition> = {};
+        const sizes: Record<string, CardSize> = {};
+
+        for (const change of changes) {
+            if (change.type === 'position' && change.position !== undefined) {
+                const frame = laidOut.find(
+                    (node) => node.id === change.id && node.type === 'frame',
+                );
+
+                if (frame === undefined) {
+                    moves[change.id] = change.position;
+                    continue;
+                }
+
+                const dx = change.position.x - frame.position.x;
+                const dy = change.position.y - frame.position.y;
+
+                for (const member of frame.type === 'frame'
+                    ? frame.data.members
+                    : []) {
+                    const at = placed[member] ?? { x: 0, y: 0 };
+
+                    moves[member] = { x: at.x + dx, y: at.y + dy };
+                }
+            }
+
+            if (
+                change.type === 'dimensions' &&
+                change.resizing !== undefined &&
+                change.dimensions !== undefined
+            ) {
+                sizes[change.id] = change.dimensions;
+            }
+        }
+
+        const ids = Object.keys(moves);
+
+        if (ids.length === 0 && Object.keys(sizes).length === 0) {
+            return;
+        }
+
+        updateCanvas(
+            (current) => ({
+                ...current,
+                positions: {
+                    ...(inHand.size === 0
+                        ? pinned(current.positions)
+                        : current.positions),
+                    ...moves,
+                },
+                sizes: { ...current.sizes, ...sizes },
+            }),
+            false,
+        );
+
+        if (ids.some((id) => !inHand.has(id))) {
+            setInHand(new Set([...inHand, ...ids]));
+        }
+    };
+
+    /**
+     * Keeps the canvas as it is drawn now, once a card is put down or resized.
+     */
+    const putDown = () => {
+        updateCanvas((current) => ({
+            ...current,
+            positions: pinned(current.positions),
+        }));
+        setInHand(NOTHING_IN_HAND);
+    };
+
+    const actions: CardActions = {
+        fold: (id) =>
+            updateCanvas((current) => ({
+                ...current,
+                folded: toggled(current.folded, id),
+            })),
+        collapse: (id) =>
+            updateCanvas((current) => ({
+                ...current,
+                collapsed: toggled(current.collapsed, id),
+            })),
+        resized: putDown,
+    };
+
+    /**
+     * Folds every card, or unfolds them all once they are. A view the developer has not arranged
+     * is laid out afresh for the new heights.
+     */
+    const foldAll = () => {
+        const ids = shownCards.map((node) => node.id);
+
+        if (Object.keys(canvas.positions).length === 0) {
+            forgetPlaced(`${hash}|`);
+        }
+
+        updateCanvas((current) => ({
+            ...current,
+            folded: allFolded
+                ? current.folded.filter((id) => !ids.includes(id))
+                : [...new Set([...current.folded, ...ids])],
+        }));
+    };
+
+    /**
+     * Forgets where the developer put the cards of this view and the sizes they gave them, and
+     * lays it out afresh.
+     */
+    const resetLayout = () => {
+        forgetPlaced(`${hash}|`);
+        updateCanvas((current) => ({ ...current, positions: {}, sizes: {} }));
+        window.requestAnimationFrame(
+            () => void flow.fitView({ ...FIT_VIEW, duration: 300 }),
+        );
+    };
 
     return (
         <div className="flex h-screen flex-col bg-background text-foreground">
@@ -327,36 +614,93 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                 place={place}
                 shared={shared}
                 endpoints={endpoints}
-                switches={switches}
                 commands={payload.commands}
                 onEdit={setEditing}
                 onRun={setRunning}
             />
             <div className="flex min-h-0 flex-1">
                 <main className="min-w-0 flex-1">
-                    <ReactFlow
-                        key={hash}
-                        nodes={nodes}
-                        edges={edges}
-                        nodeTypes={NODE_TYPES}
-                        nodesDraggable={false}
-                        nodesConnectable={false}
-                        colorMode="system"
-                        fitView
-                        fitViewOptions={FIT_VIEW}
-                        zoomOnDoubleClick={false}
-                        minZoom={0.1}
-                        onNodeClick={(_, node) => setSelectedId(node.id)}
-                        onNodeDoubleClick={(_, node) =>
-                            node.data.target !== null && open(node.data.target)
-                        }
-                        onPaneClick={() => setSelectedId(null)}
-                    >
-                        <Legend nodes={view.nodes} />
-                        <Background />
-                        <Controls showInteractive={false} />
-                        <MiniMap pannable zoomable />
-                    </ReactFlow>
+                    <CardActionsContext value={actions}>
+                        <ReactFlow
+                            key={hash}
+                            nodes={nodes}
+                            edges={edges}
+                            nodeTypes={NODE_TYPES}
+                            nodesConnectable={false}
+                            colorMode="system"
+                            fitView
+                            fitViewOptions={FIT_VIEW}
+                            zoomOnDoubleClick={false}
+                            minZoom={0.1}
+                            onNodesChange={onNodesChange}
+                            onNodeDragStop={putDown}
+                            onNodeClick={(_, node) =>
+                                node.type === 'structure' &&
+                                setSelectedId(node.id)
+                            }
+                            onNodeDoubleClick={(_, node) =>
+                                node.type === 'structure' &&
+                                node.data.target !== null &&
+                                open(node.data.target)
+                            }
+                            onNodeMouseEnter={(_, node) =>
+                                node.type === 'structure' &&
+                                setHoveredId(node.id)
+                            }
+                            onNodeMouseLeave={() => setHoveredId(null)}
+                            onPaneClick={() => setSelectedId(null)}
+                        >
+                            <Legend
+                                nodes={
+                                    filter === null
+                                        ? view.nodes
+                                        : fullView.nodes
+                                }
+                                hidden={hidden}
+                                onToggle={
+                                    filter === null
+                                        ? undefined
+                                        : (look) =>
+                                              filter.set(toggled(hidden, look))
+                                }
+                                onShowAll={
+                                    filter === null
+                                        ? undefined
+                                        : () => filter.set([])
+                                }
+                            />
+                            <Background />
+                            <Controls showInteractive={false}>
+                                <ControlButton
+                                    title={
+                                        allFolded
+                                            ? 'Unfold every card'
+                                            : 'Fold every card'
+                                    }
+                                    aria-label={
+                                        allFolded
+                                            ? 'Unfold every card'
+                                            : 'Fold every card'
+                                    }
+                                    onClick={foldAll}
+                                >
+                                    {allFolded ? (
+                                        <UnfoldVertical style={STROKED} />
+                                    ) : (
+                                        <FoldVertical style={STROKED} />
+                                    )}
+                                </ControlButton>
+                                <ControlButton
+                                    title="Reset layout"
+                                    aria-label="Reset layout"
+                                    onClick={resetLayout}
+                                >
+                                    <RotateCcw style={STROKED} />
+                                </ControlButton>
+                            </Controls>
+                            <MiniMap pannable zoomable />
+                        </ReactFlow>
+                    </CardActionsContext>
                 </main>
                 <aside className="w-96 shrink-0 space-y-6 overflow-y-auto border-l p-4 text-sm">
                     {panel?.kind === 'context' && (
@@ -390,7 +734,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                                 section={panel.section}
                                 previous={panel.previous}
                                 onSaved={(next, name) => {
-                                    setShowVocabulary(true);
+                                    reveal(VOCABULARY);
                                     saved(next, name);
                                 }}
                                 onCancel={() => setEditing(null)}
@@ -405,7 +749,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                                 context={panel.context}
                                 previous={panel.previous}
                                 onSaved={(next, name) => {
-                                    setShowExceptions(true);
+                                    reveal(['exception']);
                                     saved(next, name);
                                 }}
                                 onCancel={() => setEditing(null)}
@@ -435,7 +779,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                             entity={panel.entity}
                             previous={panel.previous}
                             onSaved={(next) => {
-                                setShowBehaviour(true);
+                                reveal(['entity']);
                                 saved(next);
                             }}
                             onCancel={() => setEditing(null)}
@@ -450,7 +794,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                             entity={panel.entity}
                             previous={panel.previous}
                             onSaved={(next) => {
-                                setShowBehaviour(true);
+                                reveal(['entity']);
                                 saved(next);
                             }}
                             onCancel={() => setEditing(null)}
@@ -518,7 +862,7 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                                 }}
                                 onChanged={changedHere}
                                 onSelect={(id) => {
-                                    setShowBehaviour(true);
+                                    reveal(['entity']);
                                     setSelectedId(id);
                                     focus.current = id;
                                 }}
