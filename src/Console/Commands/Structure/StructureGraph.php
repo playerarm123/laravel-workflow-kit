@@ -15,7 +15,7 @@ namespace Playerarm123\LaravelWorkflowKit\Console\Commands\Structure;
  *
  * @phpstan-import-type Step from StructurePlanner
  *
- * @phpstan-type Node array{id: string, kind: string, label: string, items: list<string>, status: string|null, reason: string|null, command: string|null, target: array{view: string, name: string}|null, editable: bool, variant: string|null}
+ * @phpstan-type Node array{id: string, kind: string, label: string, items: list<string>, status: string|null, reason: string|null, command: string|null, target: array{view: string, name: string}|null, editable: bool, variant: string|null, group: string|null}
  * @phpstan-type Edge array{id: string, source: string, target: string, label: string|null}
  * @phpstan-type View array{nodes: list<Node>, edges: list<Edge>}
  * @phpstan-type Difference array{check: string, subject: string, message: string, node: string|null}
@@ -248,7 +248,7 @@ final class StructureGraph
             $nodes[] = $this->node("aggregate:{$context}/{$aggregate}", 'aggregate', $aggregate, [
                 ...array_map(fn (string $child): string => "child {$child}", $entry['children']),
                 ...($entry['repository'] ? ['repository'] : []),
-            ], editable: ! isset($built['aggregates'][$aggregate]));
+            ], editable: ! isset($built['aggregates'][$aggregate]), group: "aggregate:{$context}/{$aggregate}");
         }
 
         $reference = function (string $source, string $aggregate, ?string $label) use ($context, $aggregates, &$edges, &$external): void {
@@ -355,6 +355,7 @@ final class StructureGraph
         /** @var array<string, mixed> $builtValueObjects */
         $builtValueObjects = $built['valueObjects'] ?? [];
 
+        $group = fn (?string $aggregate): ?string => $aggregate !== null && isset($aggregates[$aggregate]) ? "aggregate:{$context}/{$aggregate}" : null;
         $holder = function (string $id, ?string $aggregate) use ($context, $aggregates, &$edges): void {
             if ($aggregate !== null && isset($aggregates[$aggregate])) {
                 $edges[] = $this->edge("aggregate:{$context}/{$aggregate}", $id, 'vocabulary');
@@ -372,7 +373,7 @@ final class StructureGraph
                 }
             }
 
-            $nodes[] = $this->node($id, 'enum', $enum, $this->capped([$entry['backing'] ?? 'pure', ...$lines]), editable: ! isset($builtEnums[$enum]), variant: is_array($transitions) ? 'status' : null);
+            $nodes[] = $this->node($id, 'enum', $enum, $this->capped([$entry['backing'] ?? 'pure', ...$lines]), editable: ! isset($builtEnums[$enum]), variant: is_array($transitions) ? 'status' : null, group: $group($entry['aggregate']));
             $holder($id, $entry['aggregate']);
         }
 
@@ -399,7 +400,7 @@ final class StructureGraph
                 }
             }
 
-            $nodes[] = $this->node($id, 'valueObject', $valueObject, $this->capped($fields), editable: ! isset($builtValueObjects[$valueObject]));
+            $nodes[] = $this->node($id, 'valueObject', $valueObject, $this->capped($fields), editable: ! isset($builtValueObjects[$valueObject]), group: $group($entry['aggregate']));
             $holder($id, $entry['aggregate']);
         }
 
@@ -430,7 +431,7 @@ final class StructureGraph
                 ['refusal' => 'refusal', 'value' => 'invalid value', 'application' => 'use case refusal'][$entry['kind']] ?? $entry['kind'],
                 ...($entry['aggregate'] !== null ? ["in {$entry['aggregate']}"] : []),
                 ...($entry['useCase'] !== null ? ["of {$entry['useCase']}"] : []),
-            ], editable: ! isset($builtExceptions[$exception]), variant: $entry['kind']);
+            ], editable: ! isset($builtExceptions[$exception]), variant: $entry['kind'], group: $entry['aggregate'] !== null && isset($manifest['aggregates'][$entry['aggregate']]) ? "aggregate:{$context}/{$entry['aggregate']}" : null);
 
             if ($entry['aggregate'] !== null && isset($manifest['aggregates'][$entry['aggregate']])) {
                 $edges[] = $this->edge("aggregate:{$context}/{$entry['aggregate']}", $id, $entry['kind'] === 'value' ? 'rejects' : 'refuses');
@@ -546,6 +547,7 @@ final class StructureGraph
                 $entity,
                 $lines === [] ? [self::NOTHING_DESIGNED] : $this->capped($lines),
                 editable: $child && ! in_array("{$entry['aggregate']}.{$entity}", $builtChildren, true),
+                group: isset($aggregates[$entry['aggregate']]) ? "aggregate:{$context}/{$entry['aggregate']}" : null,
             );
 
             if (isset($aggregates[$entry['aggregate']])) {
@@ -825,6 +827,7 @@ final class StructureGraph
             'target' => $target,
             'editable' => false,
             'variant' => null,
+            'group' => null,
         ];
     }
 
@@ -833,9 +836,10 @@ final class StructureGraph
      * @param  array{view: string, name: string}|null  $target
      * @param  bool  $editable  whether the screen may change it: a piece the code does not have yet
      * @param  string|null  $variant  what sets a node apart within its kind: `query` for a list use case, `status` for an enum that declares its moves, a page's kind
+     * @param  string|null  $group  the aggregate a node belongs to, which the screen draws a frame around: the aggregate itself, its entities, and the enums, value objects and exceptions it holds
      * @return Node
      */
-    private function node(string $id, string $kind, string $label, array $items, ?array $target = null, bool $editable = false, ?string $variant = null): array
+    private function node(string $id, string $kind, string $label, array $items, ?array $target = null, bool $editable = false, ?string $variant = null, ?string $group = null): array
     {
         $status = $kind === 'external' ? null : ($this->statuses[$id] ?? ['status' => StructurePlanner::DONE, 'reason' => null, 'command' => null]);
 
@@ -850,6 +854,7 @@ final class StructureGraph
             'target' => $target,
             'editable' => $editable,
             'variant' => $variant,
+            'group' => $group,
         ];
     }
 

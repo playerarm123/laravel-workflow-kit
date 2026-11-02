@@ -70,7 +70,7 @@ enum ชื่อ `*Status` ที่ระบุการเปลี่ยน�
 
 ![การเพิ่ม value object](images/structure-add-value-object.png)
 
-บันทึก enum หรือ value object แล้ว สวิตช์ **Vocabulary** จะเปิดเอง และวาดมันไว้ข้าง aggregate
+บันทึก enum หรือ value object แล้ว Legend จะแสดงชนิด **Enum**, **Status** และ **Value object** เอง และวาดมันไว้ข้าง aggregate ในกรอบของมัน
 
 ![มุมมอง Vocabulary](images/structure-vocabulary.png)
 
@@ -91,7 +91,7 @@ method ที่จะเพิ่มต่อไปปฏิเสธด้ว�
 
 exception ของ domain service ไม่ได้ออกแบบตรงนี้ ให้ติ๊ก **It has its own exception** ในฟอร์มของ service แทน
 
-บันทึก exception แล้ว สวิตช์ **Exceptions** จะเปิดเอง และวาด exception แต่ละตัวโยงกับ aggregate หรือ use case ที่มันสังกัด
+บันทึก exception แล้ว Legend จะแสดงชนิด **Exception** เอง และวาด exception แต่ละตัวโยงกับ aggregate หรือ use case ที่มันสังกัด
 
 ### 6. เพิ่ม method ให้ entity
 
@@ -104,17 +104,17 @@ exception ของ domain service ไม่ได้ออกแบบตรง
 
 ![การเพิ่ม method ให้ entity](images/structure-add-method.png)
 
-บันทึก method แล้ว สวิตช์ **Behaviour** จะเปิดเอง และวาด entity พร้อม method ของมัน
+บันทึก method แล้ว Legend จะแสดงชนิด **Entity** เอง และวาด entity พร้อม method ของมัน
 
 ![มุมมอง Behaviour](images/structure-behaviour.png)
 
-ถ้าเปิด **Exceptions** ด้วย การ์ด exception จะโยงกับ `Crate` ที่ปฏิเสธด้วยมัน และกับ `seal` ที่ throw มัน panel ของมันแสดงทุก method ที่ throw มัน
+ถ้าแสดง **Exception** ด้วย การ์ด exception จะโยงกับ `Crate` ที่ปฏิเสธด้วยมัน และกับ `seal` ที่ throw มัน panel ของมันแสดงทุก method ที่ throw มัน
 
 ![มุมมอง Exceptions](images/structure-exceptions.png)
 
 ### 6b. กำหนด state ให้ entity
 
-เลือกการ์ด entity `Crate` (เปิด **Behaviour** ก่อน) แล้วกด **+** ข้างหัวข้อ **State**:
+เลือกการ์ด entity `Crate` (ให้ Legend แสดง **Entity** ก่อน) แล้วกด **+** ข้างหัวข้อ **State**:
 
 - **Name:** `status`
 - **Type:** `CrateStatus` ช่องนี้มีตัวเลือกให้เป็นชนิดพื้นฐาน ตามด้วย enum, value object และ entity ของ `Crate` แล้วจึงเป็นของที่อื่นซึ่งมี prefix นำหน้า
@@ -256,15 +256,28 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | มุมมอง | เปิดยังไง | แสดงอะไร |
 |---|---|---|
 | ภาพรวม | `/kit/structure` หรือ breadcrumb **Structure** | การ์ดหนึ่งใบต่อ context และต่อ HTTP resource พร้อมจำนวนในแต่ละสถานะ เส้นเชื่อมบอกว่า context ไหนใช้ context ไหน และ resource เรียก use case กี่ตัว |
-| Context | ดับเบิลคลิก context หรือ `#context/{Name}` | aggregate, domain service, port และ use case พร้อม repository ที่แต่ละตัว inject **Vocabulary** เพิ่ม enum และ value object, **Behaviour** เพิ่ม root และ child entity ทุกตัว พร้อม state และ method หรือคำว่า `nothing designed yet` และ **Exceptions** เพิ่ม exception ทั้งสามเป็นสวิตช์ในเมนู **View** และเบราว์เซอร์จำสถานะไว้แม้รีโหลดหน้า |
+| Context | ดับเบิลคลิก context หรือ `#context/{Name}` | aggregate, domain service, port และ use case พร้อม repository ที่แต่ละตัว inject Legend เพิ่ม enum และ value object, root และ child entity ทุกตัว (พร้อม state และ method หรือคำว่า `nothing designed yet`) และ exception ได้ ทั้งหมดนี้ซ่อนไว้ตอนเริ่ม คลิกแถวของชนิดนั้นเพื่อแสดง aggregate แต่ละตัวอยู่ในกรอบเดียวกับของที่มันถือ |
 | Shared kernel | `#context/Shared` | เฉพาะ enum, value object และ invalid value ที่ทุก context ใช้ได้ |
 | HTTP resource | ดับเบิลคลิก resource หรือ `#resource/{Name}` | model, policy, controller, action และ page พร้อม use case ที่เรียก |
 
-แถบที่อยู่ของเบราว์เซอร์จำมุมมองไว้ ลิงก์จึงเปิดมุมมองเดิมได้ และปุ่มย้อนกลับใช้ได้ปกติ แคนวาสเลื่อนและซูมได้ (ปุ่มควบคุมอยู่มุมซ้ายล่าง แผนที่ย่ออยู่มุมขวาล่าง) แต่ลากการ์ดไม่ได้ เพราะตำแหน่งคำนวณให้อัตโนมัติ
+แถบที่อยู่ของเบราว์เซอร์จำมุมมองไว้ ลิงก์จึงเปิดมุมมองเดิมได้ และปุ่มย้อนกลับใช้ได้ปกติ แคนวาสเลื่อนและซูมได้ (ปุ่มควบคุมอยู่มุมซ้ายล่าง แผนที่ย่ออยู่มุมขวาล่าง)
+
+### จัดแคนวาส
+
+หน้าจอจัดวางแต่ละมุมมองจากซ้ายไปขวาให้ก่อน สิ่งที่เรียกอยู่ทางซ้ายของสิ่งที่ถูกเรียก จากนั้นจัดต่อเองได้ตามสะดวก และเบราว์เซอร์จำแต่ละมุมมองไว้ตามที่ทิ้งไว้ แม้รีโหลดหน้า
+
+- **ลาก** การ์ดเพื่อย้าย การ์ดไม่ทับกัน ใบที่ขวางอยู่จะเลื่อนลงไปด้านล่าง
+- **ปรับขนาด** การ์ดที่เลือกอยู่ด้วยมุมหรือขอบ ถ้าการ์ดเตี้ยกว่าจำนวนบรรทัด จะเลื่อนดูบรรทัดในการ์ดได้
+- **ย่อ** การ์ดให้เหลือแค่หัวด้วยลูกศรหน้าชื่อชนิด ปุ่มย่อในแผงควบคุมย่อทุกการ์ด หรือขยายทั้งหมดเมื่อย่ออยู่แล้ว
+- **เก็บ** การ์ดที่มีแค่ใบเดียวชี้ไป: ชี้ที่การ์ดนั้นแล้วกดปุ่มใต้การ์ด ปุ่มจะกลายเป็น `+N` กดอีกครั้งเพื่อเอากลับมา เส้นที่เคยชี้ไปยังการ์ดที่ถูกเก็บจะวาดมาที่การ์ดนั้นแทนเป็นเส้นประ
+- **กรอบ** ล้อม aggregate ไว้กับ entity, enum, value object และ exception ของมัน ลากกรอบที่หัวเพื่อย้ายทั้งกลุ่ม ปุ่มข้างหัวยุบกรอบให้เหลือการ์ด aggregate ใบเดียว
+- **ชี้หรือเลือก** การ์ดเพื่อดูว่ามันโยงกับอะไร เส้นของมันและการ์ดที่ห่างไปหนึ่งเส้นยังสว่างอยู่ ส่วนที่เหลือจางลง
+- **กรอง** ด้วย Legend: ใน context หรือ resource คลิกชนิดใดเพื่อซ่อนหรือแสดงอีกครั้ง และ **Show all** แสดงทุกชนิด เบราว์เซอร์จำชนิดที่ซ่อนไว้แยกกันระหว่าง context กับ resource
+- **Reset layout** ในแผงควบคุม ลืมตำแหน่งและขนาดที่ตั้งไว้ในมุมมองนี้ แล้วจัดวางใหม่ทั้งหมด
 
 ### การ์ด
 
-การ์ดแต่ละชนิดมีรูปทรง สี และไอคอนของตัวเอง **Legend** ที่มุมซ้ายบนบอกชนิดที่วาดอยู่ในมุมมองนั้น และพับเก็บได้
+การ์ดแต่ละชนิดมีรูปทรง สี และไอคอนของตัวเอง **Legend** ที่มุมซ้ายบนบอกชนิดที่มีในมุมมองนั้น ซ่อนหรือแสดงแต่ละชนิดได้ และพับเก็บได้
 
 | ชนิด | รูปทรง | สี |
 |---|---|---|
@@ -319,7 +332,7 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 เมนูบนแถบด้านบนเปิดฟอร์มตามมุมมองที่อยู่:
 
 - **ภาพรวม:** **New ▸** Context, HTTP resource
-- **Context:** **Add ▸** Domain (Aggregate, Entity method, Domain service, Exception), Vocabulary (Enum, Value object), Application (Use case, Port) และ **View ▸** สวิตช์ Vocabulary, Behaviour กับ Exceptions
+- **Context:** **Add ▸** Domain (Aggregate, Entity method, Domain service, Exception), Vocabulary (Enum, Value object), Application (Use case, Port)
 - **Shared kernel:** **Add ▸** Enum, Value object, Invalid value
 - **HTTP resource:** **Add ▸** Controller method, Action, Page และไอคอนเฟืองเปิด Model and policy
 - **ทุกมุมมอง:** **?** เปิด Guide และ Docs
@@ -365,7 +378,7 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 
 - การ์ดที่สร้างแล้วจะขึ้นข้อความ *The code already has it. Change the code and sync it, or replace it.* แทนไอคอน Edit และ Remove
 - entity กับ controller ล็อกทีละ method: method ที่สร้างแล้วจะมีเครื่องหมายถูกสีเขียว ส่วนที่เหลือยังมีไอคอน Edit และ Remove state ของ entity ก็ล็อกทีละ property แบบเดียวกัน เครื่องหมายถูกของ property ที่สร้างแล้วจะบอกว่า *Built: read by status()*
-- child entity มีการ์ดของตัวเองเมื่อเปิด **Behaviour** เหมือน root ใน panel เพิ่ม state และ method ได้แบบเดียวกัน (ปุ่ม **+** ข้างหัวข้อ **State** และ **Methods**) และมีไอคอน **Remove** ตราบที่โค้ดยังไม่มี child นั้นและยังไม่ได้ออกแบบอะไรไว้ กดชื่อ child ใน panel ของ aggregate เพื่อเปิดการ์ดของมันได้
+- child entity มีการ์ดของตัวเองเมื่อ Legend แสดง **Entity** เหมือน root ใน panel เพิ่ม state และ method ได้แบบเดียวกัน (ปุ่ม **+** ข้างหัวข้อ **State** และ **Methods**) และมีไอคอน **Remove** ตราบที่โค้ดยังไม่มี child นั้นและยังไม่ได้ออกแบบอะไรไว้ กดชื่อ child ใน panel ของ aggregate เพื่อเปิดการ์ดของมันได้
 - aggregate ที่สร้างแล้วล็อกชื่อและ repository แต่ใน panel ยังเพิ่ม child entity ใหม่ได้ `kit:apply` จะสร้างให้ด้วย `make:entity --child` child ที่สร้างแล้วจะมีเครื่องหมายถูกสีเขียว ส่วนตารางของ child, model และ `syncChildren()` ใน repository ยังต้องเขียนเอง
 - ชิ้นที่ยังมีชิ้นอื่นใช้อยู่ เปลี่ยนชื่อหรือลบไม่ได้ จนกว่าจะไม่มีใครใช้ เช่น aggregate ที่ use case inject อยู่หรือมี exception สังกัดอยู่, enum ที่ field ของ value object อ้างถึง, exception ที่ method throw อยู่, use case ที่มี refusal ของตัวเอง, `index` ขณะที่ยังมีหน้ารายการต้องใช้
 

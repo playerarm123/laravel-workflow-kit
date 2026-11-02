@@ -70,7 +70,7 @@ Choose **Add ▸ Value object**. Set **Name** to `CrateLabel` and **Aggregate** 
 
 ![Adding a value object](images/structure-add-value-object.png)
 
-Saving an enum or a value object turns on **Vocabulary**, which draws them beside their aggregate.
+Saving an enum or a value object shows the **Enum**, **Status** and **Value object** kinds in the legend, which draws them beside their aggregate, inside its frame.
 
 ![The Vocabulary view](images/structure-vocabulary.png)
 
@@ -91,7 +91,7 @@ The other kinds follow [exceptions.md](../resources/boost/guidelines/exceptions.
 
 A domain service's own exception is not designed here: tick **It has its own exception** on the service's form instead.
 
-Saving an exception turns on the **Exceptions** switch, which draws each exception tied to the aggregate or the use case it belongs to.
+Saving an exception shows the **Exception** kind, which draws each exception tied to the aggregate or the use case it belongs to.
 
 ### 6. Add a method to the entity
 
@@ -104,17 +104,17 @@ Choose **Add ▸ Entity method** (or the **+** beside **Methods** in an entity's
 
 ![Adding an entity method](images/structure-add-method.png)
 
-Saving a method turns on **Behaviour**, which draws the entity with its methods.
+Saving a method shows the **Entity** kind, which draws the entity with its methods.
 
 ![The Behaviour view](images/structure-behaviour.png)
 
-With **Exceptions** on as well, the exception's card is tied to `Crate`, which refuses with it, and to `seal`, which throws it. Its panel lists every method that throws it.
+With **Exception** shown as well, the exception's card is tied to `Crate`, which refuses with it, and to `seal`, which throws it. Its panel lists every method that throws it.
 
 ![The Exceptions view](images/structure-exceptions.png)
 
 ### 6b. Give the entity its state
 
-Select the `Crate` entity card (under **Behaviour**) and click the **+** beside **State**:
+Select the `Crate` entity card (the legend shows **Entity**) and click the **+** beside **State**:
 
 - **Name:** `status`;
 - **Type:** `CrateStatus`. The field offers builtins, then the enums, value objects and entities of `Crate`, then those elsewhere with their prefix.
@@ -256,15 +256,28 @@ Finish with `php artisan test --testsuite=Architecture`. The `structure` check h
 | View | How to open it | What it shows |
 |---|---|---|
 | Overview | `/kit/structure`, or the **Structure** breadcrumb | One card per context and per HTTP resource, with their status counts. Edges show which context uses which, and how many use cases a resource calls. |
-| Context | Double-click a context, or `#context/{Name}` | Its aggregates, domain services, ports and use cases, with the repositories each one injects. **Vocabulary** adds enums and value objects. **Behaviour** adds every root and child entity, with its state and its methods, or `nothing designed yet`. **Exceptions** adds the exceptions. The three are switches in the **View** menu, and the browser remembers them across reloads. |
+| Context | Double-click a context, or `#context/{Name}` | Its aggregates, domain services, ports and use cases, with the repositories each one injects. The legend adds enums and value objects, every root and child entity (with its state and its methods, or `nothing designed yet`), and the exceptions: they start hidden, and a click on their row shows them. Each aggregate and what it holds sit in a frame. |
 | Shared kernel | `#context/Shared` | Only the enums, value objects and invalid values every context may use. |
 | HTTP resource | Double-click a resource, or `#resource/{Name}` | Its model, policy, controller, actions and pages, and the use cases they call. |
 
-The address bar keeps the view, so a link opens the same view and the browser's back button works. The canvas pans and zooms (the controls are at the bottom left, the minimap at the bottom right), but cards cannot be dragged: the layout is computed.
+The address bar keeps the view, so a link opens the same view and the browser's back button works. The canvas pans and zooms (the controls are at the bottom left, the minimap at the bottom right).
+
+### Arranging the canvas
+
+The screen lays each view out left to right, so what calls sits left of what it calls. From there, arrange it your way; the browser keeps each view as you leave it, across reloads.
+
+- **Drag** a card to move it. Cards never overlap: one in the way moves down below it.
+- **Resize** a selected card by its corners and edges. A card shorter than its lines scrolls them.
+- **Fold** a card to its header with the chevron before its kind. The fold button in the controls folds every card, or unfolds them all once they are.
+- **Tuck away** what only one card leads to: point at the card and click the button under it. It then reads `+N`, and a click brings them back. A line that pointed at a tucked card is drawn to that card instead, dashed.
+- **Frames** hold an aggregate with its entities, enums, value objects and exceptions. Drag a frame by its title to move them all; the button beside the title collapses it to the aggregate's card.
+- **Point at or select** a card to see what it is tied to: its lines and the cards one line away stay lit, and the rest dims.
+- **Filter** with the legend: in a context or a resource, a click on a kind hides it or shows it again, and **Show all** shows every kind. The browser remembers the kinds a context hides, and those a resource hides.
+- **Reset layout**, in the controls, forgets where you put the cards of this view and the sizes you gave them, and lays it out afresh.
 
 ### Cards
 
-Each kind has its own shape, colour and icon. The **Legend** at the top left names the kinds drawn in the current view, and collapses.
+Each kind has its own shape, colour and icon. The **Legend** at the top left names the kinds in the current view, shows or hides each one, and collapses.
 
 | Kind | Shape | Colour |
 |---|---|---|
@@ -319,7 +332,7 @@ At the bottom, **By hand (N)** lists every difference between the code and the m
 The header's menus offer the forms of the current view:
 
 - **Overview:** **New ▸** Context, HTTP resource.
-- **Context:** **Add ▸** Domain (Aggregate, Entity method, Domain service, Exception), Vocabulary (Enum, Value object), Application (Use case, Port); **View ▸** the Vocabulary, Behaviour and Exceptions switches.
+- **Context:** **Add ▸** Domain (Aggregate, Entity method, Domain service, Exception), Vocabulary (Enum, Value object), Application (Use case, Port).
 - **Shared kernel:** **Add ▸** Enum, Value object, Invalid value.
 - **HTTP resource:** **Add ▸** Controller method, Action, Page; the gear opens Model and policy.
 - **Every view:** **?** opens the Guide and the Docs.
@@ -365,7 +378,7 @@ Only what the code does not have yet can change:
 
 - A built card shows *The code already has it. Change the code and sync it, or replace it.* in place of Edit and Remove.
 - An entity and a controller lock one method at a time: a built method shows a green tick, and the others keep their Edit and Remove icons. An entity's state locks the same way, one property at a time: a built property's tick reads *Built: read by status()*.
-- A child entity has a card of its own under **Behaviour**, as the root does. Its panel takes state and methods the same way (the **+** beside **State** and **Methods**), and offers **Remove** while the code does not have the child and it lists nothing. A child's name in the aggregate's panel opens its card.
+- A child entity has a card of its own while the legend shows **Entity**, as the root does. Its panel takes state and methods the same way (the **+** beside **State** and **Methods**), and offers **Remove** while the code does not have the child and it lists nothing. A child's name in the aggregate's panel opens its card.
 - A built aggregate locks its name and repository, but its panel still takes new child entities. `kit:apply` builds each one with `make:entity --child`. A built child shows a green tick. The child's table, model and the repository's `syncChildren()` are still yours to write.
 - A piece that others use cannot be renamed or removed until nothing uses it. Examples: an aggregate a use case injects or that holds an exception, an enum a value object's field names, an exception a method throws, a use case with a refusal of its own, `index` while a list page needs it.
 

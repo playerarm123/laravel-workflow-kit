@@ -390,6 +390,37 @@ describe('StructureGraph', function () {
                 ]);
         });
 
+        it('puts an aggregate, its entities and what it holds in its group, and leaves the rest out', function () {
+            $context = SAMPLING_GRAPH_CONTEXT;
+            $files = new StructureFiles(base_path());
+            $manifest = $files->read($context);
+            $files->write([...$manifest,
+                'aggregates' => [...$manifest['aggregates'], 'Box' => ['children' => ['Flap'], 'repository' => false]],
+                'enums' => [
+                    'BoxSide' => ['aggregate' => 'Box', 'backing' => null, 'cases' => ['Left' => null]],
+                ],
+                'valueObjects' => ['BoxLabel' => ['aggregate' => 'Box', 'fields' => ['text' => 'string']]],
+                'exceptions' => [
+                    'BoxFullException' => ['kind' => 'refusal', 'aggregate' => 'Box', 'useCase' => null],
+                    'BoxLateException' => ['kind' => 'application', 'aggregate' => null, 'useCase' => 'ShipBox'],
+                ],
+            ]);
+
+            $graph = samplingGraph();
+            $view = $graph['contexts'][$context];
+            $box = "aggregate:{$context}/Box";
+
+            expect(samplingGraphNode($view, $box)['group'])->toBe($box)
+                ->and(samplingGraphNode($view, "entity:{$context}/Box")['group'])->toBe($box)
+                ->and(samplingGraphNode($view, "entity:{$context}/Flap")['group'])->toBe($box)
+                ->and(samplingGraphNode($view, "enum:{$context}/BoxSide")['group'])->toBe($box)
+                ->and(samplingGraphNode($view, "valueObject:{$context}/BoxLabel")['group'])->toBe($box)
+                ->and(samplingGraphNode($view, "exception:{$context}/BoxFullException")['group'])->toBe($box)
+                ->and(samplingGraphNode($view, "exception:{$context}/BoxLateException")['group'])->toBeNull()
+                ->and(samplingGraphNode($view, "useCase:{$context}/ShipBox")['group'])->toBeNull()
+                ->and(samplingGraphNode($graph['overview'], "context:{$context}")['group'])->toBeNull();
+        });
+
         it('draws each exception tied to what refuses with it, and to each method that throws it', function () {
             $context = SAMPLING_GRAPH_CONTEXT;
             $files = new StructureFiles(base_path());

@@ -2,7 +2,6 @@ import {
     BookOpen,
     ChevronDown,
     CircleHelp,
-    Eye,
     FileText,
     Plus,
     Settings2,
@@ -19,7 +18,6 @@ import {
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
-    DropdownMenuCheckboxItem,
     DropdownMenuContent,
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -40,16 +38,6 @@ import type {
     StructureSection,
     StructureTarget,
 } from '@/kit/types';
-
-/**
- * One switch of the View menu: a kind of card the context view may leave out.
- */
-export type ViewSwitch = {
-    label: string;
-    icon: StructureNodeKind;
-    on: boolean;
-    set: (on: boolean) => void;
-};
 
 /**
  * One entry of an Add menu: what it opens, and the card kind whose icon it wears.
@@ -179,7 +167,6 @@ export function StructureToolbar({
     place,
     shared,
     endpoints,
-    switches,
     commands,
     onEdit,
     onRun,
@@ -187,7 +174,6 @@ export function StructureToolbar({
     place: StructureTarget | null;
     shared: boolean;
     endpoints: StructureEndpoints;
-    switches: ViewSwitch[];
     commands: StructureCommand[];
     onEdit: (editing: Editing) => void;
     onRun: (request: CommandRequest) => void;
@@ -305,48 +291,6 @@ export function StructureToolbar({
                     </>
                 )}
                 <RunMenu commands={commands} place={place} onRun={onRun} />
-                {switches.length > 0 && (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button size="sm" variant="outline">
-                                <Eye />
-                                View
-                                <ChevronDown className="opacity-60" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52">
-                            <DropdownMenuLabel className="text-xs text-muted-foreground">
-                                Show on the canvas
-                            </DropdownMenuLabel>
-                            {switches.map((viewSwitch) => {
-                                const Icon = iconOf(viewSwitch.icon);
-
-                                return (
-                                    <DropdownMenuCheckboxItem
-                                        key={viewSwitch.label}
-                                        checked={viewSwitch.on}
-                                        onSelect={(event) =>
-                                            event.preventDefault()
-                                        }
-                                        onCheckedChange={(on) =>
-                                            viewSwitch.set(on)
-                                        }
-                                    >
-                                        <Icon
-                                            className={
-                                                styleOf({
-                                                    kind: viewSwitch.icon,
-                                                    variant: null,
-                                                }).accent
-                                            }
-                                        />
-                                        {viewSwitch.label}
-                                    </DropdownMenuCheckboxItem>
-                                );
-                            })}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button
