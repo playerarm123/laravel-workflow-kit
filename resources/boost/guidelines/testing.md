@@ -110,6 +110,7 @@ Feature tests run on the engine production runs (stack.md), through the real rep
   - `beforeEach` signs in a user the page's policy allows, through a helper named after the test (Pest shares one global namespace).
   - One case visits the page and asserts `assertNoJavaScriptErrors()` and `assertNoConsoleLogs()`.
   - The other cases cover what only the browser computes, which the controller test cannot see: formatting (money, rates, dates), badges, dialogs, the toolbar keeping the query on the url, and a form that posts and shows its toast or its errors.
+  - A drag-and-drop page (dnd-kit) is driven from the keyboard: press `Space`, then `->wait(0.2)`, then the arrows, counted from the layout, in a second `keys()` call. dnd-kit's `KeyboardSensor` starts listening for arrows a tick after `Space` picks the item up, so arrows sent in the same call are lost. Never `drag()`: it calls Playwright's `dragTo` without `steps`, so dnd-kit's `PointerSensor` sees one move and never reports a drop target.
   - The Browser suite runs on `public/build`, so run `npm run build` first, or it tests stale JavaScript.
 - **Every kind:** assert a message the app translates through its key, `__('common.forbidden')`, never through its English words, so the suite passes in whatever locale the app runs in. A dataset takes the key as `fn (): string => __('…')`, which Pest calls once the app has booted. Keep a literal only for text the test itself chose: a policy's own message, a name a factory was given.
 

@@ -43,6 +43,7 @@ Node runs on 22.18+ or 24.11+, the range the starter kit's `vite-plus` declares 
 | Merging class names | `cn()` from `@/lib/utils` (clsx 2 + tailwind-merge 3), the alias shadcn generates against. *Check `cn-import`.* | the `cn` package, classnames |
 | Tables | @tanstack/react-table 9 | ag-grid-*, react-data-table-component |
 | Diagrams | @xyflow/react 12 (React Flow), laid out with @dagrejs/dagre 3 | reactflow (its old name), dagre (the unscoped, unmaintained one), elkjs, mermaid, cytoscape, jointjs |
+| Drag and drop | @dnd-kit/core 6, with @dnd-kit/sortable 10 when a list reorders | react-beautiful-dnd (archived), @hello-pangea/dnd, react-dnd, sortablejs, react-sortablejs, native HTML5 drag events (`draggable`, `onDragStart`, …; *review only*) |
 | Toasts | sonner 2 | react-toastify, react-hot-toast |
 | Dates in JS | date-fns 4 | moment, dayjs, luxon |
 | Icons | lucide-react | @phosphor-icons/react, react-icons, @heroicons/react, @tabler/icons-react |
@@ -55,7 +56,7 @@ Node runs on 22.18+ or 24.11+, the range the starter kit's `vite-plus` declares 
 | Excel / CSV import-export | maatwebsite/excel 4 (Laravel Excel) | spatie/simple-excel, rap2hpoutre/fast-excel, phpoffice/phpspreadsheet required directly |
 | PDF | mpdf/mpdf 8, with the Thai font shipped in the project | barryvdh/laravel-dompdf, dompdf/dompdf, spatie/laravel-pdf, spatie/browsershot, knplabs/knp-snappy, barryvdh/laravel-snappy |
 
-**Why:** a second library for the same need splits the codebase into two idioms, and an agent copies whichever one it read last. Two formatters over the same files disagree (oxfmt and Prettier order Tailwind classes and break union types differently), so one of them always fails, and the kit's files, which a project cannot edit, fail with it. PDF tools that drive a headless browser cannot run on the deploy targets (see deployment.md).
+**Why:** a second library for the same need splits the codebase into two idioms, and an agent copies whichever one it read last. Two formatters over the same files disagree (oxfmt and Prettier order Tailwind classes and break union types differently), so one of them always fails, and the kit's files, which a project cannot edit, fail with it. HTML5 drag events do not fire on touch screens and have no keyboard path, while dnd-kit ships pointer, touch and keyboard sensors. PDF tools that drive a headless browser cannot run on the deploy targets (see deployment.md).
 
 ## Adding shadcn components
 **Do** add a shadcn component with `php artisan kit:ui-add <name> [<name>…]`. It runs the project's own shadcn CLI (`node_modules/.bin/shadcn`, never `shadcn@latest`) and then:
