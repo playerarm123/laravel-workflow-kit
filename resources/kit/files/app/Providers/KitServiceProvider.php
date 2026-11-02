@@ -345,7 +345,7 @@ class KitServiceProvider extends ServiceProvider
 
     private function structureCommands(): StructureCommands
     {
-        return new StructureCommands(new StructureReader(base_path()), base_path());
+        return new StructureCommands(new StructureReader(base_path()), new StructureFiles(base_path()), base_path());
     }
 
     private function structureGraph(): StructureGraph

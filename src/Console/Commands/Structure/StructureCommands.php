@@ -51,6 +51,7 @@ final class StructureCommands
      */
     public function __construct(
         private readonly StructureReader $reader,
+        private readonly StructureFiles $files,
         private readonly string $root,
         private readonly ?array $artisan = null,
     ) {}
@@ -74,7 +75,9 @@ final class StructureCommands
     }
 
     /**
-     * Why a command cannot run as asked, or null when it can.
+     * Why a command cannot run as asked, or null when it can. A context or HTTP resource is known
+     * when it has a manifest or code: one made on the screen has only its manifest until kit:apply
+     * builds it.
      */
     public function refusal(string $key, ?string $context, ?string $resource): ?string
     {
@@ -85,8 +88,8 @@ final class StructureCommands
             $context !== null && $resource !== null => 'A command runs on one context or one HTTP resource, not both.',
             $context !== null && ! in_array(self::CONTEXT, $command['scopes'], true) => "{$command['command']} does not narrow to one context.",
             $resource !== null && ! in_array(self::RESOURCE, $command['scopes'], true) => "{$command['command']} does not narrow to one HTTP resource.",
-            $context !== null && ! in_array($context, $this->reader->contexts(), true) => "There is no context named {$context}.",
-            $resource !== null && ! in_array($resource, $this->reader->resources(), true) => "There is no HTTP resource named {$resource}.",
+            $context !== null && ! in_array($context, [...$this->files->contexts(), ...$this->reader->contexts()], true) => "There is no context named {$context}.",
+            $resource !== null && ! in_array($resource, [...$this->files->resources(), ...$this->reader->resources()], true) => "There is no HTTP resource named {$resource}.",
             default => null,
         };
     }

@@ -13,19 +13,25 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureReader;
 const SAMPLING_COMMANDS_CONTEXT = 'SamplingCommands';
 
 /**
+ * The scratch HTTP resource of this file, which only a manifest has.
+ */
+const SAMPLING_COMMANDS_RESOURCE = 'SamplingCommandsCrate';
+
+/**
  * The commands, run through the package's own console, which boots the same app as this test.
  */
 function samplingCommands(): StructureCommands
 {
     $package = dirname(__DIR__, 5);
 
-    return new StructureCommands(new StructureReader(base_path()), $package, [PHP_BINARY, $package.'/vendor/bin/testbench']);
+    return new StructureCommands(new StructureReader(base_path()), new StructureFiles(base_path()), $package, [PHP_BINARY, $package.'/vendor/bin/testbench']);
 }
 
 function forgetSamplingCommands(): void
 {
     File::deleteDirectory(app_path('Domain/'.SAMPLING_COMMANDS_CONTEXT));
     File::delete(base_path('.kit/structure/'.SAMPLING_COMMANDS_CONTEXT.'.json'));
+    File::delete(base_path('.kit/structure/http/'.SAMPLING_COMMANDS_RESOURCE.'.json'));
 }
 
 beforeEach(function () {
@@ -53,7 +59,7 @@ describe('StructureCommands', function () {
             ->and($commands->describe('plan', null, null))->toBe('php artisan kit:plan');
     });
 
-    it('refuses a command it does not know, a scope the command does not take, and a name the code does not have', function (string $key, ?string $context, ?string $resource, string $refusal) {
+    it('refuses a command it does not know, a scope the command does not take, and a name neither a manifest nor the code has', function (string $key, ?string $context, ?string $resource, string $refusal) {
         expect(samplingCommands()->refusal($key, $context, $resource))->toBe($refusal);
     })->with([
         'unknown command' => ['migrate', null, null, 'There is no command migrate to run here.'],
@@ -65,6 +71,16 @@ describe('StructureCommands', function () {
 
     it('lets a command run on a context the code has', function () {
         expect(samplingCommands()->refusal('plan', SAMPLING_COMMANDS_CONTEXT, null))->toBeNull();
+    });
+
+    it('lets plan and apply run on a context or HTTP resource only its manifest has, before kit:apply builds it', function () {
+        File::deleteDirectory(app_path('Domain/'.SAMPLING_COMMANDS_CONTEXT));
+        (new StructureFiles(base_path()))->writeResource(['resource' => SAMPLING_COMMANDS_RESOURCE]);
+
+        expect(samplingCommands()->refusal('plan', SAMPLING_COMMANDS_CONTEXT, null))->toBeNull()
+            ->and(samplingCommands()->refusal('apply', SAMPLING_COMMANDS_CONTEXT, null))->toBeNull()
+            ->and(samplingCommands()->refusal('plan', null, SAMPLING_COMMANDS_RESOURCE))->toBeNull()
+            ->and(samplingCommands()->refusal('apply', null, SAMPLING_COMMANDS_RESOURCE))->toBeNull();
     });
 
     it('runs a command in a console of its own and hands back what it printed, without colour', function () {
