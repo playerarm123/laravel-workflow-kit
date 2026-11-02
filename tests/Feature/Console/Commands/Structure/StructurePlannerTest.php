@@ -56,6 +56,10 @@ function writeSamplingPlanFixtures(): void
             'SortSack' => ['shape' => 'creates', 'creates' => 'Sack', 'repositories' => ['Elsewhere/Bin']],
             'WeighSack' => ['shape' => 'plain', 'creates' => null, 'repositories' => ['Sack'], 'exception' => true],
         ],
+        'applicationServices' => [
+            'GaugeSack' => ['shape' => 'data', 'repositories' => ['Credit/Wallet', 'Sack'], 'actor' => true, 'exception' => true],
+            'CountSacks' => ['shape' => 'plain', 'repositories' => ['Credit/Wallet'], 'actor' => false, 'exception' => false],
+        ],
         'ports' => [
             'Weigher' => ['layer' => 'domain', 'adapter' => 'Infra/Scales/DigitalWeigher'],
         ],
@@ -245,7 +249,7 @@ describe('StructurePlanner', function () {
             expect(samplingPlanSteps()["method {$domain}/Sack::fill"])->toBe([StructurePlanner::READY, "php artisan make:entity-method Sack fill --domain={$domain}/Sack --param=colour:SackColour --param=tags:...string --throws=SackFullException --throws=SackTornException"]);
         });
 
-        it('reads the generator options of a port, a service and a use case off the manifest', function () {
+        it('reads the generator options of a port, a service, an application service and a use case off the manifest', function () {
             $steps = samplingPlanSteps();
             $domain = SAMPLING_PLAN_CONTEXT;
 
@@ -253,6 +257,8 @@ describe('StructurePlanner', function () {
                 ->and($steps["service {$domain}/PackSack"][1])->toBe("php artisan make:domain-service PackSack --domain={$domain} --creates=Sack --repo=Sack")
                 ->and($steps["service {$domain}/SortSack"][1])->toBe("php artisan make:domain-service SortSack --domain={$domain} --creates=Sack")
                 ->and($steps["service {$domain}/WeighSack"][1])->toBe("php artisan make:domain-service WeighSack --domain={$domain} --plain --repo=Sack --exception")
+                ->and($steps["application service {$domain}/GaugeSack"][1])->toBe("php artisan make:application-service GaugeSack --domain={$domain} --data --repo=Sack --actor --exception")
+                ->and($steps["application service {$domain}/CountSacks"][1])->toBe("php artisan make:application-service CountSacks --domain={$domain} --plain --repo=Credit/Wallet")
                 ->and($steps["use case {$domain}/ShipSack"][1])->toBe("php artisan make:use-case ShipSack --domain={$domain} --command --result --creates --repo=Sack")
                 ->and($steps["use case {$domain}/TidySacks"][1])->toBe("php artisan make:use-case TidySacks --domain={$domain} --plain")
                 ->and($steps["use case {$domain}/ListSamplingSacks"][0])->toBe(StructurePlanner::DONE)

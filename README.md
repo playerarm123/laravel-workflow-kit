@@ -95,7 +95,7 @@ php artisan kit:apply         # run every ready step: generators, binding and ro
 
 `kit:apply` stops where only a person can go on: a Command's fields, a Row's keys, a method's body. Fill those in and run it again. It picks up where it stopped.
 
-The design screen has a step-by-step guide with screenshots: [docs/structure-screen.md](docs/structure-screen.md) (also at `/kit/docs/guides/structure-screen` in the app). A domain service, from choosing one to its tests, has a guide of its own: [docs/domain-services.md](docs/domain-services.md) (`/kit/docs/guides/domain-services`).
+The design screen has a step-by-step guide with screenshots: [docs/structure-screen.md](docs/structure-screen.md) (also at `/kit/docs/guides/structure-screen` in the app). A domain service, from choosing one to its tests, has a guide of its own: [docs/domain-services.md](docs/domain-services.md) (`/kit/docs/guides/domain-services`), and so does an application service, the steps several use cases share: [docs/application-services.md](docs/application-services.md) (`/kit/docs/guides/application-services`).
 
 To change something already built, mark the new piece with `replaces` on the screen or in the manifest. `kit:apply` builds it and swaps it in, then `php artisan kit:retire` removes the old one once the suites pass ([structure.md](resources/boost/guidelines/structure.md)).
 
@@ -138,6 +138,7 @@ Each generator writes the test beside what it writes, with a `->todo()` per case
 | `make:value-object {name} --domain= [--field=]` | A value object and its test |
 | `make:domain-exception {name} --domain= --kind=refusal\|value\|application` | An exception on the right base |
 | `make:domain-service {name} --domain= (--creates=\|--data\|--plain) [--repo=] [--exception] [--force]` | A domain service in one of its three shapes, with the repository it injects, its own exception and its test. Walkthrough: [docs/domain-services.md](docs/domain-services.md) |
+| `make:application-service {name} --domain= (--data\|--plain) [--repo=] [--actor] [--exception] [--force]` | An application service, the steps several handlers share, with the repository and actor it injects, its own exception and its test. Walkthrough: [docs/application-services.md](docs/application-services.md) |
 | `make:port {name} --domain=\|--application= [--adapter= --infra=]` | A port, and later its adapter and the adapter's test |
 | `make:eloquent-repository {name} --domain=` | A repository, its exceptions, log payload and contract test |
 | `make:use-case {name} --domain= [--command] [--result] [--repo=] [--creates] [--query]` | A use case: handler, Command, Result, and for a list its query port and adapter |

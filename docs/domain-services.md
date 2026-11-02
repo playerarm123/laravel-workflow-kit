@@ -8,7 +8,7 @@ The running example is a `Shipping` context with one aggregate, `Crate`. A crate
 
 ## 1. Entity, domain service or handler
 
-Put a rule in the first place that can own it ([layers.md](../resources/boost/guidelines/layers.md), "Entity, domain service or application service").
+Put a rule in the first place that can own it ([layers.md](../resources/boost/guidelines/layers.md), "Entity, domain service, application service or use-case handler").
 
 | Where | Owns | Example in Shipping | Wrong home for it |
 |---|---|---|---|

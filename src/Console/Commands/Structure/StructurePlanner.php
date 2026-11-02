@@ -280,6 +280,31 @@ final class StructurePlanner
             }
         }
 
+        foreach ($manifest['applicationServices'] as $service => $entry) {
+            $arguments = ['name' => $service, '--domain' => $context, $entry['shape'] === 'data' ? '--data' : '--plain' => true];
+            $repository = $this->ownRepository($entry['repositories']) ?? ($entry['repositories'][0] ?? null);
+
+            if ($repository !== null) {
+                $arguments['--repo'] = $repository;
+            }
+
+            if ($entry['actor']) {
+                $arguments['--actor'] = true;
+            }
+
+            $replaces = is_string($entry['replaces'] ?? null) ? $entry['replaces'] : null;
+
+            if ($entry['exception'] || ($replaces !== null && is_file($this->rootOf()."/app/Application/{$context}/Services/{$replaces}/{$replaces}Exception.php"))) {
+                $arguments['--exception'] = true;
+            }
+
+            $steps[] = $this->generator(5, "application service {$context}/{$service}", class_exists("App\\Application\\{$context}\\Services\\{$service}\\{$service}Service"), null, 'make:application-service', $arguments, ["applicationService:{$context}/{$service}"]);
+
+            if ($replaces !== null) {
+                $steps[] = $this->serviceSwap($context, $replaces, $service, 'Application');
+            }
+        }
+
         foreach ($manifest['useCases'] as $useCase => $entry) {
             $arguments = ['name' => $useCase, '--domain' => $context];
 
@@ -879,8 +904,8 @@ final class StructurePlanner
     }
 
     /**
-     * Points everything that calls a domain service, or names one of its types, at the service
-     * that replaces it: each class in the old service's folder becomes its counterpart in the new
+     * Points everything that calls a domain or application service, or names one of its types,
+     * at the service that replaces it: each class in the old service's folder becomes its counterpart in the new
      * one, named with the new prefix (`{Old}Data` -> `{New}Data`) or, without the prefix, the
      * same. Every folder under app/ and tests/ but the old service's own is searched, because a
      * service's types may reach a repository, an adapter or a controller's catch.
@@ -891,11 +916,12 @@ final class StructurePlanner
      *
      * @return PlannedStep
      */
-    private function serviceSwap(string $context, string $old, string $new): array
+    private function serviceSwap(string $context, string $old, string $new, string $layer = 'Domain'): array
     {
-        $oldFolder = "app/Domain/{$context}/Services/{$old}";
-        $newFolder = "app/Domain/{$context}/Services/{$new}";
-        $except = [$oldFolder, "tests/Unit/Domain/{$context}/Services/{$old}", "tests/Feature/Domain/{$context}/Services/{$old}"];
+        $oldFolder = "app/{$layer}/{$context}/Services/{$old}";
+        $newFolder = "app/{$layer}/{$context}/Services/{$new}";
+        $except = [$oldFolder, "tests/Unit/{$layer}/{$context}/Services/{$old}", "tests/Feature/{$layer}/{$context}/Services/{$old}"];
+        $kind = $layer === 'Domain' ? 'service' : 'application service';
         $classes = [];
         $missing = null;
 
@@ -915,7 +941,7 @@ final class StructurePlanner
         }
 
         $service = $this->rootOf()."/{$newFolder}/{$new}Service.php";
-        $done = ! is_dir($this->rootOf().'/'.$oldFolder) || $this->swapper()->references(["App\\Domain\\{$context}\\Services\\{$old}\\"], ['app'], [$oldFolder]) === [];
+        $done = ! is_dir($this->rootOf().'/'.$oldFolder) || $this->swapper()->references(["App\\{$layer}\\{$context}\\Services\\{$old}\\"], ['app'], [$oldFolder]) === [];
         $reason = match (true) {
             ! is_file($service) => "the service {$new} comes first",
             str_contains(StructureFiles::text($service), '::handle() is not implemented yet.') => "write {$new}Service::handle() first",
@@ -926,15 +952,15 @@ final class StructurePlanner
 
         return [
             'order' => 15,
-            'key' => "swap service {$context}/{$old}",
-            'title' => "swap service {$old} for {$new}",
+            'key' => "swap {$kind} {$context}/{$old}",
+            'title' => "swap {$kind} {$old} for {$new}",
             'state' => $done ? self::DONE : ($reason === null ? self::READY : self::WAITING),
             'reason' => $done ? null : $reason,
             'command' => null,
             'arguments' => [],
             'marker' => null,
             'line' => null,
-            'nodes' => ["service:{$context}/{$new}"],
+            'nodes' => [($layer === 'Domain' ? 'service' : 'applicationService').":{$context}/{$new}"],
             'swap' => ['classes' => $classes, 'directories' => ['app', 'tests'], 'except' => $except, 'names' => [], 'nameDirectories' => []],
         ];
     }

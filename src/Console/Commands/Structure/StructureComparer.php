@@ -170,11 +170,14 @@ final class StructureComparer
                 sort($json);
             }
 
-            if ($section === 'services' && $key === 'exception' && $json === true && ($inCode[$key] ?? null) === false) {
+            if (in_array($section, ['services', 'applicationServices'], true) && $key === 'exception' && $json === true && ($inCode[$key] ?? null) === false) {
                 $differences[] = $this->difference('matches', $this->files->relativePath($context), sprintf(
-                    'services.%s.exception is true in the manifest, but the code has no %sException beside the service — write it by hand, extending DomainException (make:domain-service adds one only to a service it builds)',
+                    '%s.%s.exception is true in the manifest, but the code has no %sException beside the service — write it by hand, extending %s (%s adds one only to a service it builds)',
+                    $section,
                     $name,
                     $name,
+                    $section === 'services' ? 'DomainException' : 'ApplicationException',
+                    $section === 'services' ? 'make:domain-service' : 'make:application-service',
                 ), self::contextNode($context, $section, $name));
 
                 continue;
@@ -469,7 +472,7 @@ final class StructureComparer
      */
     public static function contextNode(string $context, string $section, string $name): string
     {
-        return sprintf('%s:%s/%s', ['aggregates' => 'aggregate', 'services' => 'service', 'ports' => 'port', 'enums' => 'enum', 'valueObjects' => 'valueObject', 'exceptions' => 'exception', 'entities' => 'entity'][$section] ?? 'useCase', $context, $name);
+        return sprintf('%s:%s/%s', ['aggregates' => 'aggregate', 'services' => 'service', 'applicationServices' => 'applicationService', 'ports' => 'port', 'enums' => 'enum', 'valueObjects' => 'valueObject', 'exceptions' => 'exception', 'entities' => 'entity'][$section] ?? 'useCase', $context, $name);
     }
 
     /**

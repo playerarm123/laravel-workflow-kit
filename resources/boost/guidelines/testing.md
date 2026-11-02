@@ -19,6 +19,8 @@ Enforced by the package's `tests/Architecture/TestingTest.php` (`php artisan tes
 | Value object (`ValueObjects/*`) | Unit | mirror |
 | Domain service that injects a repository, directly or through another service | Feature | mirror |
 | Domain service that only computes | Unit | mirror |
+| Application service that injects anything (a repository, `UserContext`, a port, a service) | Feature | mirror |
+| Application service that injects nothing | Unit | mirror |
 | Use-case handler | Feature | mirror |
 | Controller action | Feature | `tests/Feature/Http/Controllers/{Name}Controller/{Action}Test.php`, one file per public method (`StoreTest.php`) |
 | Invokable controller (`__invoke`) | Feature | mirror: `tests/Feature/Http/Controllers/{Name}ControllerTest.php` |
@@ -130,6 +132,7 @@ The generators write each test at its mirrored path, with a `->todo()` for every
 - `make:entity`
 - `make:value-object`
 - `make:domain-service`: Unit, or Feature when it is given `--repo`. The generator decides once, from `--repo` alone. When a service starts reaching a repository later, directly or through another service, move its test from `tests/Unit/...` to the same path under `tests/Feature/...` and resolve the service from the container (`app({Name}Service::class)`). *Check `mirror` names the move.*
+- `make:application-service`: Unit, or Feature when it is given `--repo` or `--actor`. When a service that injected nothing gets a constructor later, move its test to the same path under `tests/Feature/...` and resolve the service from the container. *Check `mirror` names the move.*
 - `make:use-case`
 - `make:eloquent-repository`
 - `make:policy`

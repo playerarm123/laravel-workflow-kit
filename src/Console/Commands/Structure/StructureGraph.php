@@ -286,6 +286,26 @@ final class StructureGraph
             }
         }
 
+        /** @var array<string, array{shape: string, repositories: list<string>, actor: bool, replaces?: string|null}> $applicationServices */
+        $applicationServices = $manifest['applicationServices'];
+
+        foreach ($applicationServices as $service => $entry) {
+            $id = "applicationService:{$context}/{$service}";
+            $nodes[] = $this->node($id, 'applicationService', $service, [
+                $entry['shape'],
+                ...($entry['actor'] ? ['actor'] : []),
+                ...(is_string($entry['replaces'] ?? null) ? ['replaces '.$entry['replaces']] : []),
+            ], editable: ! isset($built['applicationServices'][$service]));
+
+            if (is_string($entry['replaces'] ?? null) && isset($applicationServices[$entry['replaces']])) {
+                $edges[] = $this->edge($id, "applicationService:{$context}/{$entry['replaces']}", 'replaces');
+            }
+
+            foreach ($entry['repositories'] as $repository) {
+                $reference($id, $repository, null);
+            }
+        }
+
         /** @var array<string, array{layer: string, adapter: string|null, replaces?: string|null}> $ports */
         $ports = $manifest['ports'];
 

@@ -46,6 +46,9 @@ These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship i
     "services": {
         "PackCrate": { "shape": "creates", "creates": "Crate", "repositories": ["Crate"], "exception": false }
     },
+    "applicationServices": {
+        "ResolveShipper": { "shape": "data", "repositories": ["Billing/Account"], "actor": true, "exception": false }
+    },
     "ports": {
         "Scale": { "layer": "domain", "adapter": "Infra/Shipping/DigitalScale" }
     },
@@ -86,6 +89,7 @@ These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship i
 Each value is read off the code:
 - `aggregates`: a folder `{Context}/{Aggregate}/` whose `{Aggregate}Entity` extends `AggregateRoot` (layers.md). `children` are the classes in its `Entities/`, and `repository` says whether `{Aggregate}Repository` exists.
 - `services`: `{Context}/Services/{Name}/{Name}Service`. Its `shape` is one of the three `handle()` shapes in layers.md: `creates`, `data` or `plain`. `creates` names the aggregate a `creates` service builds, and is `null` for the other shapes. `exception` says whether `{Name}Exception` sits beside it (`make:domain-service --exception`).
+- `applicationServices`: `Application/{Context}/Services/{Name}/{Name}Service`. Its `shape` is one of the two `handle()` shapes in layers.md: `data` or `plain`. `repositories` lists the repositories it injects, as `Aggregate` in its own context and `Context/Aggregate` outside it, `actor` says whether it injects `UserContext`, and `exception` whether `{Name}Exception` sits beside it (`make:application-service --exception`). A manifest written before the section existed reads it as `{}`.
 - `ports`: an interface in `Domain/{Context}/Ports/` (`layer: domain`), or at the root of `Application/{Context}/` (`layer: application`). `adapter` is what a provider's `$bindings` binds it to, as a path under `App`, or `null`.
 - `useCases`: a handler under `Application/{Context}/UseCases/`. Its `shape` is one of the three in handlers.md: `command-result`, `command` or `plain`. The other keys are:
   - `returns`: what the handler returns;
@@ -104,7 +108,7 @@ Each value is read off the code:
   - `value`: an invalid value, a class there that extends `DomainValueException`; in the shared kernel, one in `Shared/Exceptions/`, with `aggregate` null;
   - `application`: a use case's refusal, a class in `Application/{Context}/` that extends `ApplicationException`. `useCase` names the use case whose folder holds it, or is `null` for one at the context's root.
 
-  `useCase` is `null` for the other kinds. Left out: a repository's `{Aggregate}NotFoundException` and `{Aggregate}RepositoryException`, which `repository` owns, the context's base `{Context}DomainException`, a domain service's exception, which its `exception` key owns, and the kit's own exceptions in the shared kernel.
+  `useCase` is `null` for the other kinds. Left out: a repository's `{Aggregate}NotFoundException` and `{Aggregate}RepositoryException`, which `repository` owns, the context's base `{Context}DomainException`, a domain or application service's exception, which its `exception` key owns, and the kit's own exceptions in the shared kernel.
 - `entities`: an aggregate's root or one of its children, by its name without `Entity`, with its state and the public methods it declares itself. `aggregate` names the aggregate that holds it. An entity that holds no state and declares neither kind of method is left out.
   - `state`: each parameter of its constructor but `id`, which every entity has, with its type written as a value object's field is, in the constructor's order. Each one is a property the constructor promotes, and the entity answers it with a getter of the same name that takes nothing and returns its type (`status(): CrateStatus`). `matches` names a property with no such getter.
   - `behaviours`: the methods that change the entity: not static, returning `void`, and not named `assert…`.
@@ -194,7 +198,7 @@ Each step is a `make:*` generator or one line written into a project file. They 
 | enum, value object | `make:enum --case=…` (a status adds `--transitions --transition=Case:Next,Next`), `make:value-object --field=…` | for a value object, every enum and class its fields name |
 | exception, state, method | `make:domain-exception --kind=refusal\|value` (the shared kernel's first, with `--domain=Shared`), `make:entity-state --field=…`, `make:entity-method --param=… --throws=…` | for an exception, its aggregate's root; for a property, its entity, the classes its type names and every property listed before it; for a method, its entity, every class its parameters name and every exception it throws |
 | use case refusal | `make:domain-exception --kind=application [--use-case=…]` | the use case it names |
-| port, service, use case | `make:port`, `make:domain-service`, `make:use-case` | nothing |
+| port, service, application service, use case | `make:port`, `make:domain-service`, `make:application-service`, `make:use-case` | nothing |
 | binding | a line above `// kit:bindings` | the port and its adapter |
 | model, policy | `make:model --factory`, `make:policy` | nothing |
 | controller | `make:controller --only=…` | the use cases its methods call |
@@ -204,7 +208,7 @@ Each step is a `make:*` generator or one line written into a project file. They 
 | route | a line above `// kit:routes` | the controller |
 | menu | a line above `// kit:menu` in `app/Http/Navigation.php` | the index route, the page at `{folder}/index`, the policy's `viewAny` (or the `ability` the entry names) and the `group` it names |
 
-An exception step builds each exception `exceptions` designs, of its own kind and in its own home, and a domain service's step passes `--exception` when its `exception` is true. A name a method throws that no manifest designs is built as a refusal of the method's own aggregate when it is named bare. One of the shared kernel or of another aggregate is built from the manifest that designs it, and the method waits for it; one no manifest designs is built by hand. `make:entity-method` writes the method with `@throws` and an empty body, and gives the entity's Unit test a `describe()` for it with a todo for the case that passes and one per exception. The `throw` lines are written by hand, and `matches` names each one the body still lacks.
+An exception step builds each exception `exceptions` designs, of its own kind and in its own home, and a domain or application service's step passes `--exception` when its `exception` is true. An application service's step passes the first repository of its own context as `--repo`, or the first of another when it has none of its own, and `--actor` when `actor` is true; `matches` names any other repository the manifest lists and the constructor lacks until it is added by hand. A name a method throws that no manifest designs is built as a refusal of the method's own aggregate when it is named bare. One of the shared kernel or of another aggregate is built from the manifest that designs it, and the method waits for it; one no manifest designs is built by hand. `make:entity-method` writes the method with `@throws` and an empty body, and gives the entity's Unit test a `describe()` for it with a todo for the case that passes and one per exception. The `throw` lines are written by hand, and `matches` names each one the body still lacks.
 
 `make:entity-state` adds one property per step, in the order `state` lists them: a private property the constructor promotes, a parameter of `reconstitute()` passed on to `new self(…)`, and a getter at the end of the Getter Section. It leaves `create()` alone, because what a new entity starts with is a rule a person decides, and says so: until `create()` passes the property, PHPStan and the entity's test name the gap. The repository's `toModel()` and `toEntity()`, the model and the migration are written by hand too (repositories.md, models.md). The entity's Unit test gets a todo per property in its `reconstitute()` cases.
 
@@ -277,16 +281,17 @@ A refused change comes back under the field that holds it, and nothing is writte
 
 ## Replacing what is built
 
-A built adapter, use case or domain service changes by replacement. The new one is built beside the old, the code that names the old one is pointed at the new, and the old one goes once the tests pass:
+A built adapter, use case, domain service or application service changes by replacement. The new one is built beside the old, the code that names the old one is pointed at the new, and the old one goes once the tests pass:
 
 ```
 Replace on a built card    adapter: the new one, replaces: the old one   |  a new use case, replaces: the old one,
                                                                            every resource calling the new one
-                                                                        |  a new domain service, replaces: the old one
+                                                                        |  a new domain or application service,
+                                                                           replaces: the old one
 php artisan kit:apply      builds the new piece, then swaps it in and runs Pint on what it changed:
                              an adapter in the provider that binds its port,
                              a use case's Handler, Command and Result in app/Http and tests/Feature/Http,
-                             a domain service's classes everywhere under app/ and tests/
+                             a service's classes everywhere under app/ and tests/
 php artisan kit:retire     once nothing else names the old piece and the Architecture, Unit and
                              Feature suites pass: removes its classes and their tests, and the
                              manifest forgets what was replaced
@@ -312,8 +317,10 @@ A domain service (layers.md) is replaced by one with a name of its own, built by
   - every old class that something outside its folder still names has a counterpart.
 - `kit:retire` removes the old folder and its test, Unit or Feature, once nothing names the old folder any more.
 
+An application service (layers.md) is replaced the same way, by one `make:application-service` builds with the old one's shape, repository, actor and exception. The swap and `kit:retire` work on `app/Application/{Context}/Services/{Old}` and its tests as they do on a domain service's folder.
+
 **Do**
-- Replace a use case, a domain service or an adapter through the screen, or by writing the new entry with `replaces` into the manifest. Cancel a replacement that is not retired from the same card. *Review only.*
+- Replace a use case, a domain or application service, or an adapter through the screen, or by writing the new entry with `replaces` into the manifest. Cancel a replacement that is not retired from the same card. *Review only.*
 - Point what `kit:retire` lists at the new piece by hand, then run it again. *Review only.*
 
 **Don't** replace an aggregate this way yet. It reaches the model, the table and every layer that names its vocabulary. *Review only.*

@@ -1,0 +1,19 @@
+<?php
+
+namespace {{ namespace }};
+
+{{ useStatements }}use LogicException;
+
+/**
+ * Say which steps this service takes for the handlers that share it, and name them.
+ *
+ * See layers.md: only a use-case handler calls it. It never opens a transaction, never
+ * records an audit entry and never mints an id — the handler calling it does all three.
+ */
+final class {{ class }}
+{{{ constructor }}
+    public function handle({{ parameters }}): {{ returnType }}
+    {
+        throw new LogicException('{{ class }}::handle() is not implemented yet.');
+    }
+}

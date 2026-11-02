@@ -26,6 +26,9 @@ function samplingStructureManifest(): array
             'Crate' => ['children' => ['Lid'], 'repository' => true],
         ],
         'services' => [],
+        'applicationServices' => [
+            'ResolveShipper' => ['exception' => false, 'repositories' => ['Crate', 'Billing/Invoice'], 'actor' => true, 'shape' => 'data'],
+        ],
         'ports' => [],
         'valueObjects' => [
             'Weight' => ['fields' => ['unit' => 'WeightUnit', 'amount' => 'int'], 'aggregate' => 'Crate'],
@@ -82,6 +85,17 @@ describe('StructureFiles', function () {
         }
     },
     "services": {},
+    "applicationServices": {
+        "ResolveShipper": {
+            "shape": "data",
+            "repositories": [
+                "Billing/Invoice",
+                "Crate"
+            ],
+            "actor": true,
+            "exception": false
+        }
+    },
     "ports": {},
     "useCases": {
         "ShipCrate": {

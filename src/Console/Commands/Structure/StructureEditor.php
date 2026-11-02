@@ -454,7 +454,7 @@ final class StructureEditor
         $entry = $manifest[$section][$name] ?? null;
 
         $why = match (true) {
-            ! in_array($section, ['ports', 'useCases', 'services'], true) => ['section' => ['Only an adapter, a use case or a domain service is replaced this way so far.']],
+            ! in_array($section, ['ports', 'useCases', 'services', 'applicationServices'], true) => ['section' => ['Only an adapter, a use case or a service is replaced this way so far.']],
             ! is_array($entry) => ['name' => ["The manifest has no {$name}."]],
             ! in_array($name, $this->builtNames($context, $section), true) => ['name' => ["The code does not have {$name} yet, so change it instead of replacing it."]],
             is_string($entry['replaces'] ?? null) => ['name' => ["{$name} is in the middle of a replacement already."]],
@@ -468,14 +468,14 @@ final class StructureEditor
 
         return match ($section) {
             'ports' => $this->replaceAdapter($context, $manifest, $name, $entry, $replacement),
-            'services' => $this->replaceService($context, $manifest, $name, $entry, $replacement),
+            'services', 'applicationServices' => $this->replaceService($context, $manifest, $section, $name, $entry, $replacement),
             default => $this->replaceUseCase($context, $manifest, $name, $entry, $replacement),
         };
     }
 
     /**
      * Stops a replacement that has not been retired: a port goes back to its old adapter, and a new
-     * use case or domain service the code does not have yet goes, with every resource calling the
+     * use case or service the code does not have yet goes, with every resource calling the
      * old use case again.
      *
      * @return array<string, list<string>> what is wrong, by field; empty when it was written
@@ -570,11 +570,11 @@ final class StructureEditor
      * @param  array<string, mixed>  $entry
      * @return array<string, list<string>>
      */
-    private function replaceService(string $context, array $manifest, string $old, array $entry, string $new): array
+    private function replaceService(string $context, array $manifest, string $section, string $old, array $entry, string $new): array
     {
         $errors = match (true) {
             preg_match(self::NAME, $new) !== 1 => ['A name is StudlyCase.'],
-            array_key_exists($new, $manifest['services']) || in_array($new, $this->builtNames($context, 'services'), true) => ["{$context} already has {$new}."],
+            array_key_exists($new, $manifest[$section]) || in_array($new, $this->builtNames($context, $section), true) => ["{$context} already has {$new}."],
             default => [],
         };
 
@@ -582,7 +582,7 @@ final class StructureEditor
             return ['replacement' => $errors];
         }
 
-        $manifest['services'][$new] = [...$entry, 'replaces' => $old];
+        $manifest[$section][$new] = [...$entry, 'replaces' => $old];
         $this->files->write($manifest);
 
         return [];
@@ -1061,6 +1061,12 @@ final class StructureEditor
             $errors = $this->merge($errors, $this->useCaseErrors($context, $name, $entry));
         }
 
+        if ($section === 'applicationServices') {
+            /** @var list<string> $repositories */
+            $repositories = $entry['repositories'];
+            $errors = $this->merge($errors, $this->repositoryErrors($context, $repositories));
+        }
+
         if ($context === StructureFiles::SHARED && ! in_array($section, [...self::VOCABULARY, 'exceptions'], true)) {
             $errors['section'][] = 'The shared kernel lists only enums, value objects and invalid values.';
         }
@@ -1324,11 +1330,24 @@ final class StructureEditor
         /** @var list<string> $repositories */
         $repositories = $entry['repositories'];
 
+        return $this->merge($errors, $this->repositoryErrors($context, $repositories));
+    }
+
+    /**
+     * The repositories a use case or an application service injects that no manifest declares,
+     * named `Aggregate` in its own context and `Context/Aggregate` in another.
+     *
+     * @param  list<string>  $repositories
+     * @return array<string, list<string>>
+     */
+    private function repositoryErrors(string $context, array $repositories): array
+    {
+        $errors = [];
+
         foreach ($repositories as $repository) {
             [$owner, $aggregate] = str_contains($repository, '/') ? explode('/', $repository, 2) : [$context, $repository];
-            $manifest = $owner === $context ? $this->manifest($context) : $this->manifest($owner);
 
-            if (! ($manifest['aggregates'][$aggregate]['repository'] ?? false)) {
+            if (! ($this->manifest($owner)['aggregates'][$aggregate]['repository'] ?? false)) {
                 $errors['repositories'][] = "{$owner} has no {$aggregate}Repository.";
             }
         }
@@ -1337,7 +1356,8 @@ final class StructureEditor
     }
 
     /**
-     * The services and use cases, in any context, that build or inject an aggregate of this one.
+     * The services, application services and use cases, in any context, that build or inject an
+     * aggregate of this one.
      *
      * @return list<string>
      */
@@ -1365,7 +1385,7 @@ final class StructureEditor
 
             $names = $owner === $context ? [$aggregate, "{$context}/{$aggregate}"] : ["{$context}/{$aggregate}"];
 
-            foreach (['services', 'useCases'] as $section) {
+            foreach (['services', 'applicationServices', 'useCases'] as $section) {
                 /** @var array<string, array{repositories: list<string>, creates?: string|bool|null}> $entries */
                 $entries = $manifest[$section];
 

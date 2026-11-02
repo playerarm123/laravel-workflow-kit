@@ -109,6 +109,11 @@ function contextGroups(
             label: 'Application',
             items: [
                 piece('useCases', 'Use case', 'useCase'),
+                piece(
+                    'applicationServices',
+                    'Application service',
+                    'applicationService',
+                ),
                 piece('ports', 'Port', 'port'),
             ],
         },

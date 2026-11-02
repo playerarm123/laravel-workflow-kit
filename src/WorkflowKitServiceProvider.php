@@ -15,6 +15,7 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\KitRetireCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\KitSetupCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\KitUiAddCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeActionCommand;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeApplicationServiceCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeControllerCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeDomainExceptionCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeDomainServiceCommand;
@@ -63,6 +64,7 @@ final class WorkflowKitServiceProvider extends ServiceProvider
             KitRetireCommand::class,
             KitUiAddCommand::class,
             MakeActionCommand::class,
+            MakeApplicationServiceCommand::class,
             MakeDomainExceptionCommand::class,
             MakeDomainServiceCommand::class,
             MakeEloquentRepositoryCommand::class,

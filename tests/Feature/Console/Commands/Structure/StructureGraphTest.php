@@ -236,6 +236,29 @@ describe('StructureGraph', function () {
                 ->and(samplingGraphEdgesFrom($view, "service:{$domain}/PackBoxTightly"))->toBe([["service:{$domain}/PackBoxTightly", "service:{$domain}/PackBox", 'replaces']]);
         });
 
+        it('draws an application service with what it injects, its plan step and one that replaces it', function () {
+            $domain = SAMPLING_GRAPH_CONTEXT;
+            $files = new StructureFiles(base_path());
+            $files->write([...$files->read($domain), 'applicationServices' => [
+                'WeighBox' => ['shape' => 'data', 'repositories' => ['Box', 'Billing/Wallet'], 'actor' => true, 'exception' => false],
+                'WeighBoxGently' => ['shape' => 'plain', 'repositories' => [], 'actor' => false, 'exception' => false, 'replaces' => 'WeighBox'],
+            ]]);
+            $view = samplingGraph()['contexts'][$domain];
+
+            expect(samplingGraphNode($view, "applicationService:{$domain}/WeighBox"))->toMatchArray([
+                'kind' => 'applicationService',
+                'items' => ['data', 'actor'],
+                'status' => StructurePlanner::READY,
+                'command' => "php artisan make:application-service WeighBox --domain={$domain} --data --repo=Box --actor",
+            ])
+                ->and(samplingGraphEdgesFrom($view, "applicationService:{$domain}/WeighBox"))->toBe([
+                    ["applicationService:{$domain}/WeighBox", 'external:Billing/Wallet', null],
+                    ["applicationService:{$domain}/WeighBox", "aggregate:{$domain}/Box", null],
+                ])
+                ->and(samplingGraphNode($view, "applicationService:{$domain}/WeighBoxGently")['items'])->toBe(['plain', 'replaces WeighBox'])
+                ->and(samplingGraphEdgesFrom($view, "applicationService:{$domain}/WeighBoxGently"))->toBe([["applicationService:{$domain}/WeighBoxGently", "applicationService:{$domain}/WeighBox", 'replaces']]);
+        });
+
         it('tells a list use case and each kind of page apart within their kind', function () {
             $graph = samplingGraph();
             $domain = SAMPLING_GRAPH_CONTEXT;

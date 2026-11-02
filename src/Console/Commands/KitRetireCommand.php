@@ -270,6 +270,34 @@ class KitRetireCommand extends Command
             ];
         }
 
+        /** @var array<string, array{replaces?: string|null}> $applicationServices */
+        $applicationServices = $manifest['applicationServices'];
+
+        foreach ($applicationServices as $service => $entry) {
+            $old = $entry['replaces'] ?? null;
+
+            if (! is_string($old) || ! in_array("swap application service {$context}/{$old}", $swapped, true)) {
+                continue;
+            }
+
+            $replacements[] = [
+                'context' => $context,
+                'old' => "{$context}/{$old}",
+                'new' => "{$context}/{$service}",
+                'classes' => ["App\\Application\\{$context}\\Services\\{$old}\\"],
+                'files' => ["app/Application/{$context}/Services/{$old}", "tests/Unit/Application/{$context}/Services/{$old}", "tests/Feature/Application/{$context}/Services/{$old}"],
+                'bindings' => [],
+                'sort' => null,
+                'types' => null,
+                'forget' => function (array $manifest) use ($old, $service): array {
+                    unset($manifest['applicationServices'][$old]);
+                    $manifest['applicationServices'][$service]['replaces'] = null;
+
+                    return $manifest;
+                },
+            ];
+        }
+
         return $replacements;
     }
 }

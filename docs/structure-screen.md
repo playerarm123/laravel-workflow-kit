@@ -89,7 +89,7 @@ The other kinds follow [exceptions.md](../resources/boost/guidelines/exceptions.
 - **Invalid value:** a value the FormRequest should have stopped, extending `DomainValueException`, in an aggregate's `Exceptions/`. In the shared kernel it is the only kind.
 - **Refusal of a use case:** extending `ApplicationException`, beside the use case it names, or at the root of the context's application when **Use case** is None.
 
-A domain service's own exception is not designed here: tick **It has its own exception** on the service's form instead.
+A domain or application service's own exception is not designed here: tick **It has its own exception** on the service's form instead.
 
 Saving an exception shows the **Exception** kind, which draws each exception tied to the aggregate or the use case it belongs to.
 
@@ -256,7 +256,7 @@ Finish with `php artisan test --testsuite=Architecture`. The `structure` check h
 | View | How to open it | What it shows |
 |---|---|---|
 | Overview | `/kit/structure`, or the **Structure** breadcrumb | One card per context and per HTTP resource, with their status counts. Edges show which context uses which, and how many use cases a resource calls. |
-| Context | Double-click a context, or `#context/{Name}` | Its aggregates, domain services, ports and use cases, with the repositories each one injects. The legend adds enums and value objects, every root and child entity (with its state and its methods, or `nothing designed yet`), and the exceptions: they start hidden, and a click on their row shows them. Each aggregate and what it holds sit in a frame. |
+| Context | Double-click a context, or `#context/{Name}` | Its aggregates, domain services, application services, ports and use cases, with the repositories each one injects. The legend adds enums and value objects, every root and child entity (with its state and its methods, or `nothing designed yet`), and the exceptions: they start hidden, and a click on their row shows them. Each aggregate and what it holds sit in a frame. |
 | Shared kernel | `#context/Shared` | Only the enums, value objects and invalid values every context may use. |
 | HTTP resource | Double-click a resource, or `#resource/{Name}` | Its model, policy, controller, actions and pages, and the use cases they call. |
 
@@ -286,6 +286,7 @@ Each kind has its own shape, colour and icon. The **Legend** at the top left nam
 | Aggregate | box with a bar | amber |
 | Entity | box | amber |
 | Domain service | pill | violet |
+| Application service | pill | cyan |
 | Port | hexagon | teal |
 | Use case | box | sky |
 | List use case | box | emerald |
@@ -332,7 +333,7 @@ At the bottom, **By hand (N)** lists every difference between the code and the m
 The header's menus offer the forms of the current view:
 
 - **Overview:** **New ▸** Context, HTTP resource.
-- **Context:** **Add ▸** Domain (Aggregate, Entity method, Domain service, Exception), Vocabulary (Enum, Value object), Application (Use case, Port).
+- **Context:** **Add ▸** Domain (Aggregate, Entity method, Domain service, Exception), Vocabulary (Enum, Value object), Application (Use case, Application service, Port).
 - **Shared kernel:** **Add ▸** Enum, Value object, Invalid value.
 - **HTTP resource:** **Add ▸** Controller method, Action, Page; the gear opens Model and policy.
 - **Every view:** **?** opens the Guide and the Docs.
@@ -348,6 +349,7 @@ The header's menus offer the forms of the current view:
 | Aggregate | Name; Child entities, separated by commas; Repository | A child repeats the root. A child that still has methods is removed. Repository is unticked while something injects it. |
 | Child entities (in the panel of any aggregate card) | A new child's name under the table, then its **+**; the bin icon in the row of a child not built yet | The name is not StudlyCase or is the root's. The aggregate already lists it, or the code already has it (sync it instead). A child that has methods, or that the code has, cannot be removed. |
 | Domain service | Name; Shape of handle(): `creates`, `data` or `plain`; Builds the aggregate (for `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | A repository, or the aggregate it builds, is in another context ([layers.md](../resources/boost/guidelines/layers.md)). When to design one, and the code it becomes: [domain-services.md](domain-services.md). |
+| Application service | Name; Shape of handle(): `data` or `plain`; Options: Reads who is acting through UserContext, It has its own exception, `{Name}Exception`; Repositories it injects (from any context) | A repository does not exist. When to design one, and the code it becomes: [application-services.md](application-services.md). |
 | Port | Name; Layer: `domain` or `application`; Adapter, as `Infra/{Folder}/{Prefix}{Port}` (optional) | The adapter is not in that form. |
 | Use case | Name; Shape of __invoke(): `command-result`, `command` or `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (from any context) | A Command shape returns something other than `void`, `string`, `int` or `result` ([handlers.md](../resources/boost/guidelines/handlers.md)). A list is not `List{Name}` with `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)). A repository does not exist. |
 | Enum | Name; Aggregate; Backing: `string`, `int` or `pure`; A status: each case lists the cases it may become; Cases, in order | Cases are not TitleCase, or two share a value. A status is not named `*Status`, or no case may become another ([states.md](../resources/boost/guidelines/states.md)). |
@@ -405,7 +407,7 @@ If the manifest changed on disk since the page loaded (another tab, `kit:import`
 
 ## Replacing what is built
 
-A built port (one with an adapter), use case or domain service changes by replacement: the new one is built beside the old one, the code is pointed at it, and the old one goes once the tests pass. Aggregates, enums and value objects cannot be replaced this way.
+A built port (one with an adapter), use case, domain service or application service changes by replacement: the new one is built beside the old one, the code is pointed at it, and the old one goes once the tests pass. Aggregates, enums and value objects cannot be replaced this way.
 
 1. Select the built card and click its **Replace** icon. Give the new adapter (`Infra/{Folder}/{Prefix}{Port}`), or the new name. A list use case is replaced by another `List…` that names what it lists another way, such as `ListOwnCrates`.
 
@@ -424,7 +426,7 @@ The details are in [structure.md, Replacing what is built](../resources/boost/gu
 
 | File | Holds |
 |---|---|
-| `.kit/structure/{Context}.json` | One context: aggregates, services, ports, use cases, enums, value objects, entities. |
+| `.kit/structure/{Context}.json` | One context: aggregates, services, application services, ports, use cases, enums, value objects, entities. |
 | `.kit/structure/Shared.json` | The shared kernel's enums and value objects. |
 | `.kit/structure/http/{Resource}.json` | One HTTP resource: model, controller, actions, policy, pages. |
 

@@ -14,9 +14,9 @@ import type {
 } from '@/kit/types';
 
 /**
- * Starts replacing a built piece: a port's adapter with a new one, or a use case or a domain
- * service with a new one beside it. kit:apply builds the new piece and swaps it in; kit:retire
- * removes the old one once the tests pass.
+ * Starts replacing a built piece: a port's adapter with a new one, or a use case or a domain or
+ * application service with a new one beside it. kit:apply builds the new piece and swaps it in;
+ * kit:retire removes the old one once the tests pass.
  */
 export function ReplaceForm({
     graph,
@@ -79,7 +79,8 @@ export function ReplaceForm({
                 <Label htmlFor="replacement">
                     {section === 'ports'
                         ? `New adapter, as Infra/{Folder}/{Prefix}${name}`
-                        : section === 'services'
+                        : section === 'services' ||
+                            section === 'applicationServices'
                           ? 'Name of the new service, without Service'
                           : name.startsWith('List')
                             ? 'Name of the new list, as List{Name}'

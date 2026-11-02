@@ -201,6 +201,40 @@ it('builds a service that creates an aggregate with the repository it injects, a
     }
 });
 
+const SAMPLING_GATHER_CONTEXT = 'SamplingGather';
+
+function forgetSamplingGather(): void
+{
+    File::deleteDirectory(app_path('Application/'.SAMPLING_GATHER_CONTEXT));
+    File::deleteDirectory(base_path('tests/Unit/Application/'.SAMPLING_GATHER_CONTEXT));
+    File::deleteDirectory(base_path('tests/Feature/Application/'.SAMPLING_GATHER_CONTEXT));
+    File::delete(base_path('.kit/structure/'.SAMPLING_GATHER_CONTEXT.'.json'));
+}
+
+it('builds an application service with the actor and a repository of another context, and its test in Feature', function () {
+    forgetSamplingGather();
+    $context = SAMPLING_GATHER_CONTEXT;
+    (new StructureFiles(base_path()))->write([
+        'context' => $context,
+        'applicationServices' => ['GatherWallets' => ['shape' => 'data', 'repositories' => ['Billing/Wallet'], 'actor' => true, 'exception' => true]],
+    ]);
+
+    try {
+        $this->artisan('kit:apply', ['--context' => [$context]])
+            ->expectsOutputToContain('make:application-service GatherWallets --domain='.$context.' --data --repo=Billing/Wallet --actor --exception')
+            ->assertSuccessful();
+
+        expect(File::get(app_path("Application/{$context}/Services/GatherWallets/GatherWalletsService.php")))
+            ->toContain('protected UserContext $user,')
+            ->toContain('protected WalletRepository $repo,')
+            ->toContain('public function handle(GatherWalletsData $data): GatherWalletsResult')
+            ->and(File::exists(app_path("Application/{$context}/Services/GatherWallets/GatherWalletsException.php")))->toBeTrue()
+            ->and(File::exists(base_path("tests/Feature/Application/{$context}/Services/GatherWallets/GatherWalletsServiceTest.php")))->toBeTrue();
+    } finally {
+        forgetSamplingGather();
+    }
+});
+
 it('builds each exception the manifest designs, in the home its kind gives it', function () {
     $context = 'SamplingRaise';
     $forget = function () use ($context): void {

@@ -121,6 +121,7 @@ const FIT_VIEW = { minZoom: 0.5, maxZoom: 1 };
 const CONTEXT_SECTIONS: Partial<Record<StructureNodeKind, StructureSection>> = {
     aggregate: 'aggregates',
     service: 'services',
+    applicationService: 'applicationServices',
     port: 'ports',
     useCase: 'useCases',
     enum: 'enums',
@@ -1111,7 +1112,8 @@ function Details({
         context !== null &&
         (contextSection === 'ports' ||
             contextSection === 'useCases' ||
-            contextSection === 'services')
+            contextSection === 'services' ||
+            contextSection === 'applicationServices')
             ? replacementOf(graph, context, contextSection, name)
             : null;
     const actions: ReactNode[] = [];

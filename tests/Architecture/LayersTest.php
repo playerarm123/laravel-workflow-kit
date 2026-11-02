@@ -26,6 +26,9 @@ require_once __DIR__.'/Support/rules.php';
  *     policies_forbidden: list<string>,
  *     infra_forbidden: list<string>,
  *     service_method: string,
+ *     application_services_glob: string,
+ *     application_service_forbidden: list<string>,
+ *     transaction_call: string,
  * }
  */
 function layersSpec(): array
@@ -68,6 +71,9 @@ function layersSpec(): array
         'policies_forbidden' => ['App\Application', 'App\Infra', 'App\Http', 'App\Console', 'App\Jobs', 'App\Listeners'],
         'infra_forbidden' => ['App\Http', 'App\Console', 'App\Jobs', 'App\Listeners'],
         'service_method' => 'handle',
+        'application_services_glob' => 'app/Application/*/Services',
+        'application_service_forbidden' => ['App\Domain\Shared\Ports\IdGenerator'],
+        'transaction_call' => '#\bDB::(transaction|beginTransaction)\s*\(#',
     ];
 }
 
@@ -219,6 +225,51 @@ function layersServiceShapeViolation(ReflectionMethod $handle, string $folder, s
         : sprintf('a Data goes into handle(string $id, XData $data): RootEntity or handle(XData $data): %sResult', $name);
 }
 
+/**
+ * Why an application service's handle() takes neither shape in layers.md, or null when it
+ * takes one: Data in / Result out is `({X}Data $data): {Name}Result`, and Plain names no
+ * `*Data` and no `*Result`. The Creates shape is a domain service's alone.
+ */
+function layersApplicationServiceShapeViolation(ReflectionMethod $handle, string $folder, string $name): ?string
+{
+    $reason = layersServiceShapeViolation($handle, $folder, $name);
+
+    if ($reason !== null) {
+        return str_contains($reason, 'RootEntity')
+            ? sprintf('a Data goes into handle(XData $data): %sResult only — an application service builds no root', $name)
+            : $reason;
+    }
+
+    $parameters = $handle->getParameters();
+
+    return count($parameters) === 2 && array_filter(layersNamedTypes($parameters[1]->getType()), fn (string $type) => str_ends_with($type, 'Data')) !== []
+        ? sprintf('a Data goes into handle(XData $data): %sResult only — an application service builds no root', $name)
+        : null;
+}
+
+/**
+ * The application services of every context, as the folder each one lives in.
+ *
+ * @return list<array{services: string, name: string, folder: string, class: string}>
+ */
+function layersApplicationServices(): array
+{
+    $services = [];
+
+    foreach (ruleGlob(ruleProjectPath(layersSpec()['application_services_glob']), GLOB_ONLYDIR) as $directory) {
+        $relative = ltrim(substr($directory, strlen(ruleProjectPath())), '/');
+        $context = basename(dirname($directory));
+
+        foreach (ruleGlob($directory.'/*', GLOB_ONLYDIR) as $folder) {
+            $name = basename($folder);
+            $namespace = 'App\\Application\\'.$context.'\\Services\\'.$name;
+            $services[] = ['services' => $relative, 'name' => $name, 'folder' => $namespace, 'class' => $namespace.'\\'.$name.'Service'];
+        }
+    }
+
+    return $services;
+}
+
 describe('layers', function () {
     it('ships the domain base classes at their fixed home', function () {
         $classes = array_flip(layersSpec()['base_classes']);
@@ -292,6 +343,10 @@ describe('layers', function () {
 
                 if (ruleIsIn($dependency, 'App\\Domain') && ! layersIsDomainVocabulary($dependency, ['Enums', 'ValueObjects', 'Exceptions'])) {
                     return 'go through a use-case handler for anything but enums, value objects and exceptions';
+                }
+
+                if (preg_match('/^App\\\\Application\\\\\\w+\\\\Services\\\\/', $dependency) === 1 && ! str_ends_with($dependency, 'Exception')) {
+                    return 'an application service is called only by a use-case handler';
                 }
 
                 return null;
@@ -416,6 +471,81 @@ describe('layers', function () {
         }
 
         expect(ruleUnexcused('layers', 'service-shape', $violations))->toBe([]);
+    });
+
+    it('gives every application service its own folder and one handle() in one of the two shapes', function () {
+        $method = layersSpec()['service_method'];
+        $violations = [];
+
+        foreach (ruleGlob(ruleProjectPath(layersSpec()['application_services_glob'])) as $services) {
+            foreach (ruleGlob($services.'/*.php') as $file) {
+                $relative = ltrim(substr($file, strlen(ruleProjectPath())), '/');
+                $violations[] = ['subject' => $relative, 'message' => 'a service lives in its own folder, Services/{Name}/{Name}Service.php'];
+            }
+        }
+
+        foreach (layersApplicationServices() as ['services' => $services, 'name' => $name, 'folder' => $folder, 'class' => $class]) {
+            foreach (ruleSourceFiles($services.'/'.$name, ['php']) as $file) {
+                if (str_ends_with($file, 'Service.php') && basename($file) !== $name.'Service.php') {
+                    $violations[] = ['subject' => $file, 'message' => sprintf('Services/%s holds %sService only — give this service its own folder', $name, $name)];
+                }
+            }
+
+            if (! class_exists($class)) {
+                $violations[] = ['subject' => $services.'/'.$name, 'message' => sprintf('holds no %sService — name the folder after its service', $name)];
+
+                continue;
+            }
+
+            $reflection = new ReflectionClass($class);
+            $public = array_values(array_map(
+                fn (ReflectionMethod $public) => $public->getName(),
+                array_filter(
+                    $reflection->getMethods(ReflectionMethod::IS_PUBLIC),
+                    fn (ReflectionMethod $public) => $public->getDeclaringClass()->getName() === $class && ! $public->isConstructor(),
+                ),
+            ));
+
+            if ($public !== [$method]) {
+                $violations[] = ['subject' => $class, 'message' => sprintf('exposes %s — its one public method is %s()', $public === [] ? 'nothing' : implode('(), ', $public).'()', $method)];
+
+                continue;
+            }
+
+            $reason = layersApplicationServiceShapeViolation($reflection->getMethod($method), $folder, $name);
+
+            if ($reason !== null) {
+                $violations[] = ['subject' => $class, 'message' => $reason];
+            }
+        }
+
+        expect(ruleUnexcused('layers', 'app-service-shape', $violations))->toBe([]);
+    });
+
+    it('keeps the transaction, the ids and the other use cases out of every application service', function () {
+        $violations = [];
+
+        foreach (layersApplicationServices() as ['services' => $services, 'name' => $name, 'folder' => $folder]) {
+            $files = ruleSourceFiles($services.'/'.$name, ['php']);
+            $violations = [...$violations, ...ruleCodeMatches($files, layersSpec()['transaction_call'], 'opens a transaction — the handler calling it owns it')];
+
+            foreach ($files as $file) {
+                foreach (ruleDependenciesOf($file) as $dependency) {
+                    $reason = match (true) {
+                        in_array($dependency, layersSpec()['application_service_forbidden'], true) => 'the handler mints every id and hands it in',
+                        preg_match('/^App\\\\Application\\\\\\w+\\\\UseCases\\\\(\\w+\\\\)?\\w+Handler$/', $dependency) === 1 => 'a service never calls a use case; the handler calls both',
+                        preg_match('/^App\\\\Application\\\\\\w+\\\\Services\\\\/', $dependency) === 1 && ! ruleIsIn($dependency, $folder) => 'a service never calls another application service; the handler calls both',
+                        default => null,
+                    };
+
+                    if ($reason !== null) {
+                        $violations[] = ['subject' => $file, 'message' => sprintf('uses %s (%s)', $dependency, $reason)];
+                    }
+                }
+            }
+        }
+
+        expect(ruleUnexcused('layers', 'app-service-calls', $violations))->toBe([]);
     });
 
     it('declares every port the infrastructure implements in a Ports folder', function () {

@@ -1021,8 +1021,8 @@ function ruleTypeNames(?ReflectionType $type): array
 
 /**
  * The constructor-promoted properties of a class that can write: domain repositories, and
- * domain services that inject one themselves. A service that only computes (a planner) never
- * writes, so calling it beside one save needs no transaction.
+ * domain or application services that inject one themselves. A service that only computes
+ * (a planner) never writes, so calling it beside one save needs no transaction.
  *
  * @param  class-string  $class
  * @return list<string> property names
@@ -1035,7 +1035,7 @@ function ruleHandlerWriters(string $class): array
     foreach ($constructor?->getParameters() ?? [] as $parameter) {
         foreach (ruleTypeNames($parameter->getType()) as $type) {
             $repository = interface_exists($type) && ruleIsIn($type, 'App\\Domain') && str_ends_with($type, 'Repository');
-            $service = class_exists($type) && ruleIsIn($type, 'App\\Domain') && str_contains($type, '\\Services\\') && ruleHandlerWriters($type) !== [];
+            $service = class_exists($type) && (ruleIsIn($type, 'App\\Domain') || ruleIsIn($type, 'App\\Application')) && str_contains($type, '\\Services\\') && ruleHandlerWriters($type) !== [];
 
             if ($repository || $service) {
                 $writers[] = $parameter->getName();

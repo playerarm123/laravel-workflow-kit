@@ -21,6 +21,7 @@ import type {
 export const SECTION_LABELS: Record<StructureSection, string> = {
     aggregates: 'aggregate',
     services: 'domain service',
+    applicationServices: 'application service',
     ports: 'port',
     useCases: 'use case',
     enums: 'enum',
@@ -46,6 +47,7 @@ type PieceFormData = {
     adapter: string;
     returns: string;
     query: boolean;
+    actor: boolean;
     exception: boolean;
 };
 
@@ -67,6 +69,7 @@ function startingValues(
         shape: {
             aggregates: '',
             services: 'plain',
+            applicationServices: 'plain',
             ports: '',
             useCases: 'command',
             enums: '',
@@ -79,6 +82,7 @@ function startingValues(
         adapter: '',
         returns: 'void',
         query: false,
+        actor: false,
         exception: false,
     };
 
@@ -223,15 +227,16 @@ export function PieceForm({
     const repositoryChoices = aggregateChoices(
         graph,
         context,
-        section === 'useCases',
+        section === 'useCases' || section === 'applicationServices',
         true,
     );
+    const label = SECTION_LABELS[section];
 
     return (
         <form onSubmit={submit} className="space-y-4">
             <h2 className="font-medium">
                 {previous === null
-                    ? `Add a ${SECTION_LABELS[section]} to ${context}`
+                    ? `Add ${/^[aeiou]/.test(label) ? 'an' : 'a'} ${label} to ${context}`
                     : `Change ${previous}`}
             </h2>
             <InputError
@@ -320,6 +325,42 @@ export function PieceForm({
                             />
                         </Field>
                     )}
+                </>
+            )}
+
+            {section === 'applicationServices' && (
+                <>
+                    <Field label="Shape of handle()" error={errors.shape}>
+                        <Choice
+                            value={data.shape}
+                            onChange={(shape) => setData('shape', shape)}
+                            options={['data', 'plain']}
+                        />
+                    </Field>
+                    <Field
+                        label="Options"
+                        error={errors.actor ?? errors.exception}
+                    >
+                        <Label className="flex items-center gap-2 font-normal">
+                            <Checkbox
+                                checked={data.actor}
+                                onCheckedChange={(checked) =>
+                                    setData('actor', checked === true)
+                                }
+                            />
+                            Reads who is acting through UserContext
+                        </Label>
+                        <Label className="flex items-center gap-2 font-normal">
+                            <Checkbox
+                                checked={data.exception}
+                                onCheckedChange={(checked) =>
+                                    setData('exception', checked === true)
+                                }
+                            />
+                            It has its own exception,{' '}
+                            {`${data.name.trim() || '{Name}'}Exception`}
+                        </Label>
+                    </Field>
                 </>
             )}
 
@@ -417,7 +458,9 @@ export function PieceForm({
                 </>
             )}
 
-            {(section === 'services' || section === 'useCases') && (
+            {(section === 'services' ||
+                section === 'applicationServices' ||
+                section === 'useCases') && (
                 <Field
                     label="Repositories it injects"
                     error={errors.repositories}

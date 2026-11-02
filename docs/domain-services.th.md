@@ -8,7 +8,7 @@ domain service คือที่อยู่ของกฎทางธุร�
 
 ## 1. entity, domain service หรือ handler
 
-ให้กฎไปอยู่ในที่แรกที่ถือมันได้ ([layers.md](../resources/boost/guidelines/layers.md) หัวข้อ "Entity, domain service or application service")
+ให้กฎไปอยู่ในที่แรกที่ถือมันได้ ([layers.md](../resources/boost/guidelines/layers.md) หัวข้อ "Entity, domain service, application service or use-case handler")
 
 | ที่อยู่ | ถือกฎแบบไหน | ตัวอย่างใน Shipping | ถ้าวางผิดที่ |
 |---|---|---|---|

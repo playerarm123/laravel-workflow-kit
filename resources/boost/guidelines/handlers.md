@@ -39,7 +39,7 @@ Every handler is a `final class {Name}Handler` whose only public method is `__in
 ## Who is acting
 
 **Do**
-- Read the actor inside the handler. Inject `UserContext`, or an application class built on it (a `Current{X}` resolver that turns the actor into a scope, such as the owner whose rows these are).
+- Read the actor inside the handler. Inject `UserContext`, or an application service built on it (`make:application-service ResolveOwner --domain={Context} --plain --actor`, which turns the actor into a scope, such as the owner whose rows these are; layers.md).
 - Build the domain's record of who acted (the actor id on a value object) inside the handler, from that port.
 - Give work the system runs (the scheduler, a queued job, a console command) a handler of its own, which takes no actor.
 
@@ -61,7 +61,7 @@ An id the user picks as the target of the action stays in the Command. Example: 
 
 ## Transactions
 
-**Do** wrap every write in one `DB::transaction()` when a handler writes in two or more calls. A write is a call to a repository, or to a domain service that injects a repository. A service that only computes, such as a planner, does not count. *Check `transaction`.*
+**Do** wrap every write in one `DB::transaction()` when a handler writes in two or more calls. A write is a call to a repository, or to a domain or application service that injects a repository, directly or through another service. A service that only computes, such as a planner, does not count. An application service never opens the transaction itself: the handler calling it does (layers.md). *Check `transaction`.*
 
 Every handler that writes also records an audit entry, which is a write of its own (audit-log.md). So every handler that writes opens a transaction, and audit-log.md checks it. The repository alone already keeps one aggregate atomic (repositories.md).
 
