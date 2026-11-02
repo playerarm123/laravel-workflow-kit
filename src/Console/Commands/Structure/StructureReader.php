@@ -315,8 +315,8 @@ final class StructureReader
             'pages' => $pages,
         ];
 
-        $listPage = self::listPageOf($pages);
-        $entry = $listPage === null ? null : (new StructureMenu($this->root))->entryFor(self::listRouteOf($listPage));
+        $menuPage = self::menuPageOf($pages);
+        $entry = $menuPage === null ? null : (new StructureMenu($this->root))->entryFor(self::listRouteOf($menuPage));
 
         if ($entry !== null) {
             $read['menu'] = [
@@ -331,15 +331,18 @@ final class StructureReader
     }
 
     /**
-     * The resource's list page: its table or grid page at `{folder}/index`, or null.
+     * The page the resource's menu entry opens: its table or grid page at `{folder}/index`, else
+     * its plain page there (a board, say), or null. A form is never a menu's page.
      *
      * @param  array<string, mixed>  $pages
      */
-    public static function listPageOf(array $pages): ?string
+    public static function menuPageOf(array $pages): ?string
     {
-        foreach ($pages as $page => $kind) {
-            if (in_array($kind, ['table', 'grid'], true) && str_ends_with((string) $page, '/index')) {
-                return (string) $page;
+        foreach ([['table', 'grid'], ['page']] as $kinds) {
+            foreach ($pages as $page => $kind) {
+                if (in_array($kind, $kinds, true) && str_ends_with((string) $page, '/index')) {
+                    return (string) $page;
+                }
             }
         }
 
@@ -347,7 +350,7 @@ final class StructureReader
     }
 
     /**
-     * The route a list page opens from, as Route::resource() names it:
+     * The route a page at `{folder}/index` opens from, as Route::resource() names it:
      * `audit-entries/index` → `audit-entries.index`.
      */
     public static function listRouteOf(string $page): string

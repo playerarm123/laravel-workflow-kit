@@ -182,7 +182,7 @@ export type ResourceManifest = {
     >;
     policy: string[] | null;
     pages: Partial<Record<string, PageKind>>;
-    /** The list page's main menu entry; null keeps it out; absent says nothing yet. */
+    /** The index page's main menu entry; null keeps it out; absent says nothing yet. */
     menu?: {
         title: string;
         icon: string;

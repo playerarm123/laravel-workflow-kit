@@ -335,7 +335,7 @@ describe('StructurePlanner', function () {
                 File::deleteDirectory(samplingPlanMarkersRoot().'/app');
             }
 
-            expect($noPage)->toBe([StructurePlanner::WAITING, 'its list page comes first'])
+            expect($noPage)->toBe([StructurePlanner::WAITING, 'its page comes first'])
                 ->and($noPolicy)->toBe([StructurePlanner::WAITING, SAMPLING_PLAN_MODEL.'Policy::viewAny() comes first: the menu asks it who sees the entry'])
                 ->and($ready)->toBe([StructurePlanner::READY, "\$this->item('sampling-sacks.title', 'sampling-sacks.index', 'package', \\App\\Models\\".SAMPLING_PLAN_MODEL.'::class),  (above // kit:menu)'])
                 ->and($done)->toBe(StructurePlanner::DONE);
@@ -398,6 +398,28 @@ describe('StructurePlanner', function () {
             File::put(samplingPlanMarkersRoot().'/routes/web.php', "<?php\n\n// kit:routes\n");
 
             expect(samplingPlanSteps()['menu sampling-sacks.index'])->toBe([StructurePlanner::WAITING, 'its route comes first']);
+        });
+
+        it('puts a plain page at {folder}/index, such as a board, in the menu as it would a list page', function () {
+            $files = new StructureFiles(base_path());
+            $manifest = $files->readResource(SAMPLING_PLAN_MODEL);
+            $files->writeResource([...$manifest, 'pages' => [...$manifest['pages'], 'sampling-sacks/index' => 'page'], 'menu' => ['title' => 'sampling-sacks.title', 'icon' => 'list-ordered']]);
+            $page = base_path('resources/js/pages/sampling-sacks/index.tsx');
+            $policy = app_path('Policies/'.SAMPLING_PLAN_MODEL.'Policy.php');
+
+            try {
+                $noPage = samplingPlanSteps()['menu sampling-sacks.index'];
+                File::ensureDirectoryExists(dirname($page));
+                File::put($page, "export default function Index() {}\n");
+                File::put($policy, "<?php\n\nnamespace App\\Policies;\n\nclass ".SAMPLING_PLAN_MODEL."Policy\n{\n    public function viewAny(): bool { return true; }\n}\n");
+                $ready = samplingPlanSteps()['menu sampling-sacks.index'];
+            } finally {
+                File::deleteDirectory(dirname($page));
+                File::delete($policy);
+            }
+
+            expect($noPage)->toBe([StructurePlanner::WAITING, 'its page comes first'])
+                ->and($ready)->toBe([StructurePlanner::READY, "\$this->item('sampling-sacks.title', 'sampling-sacks.index', 'list-ordered', \\App\\Models\\".SAMPLING_PLAN_MODEL.'::class),  (above // kit:menu)']);
         });
 
         it('runs the steps in the order they depend on each other', function () {

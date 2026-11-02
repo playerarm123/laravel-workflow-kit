@@ -474,4 +474,12 @@ describe('StructureReader', function () {
                 ->and($this->reader->resourceClass('SamplingTrayNowhere'))->toBe('App\\Models\\SamplingTrayNowhere');
         });
     });
+
+    describe('menuPageOf', function () {
+        it('takes the table or grid page at {folder}/index, else the plain page there, never a form', function () {
+            expect(StructureReader::menuPageOf(['visits/index' => 'page', 'visits/list/index' => 'table']))->toBe('visits/list/index')
+                ->and(StructureReader::menuPageOf(['visits/edit' => 'form', 'visits/index' => 'page']))->toBe('visits/index')
+                ->and(StructureReader::menuPageOf(['visits/show' => 'page', 'visits/index' => 'form']))->toBeNull();
+        });
+    });
 });

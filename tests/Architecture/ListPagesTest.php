@@ -205,7 +205,7 @@ function listPagesMenuGroups(): array
     foreach ($files->resources() as $resource) {
         $manifest = $files->readResource($resource);
         $menu = is_array($manifest) ? $manifest['menu'] ?? null : null;
-        $page = is_array($menu) && is_array($manifest['pages'] ?? null) ? StructureReader::listPageOf($manifest['pages']) : null;
+        $page = is_array($menu) && is_array($manifest['pages'] ?? null) ? StructureReader::menuPageOf($manifest['pages']) : null;
 
         if ($page !== null) {
             $groups[listPagesSpec()['pages_path'].'/'.$page.'.tsx'] = is_string($menu['group'] ?? null) ? $menu['group'] : null;
