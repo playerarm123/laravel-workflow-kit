@@ -1,0 +1,24 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Application\ApplicationException;
+
+/**
+ * A failure of this service itself. A rule of the domain throws the domain's exception instead.
+ */
+final class {{ class }} extends ApplicationException
+{
+    // one code and one named constructor per failure, e.g.
+    // public const int NO_OWNER = 101;
+    //
+    // public static function noOwner(string $id, ?Throwable $previous = null): self
+    // {
+    //     return new self(
+    //         message: "No owner for [{$id}].",
+    //         code: self::NO_OWNER,
+    //         context: ['id' => $id],
+    //         previous: $previous,
+    //     );
+    // }
+}

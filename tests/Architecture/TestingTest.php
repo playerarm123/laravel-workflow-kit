@@ -8,7 +8,9 @@ require_once __DIR__.'/Support/rules.php';
  * Every subject is found under its folder, never listed by hand. A subject's test lives at
  * its own path mirrored from `app/` into `tests/{Suite}/`, with `Test` appended. A domain
  * service's suite is read from its constructor through reflection: it is Feature when it
- * injects a repository, directly or through another service, and Unit otherwise. A controller
+ * injects a repository, directly or through another service, and Unit otherwise. An
+ * application service is Feature when it injects anything at all, since only the container
+ * can build it then, and Unit when it injects nothing. A controller
  * gets one test per action, inside a folder named after it, and `__invoke` is tested by the
  * mirror of the controller itself. Repositories, list queries and policies are left to the
  * `tests` checks of their own rules.
@@ -23,7 +25,7 @@ require_once __DIR__.'/Support/rules.php';
  * kit's own tests are left where the kit ships them.
  *
  * @return array{
- *     kinds: array<string, array{path: string, match: string, suite: 'Unit'|'Feature'|'by-repository'}>,
+ *     kinds: array<string, array{path: string, match: string, suite: 'Unit'|'Feature'|'by-repository'|'by-constructor'}>,
  *     controllers_path: string,
  *     starter_kit: list<string>,
  *     pages_path: string,
@@ -51,6 +53,7 @@ function testingSpec(): array
             'entity' => ['path' => 'app/Domain', 'match' => '#Entity\.php$#', 'suite' => 'Unit'],
             'value object' => ['path' => 'app/Domain', 'match' => '#/ValueObjects/[^/]+\.php$#', 'suite' => 'Unit'],
             'domain service' => ['path' => 'app/Domain', 'match' => '#^app/Domain/[^/]+/Services/[^/]+/[^/]+Service\.php$#', 'suite' => 'by-repository'],
+            'application service' => ['path' => 'app/Application', 'match' => '#^app/Application/[^/]+/Services/[^/]+/[^/]+Service\.php$#', 'suite' => 'by-constructor'],
             'handler' => ['path' => 'app/Application', 'match' => '#^app/Application/[^/]+/UseCases/.+Handler\.php$#', 'suite' => 'Feature'],
             'console command' => ['path' => 'app/Console/Commands', 'match' => '#Command\.php$#', 'suite' => 'Feature'],
             'middleware' => ['path' => 'app/Http/Middleware', 'match' => '#\.php$#', 'suite' => 'Feature'],
@@ -238,7 +241,11 @@ function testingSubjects(): array
                 continue;
             }
 
-            $resolved = $suite === 'by-repository' ? (testingInjectsRepository($class) ? 'Feature' : 'Unit') : $suite;
+            $resolved = match ($suite) {
+                'by-repository' => testingInjectsRepository($class) ? 'Feature' : 'Unit',
+                'by-constructor' => ($reflection->getConstructor()?->getNumberOfParameters() ?? 0) > 0 ? 'Feature' : 'Unit',
+                default => $suite,
+            };
             $other = $resolved === 'Unit' ? 'Feature' : 'Unit';
 
             $subjects[] = ['subject' => $class, 'test' => testingMirrorOf($file, $resolved), 'elsewhere' => testingMirrorOf($file, $other)];

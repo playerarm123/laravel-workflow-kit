@@ -1,0 +1,11 @@
+<?php
+
+use {{ namespacedService }};
+
+beforeEach(function () {
+    $this->service = app({{ service }}::class);
+});
+
+describe('{{ service }}', function () {
+    it('takes the steps the service is named after')->todo();
+});
