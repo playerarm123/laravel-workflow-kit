@@ -146,6 +146,17 @@ describe('StructureResourceEditor', function () {
                 ->and(samplingRouteManifest())->not->toHaveKey('menu');
         });
 
+        it('puts a plain page at {folder}/index, such as a board, in the menu, and never starts it there', function () {
+            $editor = samplingRouteEditor();
+            $editor->saveResource(SAMPLING_ROUTE_CASE, samplingRouteVersion(), SAMPLING_ROUTE_CASE, ['viewAny']);
+            $editor->removePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'pages', 'sampling-route-cases/index');
+
+            expect($editor->savePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'pages', null, 'sampling-route-cases/index', ['kind' => 'page']))->toBe([])
+                ->and(samplingRouteManifest())->not->toHaveKey('menu')
+                ->and($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), true, 'sampling-route-cases.title', 'list-ordered'))->toBe([])
+                ->and(samplingRouteManifest()['menu'])->toBe(['title' => 'sampling-route-cases.title', 'icon' => 'list-ordered']);
+        });
+
         it('puts the list page in a group of the menu, with a description', function () {
             $editor = samplingRouteEditor();
             $editor->saveResource(SAMPLING_ROUTE_CASE, samplingRouteVersion(), SAMPLING_ROUTE_CASE, ['viewAny']);
@@ -178,7 +189,7 @@ describe('StructureResourceEditor', function () {
             $editor = samplingRouteEditor();
 
             expect($editor->saveMenu(SAMPLING_ROUTE_CASE, samplingRouteVersion(), true, 'Cases', 'Briefcase'))->toHaveKeys(['title', 'icon', 'inMenu'])
-                ->and($editor->saveMenu(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), true, 'x.title', 'box')['inMenu'])->toContain('Only a list page goes in the menu: add a table or grid page at {folder}/index first.')
+                ->and($editor->saveMenu(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), true, 'x.title', 'box')['inMenu'])->toContain('Only a page at {folder}/index goes in the menu: add a table, grid or page there first.')
                 ->and(samplingRouteManifest())->not->toHaveKey('menu');
         });
     });

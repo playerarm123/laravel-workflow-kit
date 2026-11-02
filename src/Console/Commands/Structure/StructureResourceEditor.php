@@ -121,7 +121,8 @@ final class StructureResourceEditor
     }
 
     /**
-     * Puts the resource's list page in the main menu with a title and an icon, and when given, the
+     * Puts the resource's menu page (its list page, or a plain page at `{folder}/index` such as a
+     * board) in the main menu with a title and an icon, and when given, the
      * group it sits in, a description and the policy's ability it asks in place of viewAny, keeps it out with `"menu": null` (`$inMenu` false), or
      * says nothing about it (`$inMenu` null), which leaves the list page to the `menu` check
      * (list-pages.md, "Menu"). A group Navigation.php does not declare yet is kept: kit:plan
@@ -152,8 +153,8 @@ final class StructureResourceEditor
 
         $errors = [];
 
-        if (StructureReader::listPageOf(is_array($manifest['pages']) ? $manifest['pages'] : []) === null) {
-            $errors['inMenu'][] = 'Only a list page goes in the menu: add a table or grid page at {folder}/index first.';
+        if (StructureReader::menuPageOf(is_array($manifest['pages']) ? $manifest['pages'] : []) === null) {
+            $errors['inMenu'][] = 'Only a page at {folder}/index goes in the menu: add a table, grid or page there first.';
         }
 
         if (preg_match('/^[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)+$/', (string) $title) !== 1) {

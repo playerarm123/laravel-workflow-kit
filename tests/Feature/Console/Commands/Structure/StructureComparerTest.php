@@ -219,6 +219,14 @@ describe('resourceEntries menu', function () {
             ->and(StructureComparer::resourceNode('Crate', 'menu.crates/index'))->toBe('page:Crate/crates/index');
     });
 
+    it('names a menu entry after a plain page at {folder}/index when the resource has no list page', function () {
+        $resource = ['resource' => 'Visit', 'model' => 'Visit', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => ['visits/edit' => 'form', 'visits/index' => 'page']];
+
+        expect(StructureComparer::resourceEntries([...$resource, 'menu' => ['title' => 'visits.title', 'icon' => 'list-ordered']]))
+            ->toHaveKey('menu.visits/index', ['title' => 'visits.title', 'icon' => 'list-ordered'])
+            ->not->toHaveKey('menu.');
+    });
+
     it('compares the group and the description of a menu entry only when it has them', function () {
         $resource = ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => ['crates/index' => 'table']];
 

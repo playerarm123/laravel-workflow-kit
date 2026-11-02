@@ -97,10 +97,10 @@ export function NewResourceForm({
 }
 
 /**
- * Puts the resource's list page in the main menu with a title and a lucide icon, and optionally
- * in a group, with a description and asking another ability of the policy than viewAny, or keeps
- * it out (list-pages.md, "Menu"). kit:apply writes the entry once the route, the page, the
- * policy's ability and the group exist.
+ * Puts the resource's index page (its list page, or a plain page such as a board) in the main
+ * menu with a title and a lucide icon, and optionally in a group, with a description and asking
+ * another ability of the policy than viewAny, or keeps it out (list-pages.md, "Menu"). kit:apply
+ * writes the entry once the route, the page, the policy's ability and the group exist.
  */
 export function ResourceMenuForm({
     graph,
@@ -161,7 +161,7 @@ export function ResourceMenuForm({
                         setData('inMenu', checked === true)
                     }
                 />
-                Its list page is in the main menu
+                Its index page is in the main menu
             </Label>
             <InputError message={errors.inMenu} />
             <div className="space-y-1.5">
