@@ -70,9 +70,10 @@ Every `lang/*.json` carries the keys the kit speaks: `common.forbidden`, `common
 | Invalid value | `php artisan make:domain-exception {Name} --domain={Context}/{Aggregate} --kind=value`, or `--domain=Shared` for a shared value object |
 | Refusal of a use case | `php artisan make:domain-exception {Name} --domain={Context} --kind=application [--use-case={UseCase}]` |
 | Refusal of a domain service | `php artisan make:domain-service {Name} --domain={Context} --exception` |
+| Refusal of an application service | `php artisan make:application-service {Name} --domain={Context} --exception` (extends `ApplicationException`) |
 | Not found, failure | `php artisan make:eloquent-repository` writes both |
 
-A refusal, an invalid value or a use case's refusal can be designed on `/kit/structure` instead, and a domain service's exception with the service, so `kit:apply` runs the command above (structure.md).
+A refusal, an invalid value or a use case's refusal can be designed on `/kit/structure` instead, and a domain or application service's exception with the service, so `kit:apply` runs the command above (structure.md).
 
 **Don't** run Laravel's `make:exception`. It writes to `app/Exceptions` with `render()` and `report()`. An exception carries a reason and leaves the answer to its catcher and `ExceptionResponses`. *Check `home`.*
 

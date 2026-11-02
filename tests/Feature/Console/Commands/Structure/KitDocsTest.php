@@ -66,7 +66,8 @@ describe('KitDocs', function () {
         it('lists each guide once, by its English title, apart from the guidelines', function () {
             $guides = collect(kitDocs()->guides())->keyBy('name');
 
-            expect($guides->keys()->all())->toBe(['domain-services', 'structure-screen'])
+            expect($guides->keys()->all())->toBe(['application-services', 'domain-services', 'structure-screen'])
+                ->and($guides['application-services']['title'])->toBe('Application services')
                 ->and($guides['domain-services']['title'])->toBe('Domain services')
                 ->and($guides['structure-screen']['title'])->toBe('The structure screen')
                 ->and($guides['structure-screen']['summary'])->toStartWith('/kit/structure is where you design')

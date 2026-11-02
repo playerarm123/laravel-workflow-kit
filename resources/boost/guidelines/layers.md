@@ -8,7 +8,7 @@ Enforced by the package's `tests/Architecture/LayersTest.php` (`php artisan test
 | Layer | Namespace | Job |
 |---|---|---|
 | Domain | `App\Domain\{Context}` | Business rules in plain PHP: entities, value objects, enums, domain services, and the ports the domain needs. |
-| Application | `App\Application\{Context}` | Use cases: one handler per thing a user or the system can do. |
+| Application | `App\Application\{Context}` | Use cases: one handler per thing a user or the system can do, and the application services several handlers share. |
 | Infrastructure | `App\Infra` | Implements the ports: Eloquent repositories and read queries, hashing, storage, ids, external APIs. |
 | Entry points | `App\Http`, `App\Console`, `App\Jobs`, `App\Listeners` | Turn a request, command, job or event into a handler call, and its result into a response. |
 | Models | `App\Models` | Eloquent models: persistence shape, casts, relations, route binding (models.md). |
@@ -20,7 +20,7 @@ Enforced by the package's `tests/Architecture/LayersTest.php` (`php artisan test
 | Domain | Its own context and `App\Domain\Shared`. | Illuminate or any other `App\*` layer (*check `domain-framework`*); another context (*check `domain-context`*). `Shared` uses no context at all. |
 | Application | Any context in the domain, other application code, `spatie/laravel-data`, and only these framework pieces: `Facades\DB` (transactions), `Support\Str`, `Pagination` and its contracts, `Support\Collection`/`LazyCollection`, `Contracts\Support\Arrayable`, `Http\UploadedFile`, `Contracts\Auth`. | Infra, Http, Models, Policies, Console, Providers (*check `application`*). |
 | Infrastructure | Domain, Application, Models, and the whole framework. | Entry points (*check `infra`*). |
-| Entry points | Application, Models (route binding and reads), Policies, and from the domain **only** enums, value objects and exceptions. | Infra (*check `entry-points`*). Bind an application interface in a provider instead. Never a domain repository, entity, service or port. |
+| Entry points | Application, Models (route binding and reads), Policies, and from the domain **only** enums, value objects and exceptions. | Infra (*check `entry-points`*). Bind an application interface in a provider instead. Never a domain repository, entity, service or port, and never an application service but its exception. |
 | Models | Domain enums and value objects (for casts), and their policy through `#[UsePolicy]`. | Application, Infra, entry points (*check `models`*). |
 | Policies | Models and domain enums. | Application, Infra, entry points (*check `policies`*). |
 
@@ -49,17 +49,18 @@ The base classes live at fixed paths, and every project ships them: `app/Domain/
 - Scaffold an enum with `php artisan make:enum {Name} --domain={Context}/{Aggregate} --string --case=…` and a value object with `php artisan make:value-object {Name} --domain={Context}/{Aggregate} --field=name:Type`, or `--domain=Shared` for the shared kernel. Each lands in the aggregate's `Enums/` or `ValueObjects/`, never in `app/Enums`. *Review only.*
 - Scaffold any other port with `php artisan make:port {Name} --domain={Context}` (`--domain=Shared` for the shared kernel), or `--application={Context}` for a port only a use case needs. Once its methods are written, run it again with `--adapter={Prefix} --infra={Folder}`. That writes `App\Infra\{Folder}\{Prefix}{Name}` with every method throwing until it is written, and the adapter's test. It prints the binding line for a provider. *Review only.*
 
-## Entity, domain service or application service
+## Entity, domain service, application service or use-case handler
 Put a rule in the first place that can own it:
 
 1. **The entity**, when the rule needs only one aggregate's state, e.g. "a suspended wallet cannot be debited". Write it as a method on the root. A status it changes declares its moves on its enum (states.md).
 2. **A domain service** (`{Context}/Services/{Name}/{Name}Service::handle(…)`), when the rule spans several aggregates, or several instances of one, inside **one** context. Examples: "a wallet is opened once per owner", or moving money between two wallets.
-3. **An application service**, the use-case handler (`Application/{Context}/UseCases/{Name}/{Name}Handler::__invoke(Command): Result`), for everything that is not a business rule:
+3. **The use-case handler** (`Application/{Context}/UseCases/{Name}/{Name}Handler::__invoke(Command): Result`), for everything that is not a business rule:
    - the transaction (`DB::transaction`) and who is acting
    - minting the id of the root it creates
    - calling into several contexts
    - side effects: files, mail, notifications, audit log. Everything but the audit log starts after the commit (handlers.md)
    - turning input into domain types and domain results into a `Result`
+4. **An application service** (`Application/{Context}/Services/{Name}/{Name}Service::handle(…)`), when two or more handlers would repeat the same steps of point 3 that are not the transaction, the id or the audit entry. Examples: turning the actor into the owner whose rows these are, or gathering what several contexts know about one customer.
 
 **Domain service**
 - **May** load and save through repositories of **its own context**, and call other domain services of that context.
@@ -100,14 +101,40 @@ Until a person writes `handle()`, its body is `throw new LogicException('{Name}S
 
 **Why:** a service's input differs with its job, so one fixed signature would force empty Data and Result classes around a single id. Three named shapes still let a reader tell from the signature alone what a service does, and an agent has three patterns to copy instead of eleven.
 
-**Application service (handler)**. Its shape, actor, ids and transaction are in handlers.md.
-- It is the only way in. Controllers, commands, jobs and listeners call handlers. Domain services are called only by handlers or by other domain services of the same context:
+**Use-case handler**. Its shape, actor, ids and transaction are in handlers.md.
+- It is the only way in. Controllers, commands, jobs and listeners call handlers. Domain services are called only by handlers, by application services, or by other domain services of the same context:
   - an entry point cannot reach one, because it may use from the domain only enums, value objects and exceptions (*check `entry-points`*);
   - another context cannot reach one (*check `domain-context`*);
   - nothing stops the infrastructure from calling one, so a reviewer does. *Review only.*
 - Every class named `*Handler` lives in `app/Application/{Context}/UseCases/`. *Check `handlers`.*
 
-**Why:** each layer then has one reason to change. A rule moves into the entity, a cross-aggregate rule into a domain service, and orchestration into a handler. A reader always knows where to look.
+**Application service**
+- **May** read the actor through `UserContext`, load and save through repositories of **any** context, and call domain services and ports.
+- **Never** opens a transaction, mints an id, records an audit entry, or calls a handler or another application service. The handler that calls it does the first three inside its own transaction, and calls each service itself (*check `app-service-calls`*; the audit log's own check catches the audit entry, audit-log.md).
+- Is called only by a use-case handler. An entry point may name its exception, to catch it, and nothing else of it (*check `entry-points`*).
+- Lives at the context level of `app/Application`, in `Services/{Name}/`, which holds exactly one `{Name}Service`, its Data, Result and Exception. Its only public method is `handle()`. *Check `app-service-shape`.*
+- A handler that injects an application service which injects a repository counts as a handler that writes (handlers.md).
+
+**The shape of an application service.** Scaffold it, never hand-write it:
+
+```
+php artisan make:application-service {Name} --domain={Context} (--data|--plain) [--repo={Aggregate}|--repo={Context}/{Aggregate}] [--actor] [--exception] [--force]
+```
+
+| Flag | Writes |
+|---|---|
+| `--data` | the Data in, Result out shape: `handle({Name}Data $data): {Name}Result`, with `{Name}Data` and `{Name}Result` beside it |
+| `--plain` | the Plain shape: `handle(): void`, with no Data and no Result. Change the parameters and the return to what the service needs |
+| `--repo=` | the constructor injection of a repository, `{Aggregate}` in the service's own context or `{Context}/{Aggregate}` in another |
+| `--actor` | the constructor injection of `UserContext` |
+| `--exception` | `{Name}Exception` beside the service, extending `ApplicationException` (exceptions.md) |
+| `--force` | the service again over one that exists |
+
+There is no Creates shape: building a root needs a new id, and only the handler mints one. A Data and a Result are `final readonly` plain classes, like a domain service's. Until a person writes `handle()`, its body is `throw new LogicException('{Name}Service::handle() is not implemented yet.');`, the same placeholder a domain service starts with (structure.md). Its test is in `tests/Feature` when the service injects anything and in `tests/Unit` when it injects nothing (testing.md). *Review only.*
+
+**Why:** a step that two handlers repeat drifts apart the day one of them changes. Keeping the transaction, the id and the audit entry in the handler means a service can be called from any handler, alone or beside another, without opening a second transaction or recording an entry twice.
+
+**Why the layers:** each one then has one reason to change. A rule moves into the entity, a cross-aggregate rule into a domain service, orchestration into a handler, and orchestration that handlers share into an application service. A reader always knows where to look.
 
 ## Stepping outside this file
 Use `rule-overrides.json` with `"rule": "layers"`, exactly as stack.md describes. Only the user may add an entry.

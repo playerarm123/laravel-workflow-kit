@@ -89,7 +89,7 @@ method ที่จะเพิ่มต่อไปปฏิเสธด้ว�
 - **Invalid value:** ค่าที่ FormRequest ควรกันไว้ตั้งแต่แรก สืบทอด `DomainValueException` อยู่ใน `Exceptions/` ของ aggregate ใน shared kernel มีได้แค่ชนิดนี้
 - **Refusal of a use case:** สืบทอด `ApplicationException` อยู่ข้าง use case ที่เลือก หรืออยู่ที่ราก application ของ context ถ้า **Use case** เป็น None
 
-exception ของ domain service ไม่ได้ออกแบบตรงนี้ ให้ติ๊ก **It has its own exception** ในฟอร์มของ service แทน
+exception ของ domain service หรือ application service ไม่ได้ออกแบบตรงนี้ ให้ติ๊ก **It has its own exception** ในฟอร์มของ service แทน
 
 บันทึก exception แล้ว Legend จะแสดงชนิด **Exception** เอง และวาด exception แต่ละตัวโยงกับ aggregate หรือ use case ที่มันสังกัด
 
@@ -256,7 +256,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | มุมมอง | เปิดยังไง | แสดงอะไร |
 |---|---|---|
 | ภาพรวม | `/kit/structure` หรือ breadcrumb **Structure** | การ์ดหนึ่งใบต่อ context และต่อ HTTP resource พร้อมจำนวนในแต่ละสถานะ เส้นเชื่อมบอกว่า context ไหนใช้ context ไหน และ resource เรียก use case กี่ตัว |
-| Context | ดับเบิลคลิก context หรือ `#context/{Name}` | aggregate, domain service, port และ use case พร้อม repository ที่แต่ละตัว inject Legend เพิ่ม enum และ value object, root และ child entity ทุกตัว (พร้อม state และ method หรือคำว่า `nothing designed yet`) และ exception ได้ ทั้งหมดนี้ซ่อนไว้ตอนเริ่ม คลิกแถวของชนิดนั้นเพื่อแสดง aggregate แต่ละตัวอยู่ในกรอบเดียวกับของที่มันถือ |
+| Context | ดับเบิลคลิก context หรือ `#context/{Name}` | aggregate, domain service, application service, port และ use case พร้อม repository ที่แต่ละตัว inject Legend เพิ่ม enum และ value object, root และ child entity ทุกตัว (พร้อม state และ method หรือคำว่า `nothing designed yet`) และ exception ได้ ทั้งหมดนี้ซ่อนไว้ตอนเริ่ม คลิกแถวของชนิดนั้นเพื่อแสดง aggregate แต่ละตัวอยู่ในกรอบเดียวกับของที่มันถือ |
 | Shared kernel | `#context/Shared` | เฉพาะ enum, value object และ invalid value ที่ทุก context ใช้ได้ |
 | HTTP resource | ดับเบิลคลิก resource หรือ `#resource/{Name}` | model, policy, controller, action และ page พร้อม use case ที่เรียก |
 
@@ -286,6 +286,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | Aggregate | กล่องมีแถบ | เหลืองอำพัน |
 | Entity | กล่อง | เหลืองอำพัน |
 | Domain service | แคปซูล | ม่วง |
+| Application service | แคปซูล | ฟ้าอมเขียว |
 | Port | หกเหลี่ยม | เขียวอมฟ้า |
 | Use case | กล่อง | ฟ้า |
 | List use case | กล่อง | เขียวมรกต |
@@ -332,7 +333,7 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 เมนูบนแถบด้านบนเปิดฟอร์มตามมุมมองที่อยู่:
 
 - **ภาพรวม:** **New ▸** Context, HTTP resource
-- **Context:** **Add ▸** Domain (Aggregate, Entity method, Domain service, Exception), Vocabulary (Enum, Value object), Application (Use case, Port)
+- **Context:** **Add ▸** Domain (Aggregate, Entity method, Domain service, Exception), Vocabulary (Enum, Value object), Application (Use case, Application service, Port)
 - **Shared kernel:** **Add ▸** Enum, Value object, Invalid value
 - **HTTP resource:** **Add ▸** Controller method, Action, Page และไอคอนเฟืองเปิด Model and policy
 - **ทุกมุมมอง:** **?** เปิด Guide และ Docs
@@ -348,6 +349,7 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 | Aggregate | Name; Child entities, separated by commas; Repository | child ซ้ำกับ root, ลบ child ที่ยังมี method อยู่, เอาติ๊ก Repository ออกขณะที่ยังมีชิ้นอื่น inject อยู่ |
 | Child entities (ใน panel ของการ์ด aggregate ทุกใบ) | ชื่อ child ใหม่ใต้ตาราง แล้วกด **+**; ไอคอนถังขยะในแถวของ child ที่ยังไม่สร้าง | ชื่อไม่เป็น StudlyCase หรือซ้ำกับ root, aggregate มี child ชื่อนี้แล้ว หรือโค้ดมีแล้ว (ให้ sync แทน), ลบ child ที่มี method หรือที่โค้ดมีแล้ว |
 | Domain service | Name; Shape of handle(): `creates`, `data` หรือ `plain`; Builds the aggregate (สำหรับ `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | repository หรือ aggregate ที่มันสร้างอยู่คนละ context ([layers.md](../resources/boost/guidelines/layers.md)) ควรออกแบบเมื่อไหร่และกลายเป็นโค้ดแบบไหน ดู [domain-services.th.md](domain-services.th.md) |
+| Application service | Name; Shape of handle(): `data` หรือ `plain`; Options: Reads who is acting through UserContext, It has its own exception, `{Name}Exception`; Repositories it injects (จาก context ไหนก็ได้) | repository ไม่มีอยู่จริง ควรออกแบบเมื่อไหร่และกลายเป็นโค้ดแบบไหน ดู [application-services.th.md](application-services.th.md) |
 | Port | Name; Layer: `domain` หรือ `application`; Adapter ในรูป `Infra/{Folder}/{Prefix}{Port}` (ไม่ใส่ก็ได้) | adapter ไม่อยู่ในรูปนั้น |
 | Use case | Name; Shape of __invoke(): `command-result`, `command` หรือ `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (เลือกจาก context ไหนก็ได้) | shape ที่รับ Command คืนค่าอื่นที่ไม่ใช่ `void`, `string`, `int` หรือ `result` ([handlers.md](../resources/boost/guidelines/handlers.md)), use case แบบรายการไม่ได้ชื่อ `List{Name}` คู่กับ `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)), repository ไม่มีอยู่จริง |
 | Enum | Name; Aggregate; Backing: `string`, `int` หรือ `pure`; A status: each case lists the cases it may become; Cases, in order | case ไม่เป็น TitleCase หรือมีค่าซ้ำกัน, status ไม่ได้ชื่อ `*Status` หรือไม่มี case ไหนเปลี่ยนไปเป็น case อื่นได้เลย ([states.md](../resources/boost/guidelines/states.md)) |
@@ -405,7 +407,7 @@ php artisan kit:import --context=Shipping --sync             # เขียน�
 
 ## แทนที่ของที่สร้างแล้ว
 
-port ที่มี adapter แล้ว use case หรือ domain service ที่สร้างแล้ว เปลี่ยนได้ด้วยการแทนที่: สร้างตัวใหม่ข้างตัวเดิม ชี้โค้ดไปที่ตัวใหม่ แล้วค่อยเอาตัวเดิมออกเมื่อเทสต์ผ่าน aggregate, enum และ value object แทนที่ด้วยวิธีนี้ไม่ได้
+port ที่มี adapter แล้ว use case, domain service หรือ application service ที่สร้างแล้ว เปลี่ยนได้ด้วยการแทนที่: สร้างตัวใหม่ข้างตัวเดิม ชี้โค้ดไปที่ตัวใหม่ แล้วค่อยเอาตัวเดิมออกเมื่อเทสต์ผ่าน aggregate, enum และ value object แทนที่ด้วยวิธีนี้ไม่ได้
 
 1. เลือกการ์ดที่สร้างแล้ว กดไอคอน **Replace** แล้วใส่ adapter ใหม่ (`Infra/{Folder}/{Prefix}{Port}`) หรือชื่อใหม่ use case แบบรายการต้องแทนด้วย `List…` อีกตัวที่เรียกสิ่งที่แสดงต่างออกไป เช่น `ListOwnCrates`
 
@@ -424,7 +426,7 @@ port ที่มี adapter แล้ว use case หรือ domain service �
 
 | ไฟล์ | เก็บอะไร |
 |---|---|
-| `.kit/structure/{Context}.json` | context หนึ่งตัว: aggregate, service, port, use case, enum, value object, entity |
+| `.kit/structure/{Context}.json` | context หนึ่งตัว: aggregate, service, application service, port, use case, enum, value object, entity |
 | `.kit/structure/Shared.json` | enum และ value object ของ shared kernel |
 | `.kit/structure/http/{Resource}.json` | HTTP resource หนึ่งตัว: model, controller, action, policy, page |
 
