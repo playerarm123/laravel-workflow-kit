@@ -39,6 +39,7 @@ final class StructureFiles
     public const array SECTIONS = [
         'aggregates' => ['children' => 'list', 'repository' => 'bool'],
         'services' => ['shape' => ['creates', 'data', 'plain'], 'creates' => 'string|null', 'repositories' => 'list', 'exception' => 'bool', 'replaces' => 'string|null'],
+        'applicationServices' => ['shape' => ['data', 'plain'], 'repositories' => 'list', 'actor' => 'bool', 'exception' => 'bool', 'replaces' => 'string|null'],
         'ports' => ['layer' => ['domain', 'application'], 'adapter' => 'string|null', 'replaces' => 'string|null'],
         'useCases' => ['shape' => ['command-result', 'command', 'plain'], 'returns' => 'string', 'creates' => 'bool', 'query' => 'bool', 'repositories' => 'list', 'replaces' => 'string|null'],
         'enums' => ['aggregate' => 'string|null', 'backing' => ['string', 'int', null], 'cases' => 'map', 'transitions' => 'transitions'],
@@ -55,12 +56,12 @@ final class StructureFiles
 
     /**
      * What a manifest written before a section or a key existed holds when nothing else says: no
-     * exceptions designed (exceptions.md), no domain service with an exception of its own, and no
-     * state on an entity. The
+     * exceptions designed (exceptions.md), no domain service with an exception of its own, no
+     * application service, and no state on an entity. The
      * canonical form writes them, so the next save or `kit:import` adds them to the file. `read()`
      * takes them from the code instead, so a project that already has exceptions stays green.
      */
-    public const array DEFAULTS = ['exceptions' => [], 'services.exception' => false, 'entities.state' => []];
+    public const array DEFAULTS = ['exceptions' => [], 'services.exception' => false, 'applicationServices' => [], 'entities.state' => []];
 
     /**
      * Keys only a manifest holds: what the design intends while the code catches up. The reader
@@ -169,6 +170,10 @@ final class StructureFiles
     {
         if (! array_key_exists('exceptions', $document)) {
             $document['exceptions'] = self::DEFAULTS['exceptions'];
+        }
+
+        if (! array_key_exists('applicationServices', $document)) {
+            $document['applicationServices'] = self::DEFAULTS['applicationServices'];
         }
 
         if (is_array($document['services'] ?? null)) {

@@ -34,6 +34,11 @@ function writeSamplingReaderFixtures(): void
         "Domain/{$context}/Services/PackCrate/PackCrateData.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Services\\PackCrate;\n\nfinal class PackCrateData {}\n",
         "Domain/{$context}/Services/PackCrate/PackCrateService.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Services\\PackCrate;\n\nuse App\\Domain\\{$context}\\Crate\\CrateEntity;\nuse App\\Domain\\{$context}\\Crate\\CrateRepository;\n\nfinal class PackCrateService\n{\n    public function __construct(protected CrateRepository \$repo) {}\n\n    public function handle(string \$id, PackCrateData \$data): CrateEntity { return new CrateEntity; }\n}\n",
         "Domain/{$context}/Services/WeighCrate/WeighCrateService.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Services\\WeighCrate;\n\nfinal class WeighCrateService\n{\n    public function handle(string \$id): int { return 0; }\n}\n",
+        "Application/{$context}/Services/StockCrate/StockCrateData.php" => "<?php\n\nnamespace App\\Application\\{$context}\\Services\\StockCrate;\n\nfinal readonly class StockCrateData {}\n",
+        "Application/{$context}/Services/StockCrate/StockCrateResult.php" => "<?php\n\nnamespace App\\Application\\{$context}\\Services\\StockCrate;\n\nfinal readonly class StockCrateResult {}\n",
+        "Application/{$context}/Services/StockCrate/StockCrateException.php" => "<?php\n\nnamespace App\\Application\\{$context}\\Services\\StockCrate;\n\nuse App\\Application\\ApplicationException;\n\nfinal class StockCrateException extends ApplicationException {}\n",
+        "Application/{$context}/Services/StockCrate/StockCrateService.php" => "<?php\n\nnamespace App\\Application\\{$context}\\Services\\StockCrate;\n\nuse App\\Application\\Auth\\UserContext;\nuse App\\Domain\\{$context}\\Crate\\CrateRepository;\nuse App\\Domain\\{$other}\\Shelf\\ShelfRepository;\n\nfinal class StockCrateService\n{\n    public function __construct(protected UserContext \$user, protected ShelfRepository \$shelves, protected CrateRepository \$repo) {}\n\n    public function handle(StockCrateData \$data): StockCrateResult { return new StockCrateResult; }\n}\n",
+        "Application/{$context}/Services/TallyCrates/TallyCratesService.php" => "<?php\n\nnamespace App\\Application\\{$context}\\Services\\TallyCrates;\n\nfinal class TallyCratesService\n{\n    public function handle(): int { return 0; }\n}\n",
         "Domain/{$context}/Ports/SamplingScale.php" => "<?php\n\nnamespace App\\Domain\\{$context}\\Ports;\n\ninterface SamplingScale {}\n",
         "Application/{$context}/SamplingLabeler.php" => "<?php\n\nnamespace App\\Application\\{$context};\n\ninterface SamplingLabeler {}\n",
         "Application/{$context}/CrateListSort.php" => "<?php\n\nnamespace App\\Application\\{$context};\n\nenum CrateListSort: string { case Name = 'name'; }\n",
@@ -159,6 +164,14 @@ describe('StructureReader', function () {
             ]);
         });
 
+        it('reads each application service with its shape, the repositories it injects in any context and whether it reads the actor', function () {
+            expect($this->reader->read(SAMPLING_READER_CONTEXT)['applicationServices'])->toBe([
+                'StockCrate' => ['shape' => 'data', 'repositories' => ['Crate', SAMPLING_READER_OTHER.'/Shelf'], 'actor' => true, 'exception' => true],
+                'TallyCrates' => ['shape' => 'plain', 'repositories' => [], 'actor' => false, 'exception' => false],
+            ])->and($this->reader->read(SAMPLING_READER_CONTEXT)['exceptions'])->not->toHaveKey('StockCrateException')
+                ->and($this->reader->classOf(SAMPLING_READER_CONTEXT, 'applicationServices', 'StockCrate'))->toBe('App\\Application\\'.SAMPLING_READER_CONTEXT.'\\Services\\StockCrate\\StockCrateService');
+        });
+
         it('reads each port with its layer and the adapter a provider binds it to', function () {
             expect($this->reader->read(SAMPLING_READER_CONTEXT)['ports'])->toBe([
                 'SamplingLabeler' => ['layer' => 'application', 'adapter' => null],
@@ -179,6 +192,7 @@ describe('StructureReader', function () {
                 'context' => 'SamplingReaderNowhere',
                 'aggregates' => [],
                 'services' => [],
+                'applicationServices' => [],
                 'ports' => [],
                 'useCases' => [],
                 'enums' => [],

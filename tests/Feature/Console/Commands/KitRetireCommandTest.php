@@ -374,3 +374,69 @@ describe('a domain service replacement', function () {
         expect(File::isDirectory(app_path("Domain/{$context}/Services/SealBox")))->toBeTrue();
     });
 });
+
+/**
+ * The scratch context of the application service case, caught right after kit:apply swapped the
+ * service GatherBox for GatherBoxTwice: the handler calls the new one, and the old one still has
+ * its folder and its Unit test.
+ */
+const SAMPLING_UNGATHER_CONTEXT = 'SamplingUngather';
+
+function forgetSamplingUngather(): void
+{
+    $context = SAMPLING_UNGATHER_CONTEXT;
+
+    foreach (["app/Application/{$context}", "tests/Unit/Application/{$context}"] as $folder) {
+        File::deleteDirectory(base_path($folder));
+    }
+
+    File::delete(base_path(".kit/structure/{$context}.json"));
+}
+
+describe('an application service replacement', function () {
+    beforeEach(function () {
+        forgetSamplingUngather();
+        Process::fake(['*' => Process::result('Tests: 12 passed')]);
+    });
+
+    afterEach(fn () => forgetSamplingUngather());
+
+    it('removes the old service\'s folder and its test once nothing names it', function () {
+        $context = SAMPLING_UNGATHER_CONTEXT;
+        $service = fn (string $name): array => [
+            "app/Application/{$context}/Services/{$name}/{$name}Service.php" => "<?php\n\nnamespace App\\Application\\{$context}\\Services\\{$name};\n\nfinal class {$name}Service\n{\n    public function handle(): void {}\n}\n",
+            "tests/Unit/Application/{$context}/Services/{$name}/{$name}ServiceTest.php" => "<?php\n",
+        ];
+        $fixtures = [
+            ...$service('GatherBox'),
+            ...$service('GatherBoxTwice'),
+            "app/Application/{$context}/UseCases/SealBoxHandler.php" => "<?php\n\nnamespace App\\Application\\{$context}\\UseCases;\n\nuse App\\Application\\{$context}\\Services\\GatherBoxTwice\\GatherBoxTwiceService;\n\nfinal class SealBoxHandler\n{\n    public function __construct(private readonly GatherBoxTwiceService \$gather) {}\n\n    public function __invoke(): void {}\n}\n",
+        ];
+
+        foreach ($fixtures as $relative => $contents) {
+            File::ensureDirectoryExists(dirname(base_path($relative)));
+            File::put(base_path($relative), $contents);
+        }
+
+        (new StructureFiles(base_path()))->write([
+            'context' => $context,
+            'applicationServices' => [
+                'GatherBox' => ['shape' => 'plain', 'repositories' => [], 'actor' => false, 'exception' => false],
+                'GatherBoxTwice' => ['shape' => 'plain', 'repositories' => [], 'actor' => false, 'exception' => false, 'replaces' => 'GatherBox'],
+            ],
+            'useCases' => [
+                'SealBox' => ['shape' => 'plain', 'returns' => 'void', 'creates' => false, 'query' => false, 'repositories' => []],
+            ],
+        ]);
+
+        $this->artisan('kit:retire', ['--context' => [$context]])
+            ->expectsOutputToContain("Retired {$context}/GatherBox, replaced by {$context}/GatherBoxTwice.")
+            ->assertSuccessful();
+
+        expect(File::isDirectory(app_path("Application/{$context}/Services/GatherBox")))->toBeFalse()
+            ->and(File::isDirectory(base_path("tests/Unit/Application/{$context}/Services/GatherBox")))->toBeFalse()
+            ->and(File::exists(app_path("Application/{$context}/Services/GatherBoxTwice/GatherBoxTwiceService.php")))->toBeTrue()
+            ->and(json_decode(File::get(base_path(".kit/structure/{$context}.json")), true)['applicationServices'])
+            ->toBe(['GatherBoxTwice' => ['shape' => 'plain', 'repositories' => [], 'actor' => false, 'exception' => false]]);
+    });
+});

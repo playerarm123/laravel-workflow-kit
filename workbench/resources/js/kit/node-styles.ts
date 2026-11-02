@@ -18,6 +18,7 @@ import {
     Shield,
     Table,
     TriangleAlert,
+    Waypoints,
     Workflow,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -88,6 +89,14 @@ const SKY = {
     accent: 'text-sky-600 dark:text-sky-300',
     bar: 'border-l-sky-500 dark:border-l-sky-400',
     band: 'bg-sky-100 dark:bg-sky-900/60',
+};
+const CYAN = {
+    border: 'border-cyan-300 dark:border-cyan-500/60',
+    fill: 'bg-cyan-50 dark:bg-cyan-950/50',
+    edge: 'bg-cyan-300 dark:bg-cyan-500/60',
+    accent: 'text-cyan-600 dark:text-cyan-300',
+    bar: 'border-l-cyan-500 dark:border-l-cyan-400',
+    band: 'bg-cyan-100 dark:bg-cyan-900/60',
 };
 const EMERALD = {
     border: 'border-emerald-300 dark:border-emerald-500/60',
@@ -199,6 +208,13 @@ const KIND_STYLES: Record<StructureNodeKind, NodeStyle> = {
     resource: style('resource', 'HTTP resource', 'box', Globe, INDIGO),
     aggregate: style('aggregate', 'Aggregate', 'barred', Boxes, AMBER),
     service: style('service', 'Domain service', 'pill', Cog, VIOLET),
+    applicationService: style(
+        'applicationService',
+        'Application service',
+        'pill',
+        Waypoints,
+        CYAN,
+    ),
     port: style('port', 'Port', 'hexagon', Plug, TEAL),
     useCase: style('useCase', 'Use case', 'box', Play, SKY),
     model: style('model', 'Model', 'cylinder', Database, SLATE),

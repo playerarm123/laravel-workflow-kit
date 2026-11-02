@@ -59,6 +59,7 @@ it('writes the manifest of a context from its code', function () {
         'context' => SAMPLING_IMPORT_CONTEXT,
         'aggregates' => ['Bin' => ['children' => [], 'repository' => false]],
         'services' => [],
+        'applicationServices' => [],
         'ports' => [],
         'useCases' => [],
         'enums' => [],

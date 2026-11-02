@@ -123,7 +123,7 @@ describe('StructureEditor', function () {
     describe('createContext', function () {
         it('writes the empty manifest of a new context', function () {
             expect(samplingEditor()->createContext(SAMPLING_EDIT_NEW))->toBe([])
-                ->and(samplingEditManifest(SAMPLING_EDIT_NEW))->toBe(['context' => SAMPLING_EDIT_NEW, 'aggregates' => [], 'services' => [], 'ports' => [], 'useCases' => [], 'enums' => [], 'valueObjects' => [], 'exceptions' => [], 'entities' => []]);
+                ->and(samplingEditManifest(SAMPLING_EDIT_NEW))->toBe(['context' => SAMPLING_EDIT_NEW, 'aggregates' => [], 'services' => [], 'applicationServices' => [], 'ports' => [], 'useCases' => [], 'enums' => [], 'valueObjects' => [], 'exceptions' => [], 'entities' => []]);
         });
 
         it('refuses a name that is not a new context of the project', function (string $name, string $message) {
@@ -151,6 +151,24 @@ describe('StructureEditor', function () {
                     'query' => false,
                     'repositories' => ['Pallet', SAMPLING_EDIT_OTHER.'/Bin'],
                 ]);
+        });
+
+        it('adds an application service that reads the actor and injects repositories of any context', function () {
+            $errors = samplingEditor()->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'applicationServices', null, 'StockCrate', [
+                'shape' => 'data',
+                'actor' => true,
+                'repositories' => [SAMPLING_EDIT_OTHER.'/Bin', 'Pallet'],
+            ]);
+
+            expect($errors)->toBe([])
+                ->and(samplingEditManifest()['applicationServices']['StockCrate'])->toBe([
+                    'shape' => 'data',
+                    'repositories' => ['Pallet', SAMPLING_EDIT_OTHER.'/Bin'],
+                    'actor' => true,
+                    'exception' => false,
+                ])
+                ->and(samplingEditor()->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'aggregates', 'Pallet', 'Pallet', ['children' => [], 'repository' => false])['repository'][0])
+                ->toContain(SAMPLING_EDIT_CONTEXT.'/StockCrate');
         });
 
         it('keeps the enums and value objects, in their order, when it saves another piece', function () {
@@ -197,6 +215,8 @@ describe('StructureEditor', function () {
             'a query not named List' => ['useCases', 'PackPallet', ['shape' => 'command-result', 'returns' => 'result', 'query' => true], 'query'],
             'a list that injects a repository' => ['useCases', 'ListPallets', ['shape' => 'command-result', 'returns' => 'result', 'query' => true, 'repositories' => ['Pallet']], 'repositories'],
             'a repository another context lacks' => ['useCases', 'PackPallet', ['shape' => 'plain', 'returns' => 'void', 'repositories' => [SAMPLING_EDIT_OTHER.'/Lid']], 'repositories'],
+            'an application service that builds a root' => ['applicationServices', 'StockCrate', ['shape' => 'creates'], 'shape'],
+            'an application service injecting a repository another context lacks' => ['applicationServices', 'StockCrate', ['shape' => 'plain', 'repositories' => [SAMPLING_EDIT_OTHER.'/Lid']], 'repositories'],
         ]);
 
         it('adds an enum, its int cases read from the strings a form posts, and a value object that names it before it is built', function () {
@@ -581,6 +601,34 @@ describe('StructureEditor', function () {
 
                 expect($editor->cancelReplacement(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'services', 'PackCrateTightly'))->toBe([])
                     ->and(samplingEditManifest()['services'])->toBe(['PackCrate' => ['shape' => 'plain', 'creates' => null, 'repositories' => ['Crate'], 'exception' => false]]);
+            });
+        });
+
+        describe('of an application service', function () {
+            beforeEach(function () {
+                $context = SAMPLING_EDIT_CONTEXT;
+                File::ensureDirectoryExists(app_path("Application/{$context}/Services/StockCrate"));
+                File::put(app_path("Application/{$context}/Services/StockCrate/StockCrateService.php"), "<?php\n\nnamespace App\\Application\\{$context}\\Services\\StockCrate;\n\nfinal class StockCrateService\n{\n    public function handle(): void {}\n}\n");
+                (new StructureFiles(base_path()))->write([...samplingEditManifest(), 'applicationServices' => ['StockCrate' => ['shape' => 'plain', 'repositories' => [], 'actor' => false, 'exception' => false]]]);
+            });
+
+            it('refuses to change it once built, and starts replacing it beside the old one', function () {
+                $editor = samplingEditor();
+
+                expect($editor->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'applicationServices', 'StockCrate', 'StockCrate', ['shape' => 'data']))->not->toBe([])
+                    ->and($editor->replace(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'applicationServices', 'StockCrate', 'StockCrateFully'))->toBe([])
+                    ->and(samplingEditManifest()['applicationServices'])->toBe([
+                        'StockCrate' => ['shape' => 'plain', 'repositories' => [], 'actor' => false, 'exception' => false],
+                        'StockCrateFully' => ['shape' => 'plain', 'repositories' => [], 'actor' => false, 'exception' => false, 'replaces' => 'StockCrate'],
+                    ]);
+            });
+
+            it('cancels by removing the new service', function () {
+                $editor = samplingEditor();
+                $editor->replace(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'applicationServices', 'StockCrate', 'StockCrateFully');
+
+                expect($editor->cancelReplacement(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'applicationServices', 'StockCrateFully'))->toBe([])
+                    ->and(samplingEditManifest()['applicationServices'])->toHaveKeys(['StockCrate'])->not->toHaveKey('StockCrateFully');
             });
         });
 

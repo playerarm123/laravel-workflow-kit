@@ -47,6 +47,8 @@ final class StructureReader
 
     private const string APPLICATION_EXCEPTION = 'App\Application\ApplicationException';
 
+    private const string USER_CONTEXT = 'App\Application\Auth\UserContext';
+
     /**
      * The types a value object's field may name that are no class.
      */
@@ -125,7 +127,7 @@ final class StructureReader
      * The shared kernel holds the kit's base classes and ports, so only its enums and value objects
      * are read.
      *
-     * @return array{context: string, aggregates: array<string, array{children: list<string>, repository: bool}>, services: array<string, array{shape: string, creates: string|null, repositories: list<string>, exception: bool}>, ports: array<string, array{layer: string, adapter: string|null}>, useCases: array<string, array{shape: string, returns: string, creates: bool, query: bool, repositories: list<string>}>, enums: array<string, array{aggregate: string|null, backing: string|null, cases: array<string, string|int|null>, transitions: array<string, list<string>>|null}>, valueObjects: array<string, array{aggregate: string|null, fields: array<string, string>}>, exceptions: array<string, array{kind: string, aggregate: string|null, useCase: string|null}>, entities: array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>}
+     * @return array{context: string, aggregates: array<string, array{children: list<string>, repository: bool}>, services: array<string, array{shape: string, creates: string|null, repositories: list<string>, exception: bool}>, applicationServices: array<string, array{shape: string, repositories: list<string>, actor: bool, exception: bool}>, ports: array<string, array{layer: string, adapter: string|null}>, useCases: array<string, array{shape: string, returns: string, creates: bool, query: bool, repositories: list<string>}>, enums: array<string, array{aggregate: string|null, backing: string|null, cases: array<string, string|int|null>, transitions: array<string, list<string>>|null}>, valueObjects: array<string, array{aggregate: string|null, fields: array<string, string>}>, exceptions: array<string, array{kind: string, aggregate: string|null, useCase: string|null}>, entities: array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>}
      */
     public function read(string $context): array
     {
@@ -135,6 +137,7 @@ final class StructureReader
             'context' => $context,
             'aggregates' => $shared ? [] : $this->aggregates($context),
             'services' => $shared ? [] : $this->services($context),
+            'applicationServices' => $shared ? [] : $this->applicationServices($context),
             'ports' => $shared ? [] : $this->ports($context),
             'useCases' => $shared ? [] : $this->useCases($context),
             'enums' => $this->enums($context),
@@ -387,6 +390,7 @@ final class StructureReader
             'enums', 'valueObjects' => $this->vocabularyClassOf($context, $section === 'enums' ? 'Enums' : 'ValueObjects', $name),
             'exceptions' => $this->exceptionClassOf($context, $name),
             'services' => "App\\Domain\\{$context}\\Services\\{$name}\\{$name}Service",
+            'applicationServices' => "App\\Application\\{$context}\\Services\\{$name}\\{$name}Service",
             'ports' => $this->portClass($context, $name) ?? "App\\Domain\\{$context}\\Ports\\{$name}",
             default => $this->handlerClass($context, $name) ?? "App\\Application\\{$context}\\UseCases\\{$name}\\{$name}Handler",
         };
@@ -856,6 +860,11 @@ final class StructureReader
                 continue;
             }
 
+            // An application service's own exception is its `exception` key, as a domain service's is.
+            if (str_starts_with($class, "App\\Application\\{$context}\\Services\\")) {
+                continue;
+            }
+
             $namespace = substr($class, 0, (int) strrpos($class, '\\'));
             $useCase = preg_match('/^App\\\\Application\\\\\w+\\\\UseCases\\\\(\w+)$/', $namespace, $match) === 1 ? $match[1] : null;
 
@@ -945,6 +954,35 @@ final class StructureReader
                 'creates' => $shape === 'creates' ? $this->aggregateOf($this->typeNames($handle->getReturnType())[0], $context) : null,
                 'repositories' => $this->repositoriesOf($class, $context),
                 'exception' => class_exists("App\\Domain\\{$context}\\Services\\{$name}\\{$name}Exception"),
+            ];
+        }
+
+        ksort($services);
+
+        return $services;
+    }
+
+    /**
+     * @return array<string, array{shape: string, repositories: list<string>, actor: bool, exception: bool}>
+     */
+    private function applicationServices(string $context): array
+    {
+        $services = [];
+
+        foreach ($this->directoriesIn("app/Application/{$context}/Services") as $name) {
+            $class = "App\\Application\\{$context}\\Services\\{$name}\\{$name}Service";
+
+            if (! class_exists($class) || ! method_exists($class, 'handle')) {
+                continue;
+            }
+
+            $returns = $this->typeNames((new ReflectionMethod($class, 'handle'))->getReturnType());
+
+            $services[$name] = [
+                'shape' => array_filter($returns, fn (string $type): bool => str_ends_with($type, 'Result')) !== [] ? 'data' : 'plain',
+                'repositories' => $this->repositoriesOf($class, $context),
+                'actor' => in_array(self::USER_CONTEXT, $this->constructorTypes($class), true),
+                'exception' => class_exists("App\\Application\\{$context}\\Services\\{$name}\\{$name}Exception"),
             ];
         }
 

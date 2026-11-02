@@ -10,6 +10,7 @@ export type StructureNodeKind =
     | 'resource'
     | 'aggregate'
     | 'service'
+    | 'applicationService'
     | 'port'
     | 'useCase'
     | 'model'
@@ -62,6 +63,7 @@ export type StructureDifference = {
 export type StructureSection =
     | 'aggregates'
     | 'services'
+    | 'applicationServices'
     | 'ports'
     | 'useCases'
     | 'enums'
@@ -132,6 +134,18 @@ export type ContextManifest = {
             }
         >
     >;
+    applicationServices: Partial<
+        Record<
+            string,
+            {
+                shape: 'data' | 'plain';
+                repositories: string[];
+                actor: boolean;
+                exception: boolean;
+                replaces?: string | null;
+            }
+        >
+    >;
     ports: Partial<
         Record<
             string,
@@ -164,7 +178,8 @@ export type ContextManifest = {
 export type ResourceSection = 'controller' | 'actions' | 'pages';
 
 /** The sections whose built pieces are changed by replacing them (structure.md). */
-export type ReplaceableSection = 'ports' | 'useCases' | 'services';
+export type ReplaceableSection =
+    'ports' | 'useCases' | 'services' | 'applicationServices';
 
 export type PageKind = 'table' | 'grid' | 'form' | 'page';
 
