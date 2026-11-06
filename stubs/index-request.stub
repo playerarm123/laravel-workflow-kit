@@ -1,0 +1,25 @@
+<?php
+
+namespace {{ namespace }};
+
+{{ imports }}
+
+/**
+ * The query string of the {{ prefix }} list. It goes into the Command raw and unvalidated, so
+ * this request declares no rules(): the handler settles every value, and a hand-edited url
+ * still gets a page, not a 422 (list-queries.md).
+ */
+class Index{{ model }}Request extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return Gate::allows('viewAny', {{ model }}::class);
+    }
+
+    public function toCommand(): {{ listCommand }}
+    {
+        return new {{ listCommand }}(
+{{ listArguments }}
+        );
+    }
+}

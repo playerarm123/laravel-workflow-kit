@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Foundation\Http\FormRequest;
+
 require_once __DIR__.'/Support/rules.php';
 
 /**
@@ -7,7 +9,8 @@ require_once __DIR__.'/Support/rules.php';
  *
  * Every list read port (`List{Name}Query` under app/Application/{Context}/UseCases) is paired
  * with `EloquentList{Name}Query` in the infrastructure, built on EloquentListQuery and proven
- * by a test file that runs the shared listQueryContract().
+ * by a test file that runs the shared listQueryContract(). Every index() reads the query string
+ * through `Index{Model}Request::toCommand()`, which hands it to the list Command raw.
  *
  * @return array{
  *     kit_files: list<string>,
@@ -19,6 +22,9 @@ require_once __DIR__.'/Support/rules.php';
  *     required_call: string,
  *     forbidden_code: array<string, string>,
  *     row_glob: string,
+ *     controllers_path: string,
+ *     self_service: list<string>,
+ *     index_request: string,
  * }
  */
 function listQueriesSpec(): array
@@ -44,7 +50,65 @@ function listQueriesSpec(): array
             '#/\*\*\s*@var\b#' => 'an inline @var',
         ],
         'row_glob' => 'app/Application/*/UseCases/List*/*ListRow.php',
+        'controllers_path' => 'app/Http/Controllers',
+        // The starter kit's settings pages act on the user's own account and list nothing.
+        'self_service' => ['App\Http\Controllers\Settings'],
+        // sprintf() with the model the controller is named after.
+        'index_request' => 'App\Http\Requests\%1$s\Index%1$sRequest',
     ];
+}
+
+/**
+ * Why one controller's index() does not read the query string through its Index{Model}Request,
+ * as `{subject, message}` pairs: none when it does.
+ *
+ * @param  class-string  $controller
+ * @return list<array{subject: string, message: string}>
+ */
+function listQueriesIndexRequestViolations(string $controller, ReflectionMethod $index): array
+{
+    $model = preg_replace('/Controller$/', '', listQueriesShort($controller));
+    $expected = sprintf(listQueriesSpec()['index_request'], $model);
+    $short = listQueriesShort($expected);
+    $how = sprintf('%s builds the list Command in its toCommand() from the raw query string and asks viewAny in authorize(), so index() is `$handler($request->toCommand())` — run make:controller on a new controller, or write it by hand (list-queries.md)', $short);
+    $parameter = null;
+
+    foreach ($index->getParameters() as $candidate) {
+        $type = $candidate->getType();
+
+        if ($type instanceof ReflectionNamedType && $type->getName() === $expected) {
+            $parameter = $candidate->getName();
+        }
+    }
+
+    if ($parameter === null) {
+        return [['subject' => $controller, 'message' => sprintf('index() takes no %s — %s', $short, $how)]];
+    }
+
+    if (! is_subclass_of($expected, FormRequest::class)) {
+        return [['subject' => $expected, 'message' => 'must extend FormRequest, so authorize() asks the policy before index() runs']];
+    }
+
+    $violations = [];
+    $request = new ReflectionClass($expected);
+    $toCommand = $request->hasMethod('toCommand') ? $request->getMethod('toCommand') : null;
+    $returns = $toCommand?->getReturnType();
+
+    if ($toCommand === null || $toCommand->getDeclaringClass()->getName() !== $expected) {
+        $violations[] = ['subject' => $expected, 'message' => 'declares no toCommand() — '.$how];
+    } elseif (! $returns instanceof ReflectionNamedType || preg_match('/\\\\List\w+Command$/', $returns->getName()) !== 1) {
+        $violations[] = ['subject' => $expected, 'message' => 'toCommand() must declare the List{Name}Command it returns'];
+    }
+
+    if ($request->hasMethod('rules') && $request->getMethod('rules')->getDeclaringClass()->getName() === $expected) {
+        $violations[] = ['subject' => $expected, 'message' => 'declares rules() — a list validates nothing: the handler settles every value, so a hand-edited url still gets a page, not a 422'];
+    }
+
+    if (preg_match('/\$'.$parameter.'\s*->\s*toCommand\s*\(/', ruleMethodBodyFollowing($index)) !== 1) {
+        $violations[] = ['subject' => $controller, 'message' => sprintf('index() never calls $%s->toCommand() — %s', $parameter, $how)];
+    }
+
+    return $violations;
 }
 
 /**
@@ -197,6 +261,24 @@ describe('list queries', function () {
         }
 
         expect(ruleUnexcused('list-queries', 'rows', $violations))->toBe([]);
+    });
+
+    it('hands every index() its list Command from its Index{Model}Request', function () {
+        $violations = [];
+
+        foreach (ruleConcreteClassesIn(listQueriesSpec()['controllers_path'], listQueriesSpec()['self_service']) as $controller) {
+            if (! method_exists($controller, 'index')) {
+                continue;
+            }
+
+            $index = new ReflectionMethod($controller, 'index');
+
+            if ($index->getDeclaringClass()->getName() === $controller) {
+                $violations = [...$violations, ...listQueriesIndexRequestViolations($controller, $index)];
+            }
+        }
+
+        expect(ruleUnexcused('list-queries', 'index-request', $violations))->toBe([]);
     });
 
     it('proves every adapter with the list query contract', function () {

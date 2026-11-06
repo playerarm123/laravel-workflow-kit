@@ -3,7 +3,7 @@
 A list page reads the database through one path:
 
 ```
-Controller → List{Name}Command → List{Name}Handler → List{Name}Criteria → List{Name}Query (port) → EloquentList{Name}Query (adapter) → {Name}ListRow → List{Name}Result
+Controller → Index{Model}Request::toCommand() → List{Name}Command → List{Name}Handler → List{Name}Criteria → List{Name}Query (port) → EloquentList{Name}Query (adapter) → {Name}ListRow → List{Name}Result
 ```
 
 Lists never go through a repository, and repositories never return list rows (repositories.md).
@@ -25,7 +25,14 @@ Run `php artisan make:use-case List{Name} --domain={Context} --command --result 
 Then fill them in and bind the port to the adapter in a service provider. *Checks `implementation`, `binding`.*
 
 ## Application side
-**Command.** Every field is a raw `string` defaulting to `''`. The controller passes `$request->string('x')->toString()` untouched, with no FormRequest and no validation.
+**Command.** Every field is a raw `string` defaulting to `''`.
+
+**Request.** The controller's `index()` takes `Index{Model}Request` (`app/Http/Requests/{Model}/`) and calls `$handler($request->toCommand())`, so it never builds the Command or reads the query string itself. `make:controller` writes the request beside index (list-pages.md). The request:
+- asks the policy in `authorize()`: `return Gate::allows('viewAny', {Model}::class);` (authorization.md)
+- builds the Command in `toCommand(): List{Name}Command` with `new` and named arguments, each `$this->string('x')->toString()` untouched
+- declares no `rules()`: the handler settles every value, so a hand-edited URL never gets a 422
+
+*Check `index-request`.* The Command and the handler never see the `Request` (layers.md).
 
 **Handler.** It settles every value with a fallback, and nothing here throws: a hand-edited URL must get a page, not a 422.
 

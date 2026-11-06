@@ -60,6 +60,7 @@ function forgetSamplingApply(): void
     File::deleteDirectory(app_path('Application/'.SAMPLING_APPLY_CONTEXT));
     File::deleteDirectory(base_path('tests/Feature/Application/'.SAMPLING_APPLY_CONTEXT));
     File::deleteDirectory(base_path('tests/Feature/Http/Controllers/'.SAMPLING_APPLY_MODEL.'Controller'));
+    File::deleteDirectory(app_path('Http/Requests/'.SAMPLING_APPLY_MODEL));
     File::deleteDirectory(resource_path('js/pages/sampling-panniers'));
     File::deleteDirectory(resource_path('js/components/sampling-pannier'));
     File::deleteDirectory(base_path('tests/Browser/SamplingPanniers'));

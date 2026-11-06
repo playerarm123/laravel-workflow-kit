@@ -4,6 +4,7 @@ Who may do what is decided in one place, the model's policy. Every entry point a
 
 ```
 GET page        → controller: Gate::authorize('{ability}', $model | Model::class)  → {Model}Policy → 403
+list page       → Index{Model}Request::authorize(): return Gate::allows('viewAny', …) → {Model}Policy → 403
 write / action  → FormRequest::authorize(): return Gate::allows('{ability}', …)     → {Model}Policy → 403, before any 422
 page buttons    → controller: 'can' => ['{ability}' => Gate::allows('{ability}', …)] → the page shows or hides
 ```
@@ -47,6 +48,7 @@ class CustomerPolicy
 **Do**
 - Authorize every controller action. *Check `actions`.*
   - An action that renders or reads calls `Gate::authorize('{ability}', $model)` (or `Model::class`).
+  - `index()` takes `Index{Model}Request`, whose `authorize()` returns `Gate::allows('viewAny', {Model}::class)`. It is the FormRequest that builds the list Command (list-queries.md).
   - An action that writes takes a FormRequest, and its `authorize()` returns `Gate::allows('{ability}', …)`. Laravel answers 403 before it validates, so a refused user never learns which fields were wrong.
 - Return `Gate::allows(…)` and nothing else from every `authorize()`. Never `return true`. *Check `requests`.*
 - Ask only an ability the subject's policy declares. *Check `abilities`.*
