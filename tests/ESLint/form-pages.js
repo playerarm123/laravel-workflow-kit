@@ -22,6 +22,12 @@ const otherSubmits =
 
 const formOnly = `[form-pages:form-only] A form component submits through <Form {...action}> only, so its inputs are what it posts. ${see}`;
 
+/** Every way a dialog file could load or post for itself, which FormDialog and the form already do. */
+const dialogLoads =
+    "ImportDeclaration[source.value='@inertiajs/react'] ImportSpecifier[imported.name=/^(useForm|useHttp|router)$/]";
+
+const formDialog = `[form-pages:form-dialog] A form dialog only wires routes to the form inside <FormDialog> — the kit's FormDialog loads the defaults and the form component posts. ${see}`;
+
 const plugin = {
     rules: {
         'page-shell': selectorRule([
@@ -32,6 +38,17 @@ const plugin = {
             {
                 selector: otherSubmits,
                 message: `[form-pages:page-shell] A create or edit page submits nothing itself — it renders the form component. ${see}`,
+            },
+        ]),
+        'form-dialog': selectorRule([
+            {
+                selector: 'JSXOpeningElement[name.name=/^(Form|form|input)$/]',
+                message: `[form-pages:form-dialog] A form dialog renders no fields — they live in components/{aggregate}/form.tsx. ${see}`,
+            },
+            { selector: dialogLoads, message: formDialog },
+            {
+                selector: "CallExpression[callee.name='fetch']",
+                message: formDialog,
             },
         ]),
         'form-only': selectorRule([
@@ -60,6 +77,12 @@ export default [
         ],
         ignores: exempted('page-shell'),
         rules: { 'form-pages/page-shell': 'error' },
+    },
+    {
+        name: 'form-pages/form-dialog',
+        files: ['resources/js/components/*/form-dialog.tsx'],
+        ignores: exempted('form-dialog'),
+        rules: { 'form-pages/form-dialog': 'error' },
     },
     {
         name: 'form-pages/form-only',

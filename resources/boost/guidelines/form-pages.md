@@ -8,6 +8,8 @@ props.defaults ({X}FormValues) → <Form {...action}> → Store/Update{X}Request
 
 The server owns the values on both ends. It sends the form its starting values, and it turns what comes back into a Command. The page and the form component only render.
 
+Either form can live in a dialog on the list page instead of a page of its own. The path stays the same: only the way the starting values arrive and where the save lands change (see "Form dialogs" below).
+
 Enforced by the package's `tests/Architecture/FormPagesTest.php` and by the package's ESLint rules in `tests/ESLint/form-pages.js`, which `eslint.config.js` imports from `vendor/` and spreads in. The spec in `formPagesSpec()` is the machine-checked copy of this file: change the two together. The package's `tests/Architecture/FormPagesEslintTest.php` proves the ESLint rules against fixtures.
 
 ## Kit files
@@ -16,6 +18,7 @@ These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship i
 - `app/Http/FlashToast.php`, the one shape of a flash toast (`FlashToast::KEY`, `success()`, `error()`)
 - `resources/js/hooks/use-flash-toast.ts` and `resources/js/components/flash-toast.tsx`, rendered once in `app.tsx` beside sonner's `<Toaster>`
 - `resources/js/components/input-error.tsx`
+- `resources/js/components/form-dialog.tsx`, the `FormDialog` that loads a dialog's starting values (see "Form dialogs")
 - `resources/js/types/ui.ts`, which declares the `FlashToast` type
 - *package:* `tests/ESLint/form-pages.js`, imported by `eslint.config.js` (*check `eslint`*), and the fixtures its proof lints in `tests/ESLint/Fixtures/`
 - *package:* `tests/ESLint/Support/rules.js`, which every ESLint kit file reads its overrides and shared helpers through. Its `internalAlias`, spread in first, ranks an unresolved `@/` import as internal, so a generated page passes import/order before `wayfinder:generate` runs
@@ -26,8 +29,8 @@ The kit builds on these shadcn components, added with `php artisan kit:ui-add <n
 
 1. `php artisan make:use-case Create{X} --domain={Context} --command --creates --repo={X}`, and `Update{X}` with `--command --repo={X}`.
 2. `php artisan make:form-request {X} --domain={Context}` reads both Commands and writes `Store{X}Request`, `Update{X}Request` and `{X}FormValues`. Fill in the rules, `toCommand()` and `of()`.
-3. `php artisan make:controller {X} --domain={Context} --only=create,store,edit,update` writes those four methods in the shape below, and adds them to a controller that already exists without touching its other methods. It writes a test per action with a todo for each case. Then fill in what it cannot know: a toast's `:name`, extra props, `can` keys for other models, and the refusals to catch. *Review only.*
-4. `php artisan make:form-page {X}` reads the `@return array{…}` of `{X}FormValues::toArray()` and writes the TypeScript type, the form component and both page shells. Then lay out the fields and add translations. *Review only.*
+3. `php artisan make:controller {X} --domain={Context} --only=create,store,edit,update` writes those four methods in the shape below (add `--dialog[=create,edit]` for the forms that live in a dialog), and adds them to a controller that already exists without touching its other methods. It writes a test per action with a todo for each case. Then fill in what it cannot know: a toast's `:name`, extra props, `can` keys for other models, and the refusals to catch. *Review only.*
+4. `php artisan make:form-page {X}` reads the `@return array{…}` of `{X}FormValues::toArray()` and writes the TypeScript type, the form component and both page shells. With `--dialog[=create,edit]` it writes `components/{aggregate}/form-dialog.tsx` in place of the pages it names, and prints how the list page opens them. Then lay out the fields and add translations. *Review only.*
 
 ## The controller
 
@@ -131,10 +134,54 @@ Every `{X}FormValues` has a TypeScript twin in `resources/js/types/{aggregate}.t
 - Show each error under its field with `<InputError message={errors.x} />`. Read an array's error as `errors.x ?? errors['x.0']`.
 - End with the submit button (disabled and showing `<Spinner />` while `processing`) and a cancel `<Link>` to `cancelHref`.
 - Take `action`, `defaults`, `submitLabel` and `cancelHref`. Add `mode: 'create' | 'edit'` only when the fields differ between the two pages. *Review only.*
+- When a form lives in a dialog, take `onCancel` and `onSuccess` in place of `cancelHref`. When one form is a page and the other a dialog, take either, and wrap the fields in the `<Card>` only on the page (`make:form-page` writes all three shapes).
 
 **Don't** import `useForm`, `useHttp` or `router`, or call `fetch`, in a form component. *ESLint check `form-only`.*
 
 **Why:** `<Form>` posts what the inputs hold and hands back `errors` and `processing`, so a form has no state to drift from what it submits. A second form for the edit page would drift from the first.
+
+## Form dialogs
+
+A short form opens in a dialog on the list page, so the user never leaves the list. Each form chooses for itself: create can stay a page while edit becomes a dialog.
+
+```
+list page: createDialog.open() / actions.edit.dialog({ dialog: editDialog })
+  → <Create{X}Dialog> / <Edit{X}Dialog>  (components/{aggregate}/form-dialog.tsx)
+  → <FormDialog load={XController.create() | XController.edit(row)}>
+      useHttp GET → create() / edit() → Gate::authorize() → response()->json(['defaults' => {X}FormValues::empty() | of($model)])
+  → <{X}Form action={…store.form() | …update.form(row)} defaults onCancel onSuccess>
+  → Store/Update{X}Request → toCommand() → handler
+  → Inertia::flash(FlashToast::KEY, …)->back()   the list keeps its filters, sort and page
+  → <Form onSuccess> closes the dialog
+```
+
+```php
+public function edit(Customer $customer): JsonResponse
+{
+    Gate::authorize('update', $customer);
+
+    return response()->json(['defaults' => CustomerFormValues::of($customer)]);
+}
+
+public function update(UpdateCustomerRequest $request, Customer $customer, UpdateCustomerHandler $updateCustomer): RedirectResponse
+{
+    $updateCustomer($request->toCommand());
+
+    return Inertia::flash(FlashToast::KEY, FlashToast::success(__('customers.updated')))->back();
+}
+```
+
+**Do**
+- Pick a dialog for a form of a few fields with no file upload. A long form, or one the user fills in for a while, keeps its page. *Review only.*
+- Answer a dialog's `create` or `edit` with `JsonResponse`: authorize as the page would, then `response()->json(['defaults' => {X}FormValues::empty()])` or `::of($model)`. *Check `dialog-endpoints`.*
+- Answer the `store` or `update` behind a dialog with `Inertia::flash(…)->back()`, never `to_route()` or `redirect()`. *Check `dialog-endpoints`.*
+- Render each dialog from `components/{aggregate}/form-dialog.tsx`: the form component inside the kit's `<FormDialog>`, with every url from Wayfinder. *Check `dialogs`.*
+- Hold the dialog's state in the list page: `useDialog()` for create, `useItemDialog<Row>()` for edit, opened from `headerActions` and `actions.edit.dialog()` and rendered beside `<DataTable>` (list-pages.md).
+- Put a dialog's Browser cases in the list page's test (`tests/Browser/{Aggregates}/IndexTest.php`), because a dialog has no page to mirror (testing.md). `make:form-page` adds them as todos.
+
+**Don't** load, post or render a field in `form-dialog.tsx`: no `<Form>`, `<form>` or `<input>`, no `useForm`, `useHttp` or `router`, and no `fetch`. *ESLint check `form-dialog`.*
+
+**Why:** the dialog asks the same server for the same `{X}FormValues` the page would get, so the form is one component whether it sits on a page or in a dialog, and nothing in TypeScript builds starting values. Going back keeps the list's URL, so the user sees the saved row where they left it.
 
 ## File uploads
 

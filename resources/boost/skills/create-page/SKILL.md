@@ -15,7 +15,9 @@ This skill walks the whole line, backend → frontend → tests, with the kit's 
 
 If the project already has a finished form, open one set as a model (look for `components/*/form.tsx`). What the generator writes is the truth, though: when the two disagree, trust the generator and the guideline.
 
-**Scope:** `create`/`store`/`edit`/`update`, the button that leads in from the list page, and one form component. Don't change the shared `DataTable`, beyond using its existing `headerActions` slot.
+Either form may instead open in a dialog on the list page (the "Form dialogs" section of `form-pages.md`): the dialog asks `create`/`edit` for its `defaults` as JSON, and `store`/`update` go `->back()` to the list. Each form chooses on its own, so create can stay a page while edit is a dialog.
+
+**Scope:** `create`/`store`/`edit`/`update`, the button that leads in from the list page, one form component, and the dialogs when a form lives in one. Don't change the shared `DataTable`, beyond using its existing `headerActions` slot.
 
 Read these rules before you touch a file: the `form-pages.md` guideline (the shared rules that `FormPagesTest` and ESLint enforce), `handlers.md`, `authorization.md`, `exceptions.md`, `numbers.md`, `testing.md`, and the project's `.ai/rules` when it has them (read `.ai/rules/index.md` to find the files that match the path).
 
@@ -36,6 +38,7 @@ How to ask:
 - The aggregate / Model / context → namespace `App\Application\{Context}`, route `{aggregates}`, lang prefix `{aggregates}.`, pages `pages/{aggregates}/{create,edit}.tsx`, component `components/{aggregate}/form.tsx`
 - Who may create and edit (Policy `create()`/`update()`), and whether the Policy exists or must be created (`make:policy`)
 - Whether this aggregate's list page exists yet (the create button goes in the `headerActions` of `<DataTable>`, with `can.create` from the index controller)
+- **Page or dialog, for each form**: create as a page or a dialog, edit as a page or a dialog. Offer a dialog for a few fields with no upload, a page otherwise. A dialog needs the list page.
 
 ### Set B — Fields
 
@@ -55,7 +58,7 @@ How to ask:
 
 ### Set D — After saving
 
-- Where to redirect: the item's `show` (the default) or `index`
+- Where to redirect: the item's `show` (the default) or `index`. A form in a dialog always goes back to the list, so skip this for it.
 - Whether the toast `{aggregates}.created` / `{aggregates}.updated` carries `:name`
 - Values converted before the edit page shows them (minutes → `HH:mm`, camelCase json → snake_case fields). Convert in `{X}FormValues::of()`, not in TS.
 
@@ -68,6 +71,7 @@ File and class names by convention, the field order the user gave, grouping fiel
 | Topic | Value |
 | --- | --- |
 | Aggregate / Context / route / lang prefix | |
+| Create / edit: page or dialog | |
 | Policy / who may create and edit | |
 | Fields (name → input → Command param → starting value) | |
 | Fields locked on the edit page | |
@@ -102,6 +106,7 @@ Order:
    - `store(Store{X}Request $request, Create{X}Handler $handler)`: no second `Gate::authorize` → `$id = $handler($request->toCommand())` → `Inertia::flash(FlashToast::KEY, FlashToast::success(...))` as a statement → `return to_route('{aggregates}.show', $id)`
    - `edit($model)`: `Gate::authorize('update', $model)` → render with `'{model}' => $model` (breadcrumb + `update.form()`) and `'defaults' => {X}FormValues::of($model)`
    - `update(Update{X}Request $request, $model, Update{X}Handler $handler)`: `$handler($request->toCommand())` → flash → `to_route('{aggregates}.show', $model)`
+   - A form in a dialog: add `--dialog=create`, `--dialog=edit` or `--dialog` (both). `create()`/`edit()` then answer `response()->json(['defaults' => {X}FormValues::empty()|of($model)])` with `JsonResponse`, and the `store()`/`update()` behind them end with `return Inertia::flash(FlashToast::KEY, FlashToast::success(...))->back();` (check `dialog-endpoints`).
    - Never build a Command in the controller, and never open a transaction there.
 6. Every `lang/*.json` (keys sorted): `{aggregates}.create` (the button), `form_title`, `create_title`, `create_description`, `edit_title`, `edit_description`, `created`/`updated` (`:name`), the label of every field, and `validation.{rule}` for errors from `after()`
 7. `php artisan wayfinder:generate --with-form`
@@ -110,7 +115,7 @@ Order:
 
 Order:
 
-1. `php artisan make:form-page {Aggregate} --no-interaction` reads the `@return array{…}` of `{X}FormValues::toArray()`, then writes the type `{X}FormValues` into `types/{aggregate}.ts`, `components/{aggregate}/form.tsx` (one input per key), the `create.tsx`/`edit.tsx` shells, and the Browser tests `tests/Browser/{Aggregates}/CreateTest.php` + `EditTest.php` with `->todo()`. It reports the route and the translations still missing.
+1. `php artisan make:form-page {Aggregate} --no-interaction` (with the same `--dialog=…` as the controller) reads the `@return array{…}` of `{X}FormValues::toArray()`, then writes the type `{X}FormValues` into `types/{aggregate}.ts`, `components/{aggregate}/form.tsx` (one input per key), the `create.tsx`/`edit.tsx` shells, and the Browser tests `tests/Browser/{Aggregates}/CreateTest.php` + `EditTest.php` with `->todo()`. It reports the route and the translations still missing. With `--dialog`, it writes `components/{aggregate}/form-dialog.tsx` (`Create{X}Dialog`/`Edit{X}Dialog` inside the kit's `<FormDialog>`) in place of the pages it names, adds their cases to the list page's `IndexTest.php`, and prints how to open them.
 2. You may narrow the type in `types/` (an enum as a string union), but its keys must match PHP.
 3. Shape the form component:
    - Keep `<Form {...action}>` uncontrolled (`defaultValue={defaults.x}`). Use `useState` only for a parent field that controls what shows, a ToggleGroup/Checkbox value that must post through a hidden input, and a value a widget picks and writes into a hidden input.
@@ -122,6 +127,10 @@ Order:
    - Never `useForm` / `useHttp` / `router` / `fetch` (ESLint `form-only`)
 4. The create and edit pages are shells: they take `defaults` from the props and pass it to the form. They hold no `<Form>` or input, and build no starting values (ESLint `page-shell`, test `pages`). The edit page narrows the type of its model prop to `{X}Detail` when there is one.
 5. `pages/{aggregates}/index.tsx`: `can.create` in Props → `<DataTable headerActions={can.create ? <Button asChild><Link href={create()}><Plus />{t('{aggregates}.create')}</Link></Button> : undefined} />`. **Not `toolbar`.**
+6. A form in a dialog, in `pages/{aggregates}/index.tsx`:
+   - create: `const createDialog = useDialog()` → `headerActions={can.create ? <Button onClick={createDialog.open}>…</Button> : undefined}` → `<Create{X}Dialog dialog={createDialog} />` beside `<DataTable>`
+   - edit: `const editDialog = useItemDialog<Row>()` → `actions.edit.dialog({ dialog: editDialog, visible: can.update })` → `<Edit{X}Dialog dialog={editDialog} />` beside `<DataTable>`
+   - `form-dialog.tsx` only wires routes to the form: no `<Form>`/input, no `useHttp`/`useForm`/`router`/`fetch` (ESLint `form-dialog`, test `dialogs`).
 
 ### 3. Tests
 
@@ -134,6 +143,9 @@ The generators have already scaffolded the test files with `->todo()`. Write in 
 | `{Aggregate}Controller/EditTest` | as Create, plus `defaults.*` holds the converted values of that row; an unknown id → 404 |
 | `{Aggregate}Controller/StoreTest` / `UpdateTest` | helper `valid{X}Payload($overrides)`; success → `assertRedirect(show)` + `assertInertiaFlash('toast.*')` + every column; a validation dataset `[overrides, field]` → `assertInvalid([$field])` + the count unchanged; edge cases that **pass**; a role without the right, both ways (403 / `X-Inertia` → error toast); a smuggled field is dropped (update) |
 | `{Aggregate}Controller/IndexTest` | `can.create` per role |
+| `{Aggregate}Controller/CreateTest` / `EditTest` of a dialog | `getJson(...)` → `assertOk()` + `assertJsonPath('defaults.x', …)` for every key; a role without the right → `assertForbidden`; edit: an unknown id → 404 |
+| `{Aggregate}Controller/StoreTest` / `UpdateTest` of a dialog | as above, but success → `assertRedirect()` back to where it came from (`->from(index)`) |
+| `tests/Browser/{Aggregates}/IndexTest` for a dialog (cases added by `make:form-page`) | open the dialog → it shows the starting values; save → the dialog closes, the list keeps its filters and shows the toast; an invalid value → the error under the field, the dialog stays open |
 | `tests/Browser/{Aggregates}/CreateTest` / `EditTest` (already written by the generator) | renders with no JS error (edit: shows the stored values); fill in and save → reaches the destination + shows the toast; an invalid value → the error under the right field; conditional fields hide and show |
 
 Name each file's helpers so no two files share one (`{aggregates}CreateActor`, `{aggregates}StoreActor`). Pest shares one global namespace.
@@ -187,6 +199,7 @@ Then check against the real dev server (`composer run dev`): the create button s
 - [ ] Scaffolded with `make:form-page`; the type in `types/` has `@see`
 - [ ] One form component serves both pages, uncontrolled, with state only where needed
 - [ ] create/edit are shells that take `defaults`; the create button is in `headerActions`
+- [ ] A form in a dialog: `create()`/`edit()` answer JSON `defaults`, its `store()`/`update()` go `->back()`, `form-dialog.tsx` only wires routes, and the list page opens it from `headerActions` / `actions.edit.dialog`
 
 **Tests + verify**
 - [ ] Handler / Create / Edit / Store / Update / Index / Browser are all green (including the edge cases that **pass**, and no `->todo()` left in the Browser tests)

@@ -78,6 +78,19 @@ describe('form pages ESLint rules', function () {
         ]);
     });
 
+    it('keeps loading, posting and fields out of a form dialog', function () {
+        expect(formPagesLint('form-dialog.tsx', 'resources/js/components/fixture/form-dialog.tsx'))->toBe([
+            ['line' => 1, 'check' => 'form-dialog'],
+            ['line' => 8, 'check' => 'form-dialog'],
+            ['line' => 13, 'check' => 'form-dialog'],
+            ['line' => 14, 'check' => 'form-dialog'],
+        ]);
+    });
+
+    it('leaves the kit\'s own FormDialog, which does the loading, alone', function () {
+        expect(formPagesLint('form-dialog.tsx', 'resources/js/components/form-dialog.tsx'))->toBe([]);
+    });
+
     it('exempts the file a complete override names, from that check only', function () {
         $overrides = tempnam(sys_get_temp_dir(), 'form-pages-overrides');
         file_put_contents($overrides, json_encode(['overrides' => [

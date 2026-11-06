@@ -11,8 +11,9 @@ require_once __DIR__.'/Support/rules.php';
  * The in-file rules (what a page shell and a form component may import and render) are
  * ESLint's, in tests/ESLint/form-pages.js, proven by FormPagesEslintTest. This file checks the
  * server half and what spans files: the kit, store/update and the FormRequest's toCommand(),
- * flash toasts, file handling, and that every set of form values matches its request's rules
- * and its TypeScript twin key for key.
+ * flash toasts, file handling, that every set of form values matches its request's rules
+ * and its TypeScript twin key for key, and that a form in a dialog loads and saves the way a
+ * dialog must.
  *
  * @return array{
  *     kit_files: list<string>,
@@ -36,6 +37,14 @@ require_once __DIR__.'/Support/rules.php';
  *     form_component_import: string,
  *     defaults_prop: string,
  *     file_calls: string,
+ *     components_path: string,
+ *     form_dialog_file: string,
+ *     form_dialog_import: string,
+ *     dialog_forms: array<string, string>,
+ *     dialog_answer: string,
+ *     dialog_defaults: string,
+ *     dialog_back: string,
+ *     dialog_away: string,
  * }
  */
 function formPagesSpec(): array
@@ -46,6 +55,7 @@ function formPagesSpec(): array
             'resources/js/hooks/use-flash-toast.ts',
             'resources/js/components/flash-toast.tsx',
             'resources/js/components/input-error.tsx',
+            'resources/js/components/form-dialog.tsx',
             'resources/js/types/ui.ts',
             'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/form-pages.js',
             'vendor/playerarm123/laravel-workflow-kit/tests/ESLint/Support/rules.js',
@@ -76,6 +86,14 @@ function formPagesSpec(): array
         'form_component_import' => '#^import\s+.*\s+from\s+[\'"]@/components/[^/\'"]+/form[\'"]#m',
         'defaults_prop' => '/(?<!const\s)(?<!let\s)\bdefaults\s*:\s*\w+FormValues\b/',
         'file_calls' => '/->\s*(store|storeAs|storePublicly|storePubliclyAs|move)\s*\(|\bStorage::/',
+        'components_path' => 'resources/js/components',
+        'form_dialog_file' => 'form-dialog.tsx',
+        'form_dialog_import' => '#^import\s+\{[^}]*\bFormDialog\b[^}]*\}\s+from\s+[\'"]@/components/form-dialog[\'"]#m',
+        'dialog_forms' => ['create' => 'store', 'edit' => 'update'],
+        'dialog_answer' => 'Illuminate\Http\JsonResponse',
+        'dialog_defaults' => '/[\'"]defaults[\'"]\s*=>\s*\w+FormValues::(empty|of)\s*\(/',
+        'dialog_back' => '/->\s*back\s*\(\s*\)|(?<![\w>:$])back\s*\(\s*\)/',
+        'dialog_away' => '/(?<![\w>:$])(to_route|redirect)\s*\(/',
     ];
 }
 
@@ -461,5 +479,68 @@ describe('form pages', function () {
         }
 
         expect(ruleUnexcused('form-pages', 'pages', $violations))->toBe([]);
+    });
+
+    it('renders every form dialog from its form component inside the kit\'s FormDialog', function () {
+        $violations = [];
+        $spec = formPagesSpec();
+
+        foreach (ruleSourceFiles($spec['components_path'], ['tsx']) as $file) {
+            if (basename($file) !== $spec['form_dialog_file'] || dirname($file) === $spec['components_path']) {
+                continue;
+            }
+
+            $code = ruleCodeWithoutComments($file);
+
+            if (preg_match($spec['form_component_import'], $code) !== 1) {
+                $violations[] = ['subject' => $file, 'message' => 'must render the form component from @/components/{aggregate}/form'];
+            }
+
+            if (preg_match($spec['form_dialog_import'], $code) !== 1) {
+                $violations[] = ['subject' => $file, 'message' => 'must render the form inside FormDialog from @/components/form-dialog, which loads the server defaults'];
+            }
+        }
+
+        expect(ruleUnexcused('form-pages', 'dialogs', $violations))->toBe([]);
+    });
+
+    it('answers a dialog its defaults as JSON and goes back once it saves', function () {
+        $violations = [];
+        $spec = formPagesSpec();
+
+        foreach (formPagesClassesIn($spec['controllers_path']) as $controller) {
+            if (array_filter($spec['starter_kit'], fn (string $namespace): bool => str_starts_with($controller, $namespace.'\\')) !== []) {
+                continue;
+            }
+
+            foreach ($spec['dialog_forms'] as $form => $save) {
+                if (! method_exists($controller, $form)) {
+                    continue;
+                }
+
+                $method = new ReflectionMethod($controller, $form);
+                $type = $method->getReturnType();
+
+                if ($method->getDeclaringClass()->getName() !== $controller || ! $type instanceof ReflectionNamedType || $type->getName() !== $spec['dialog_answer']) {
+                    continue;
+                }
+
+                if (preg_match($spec['dialog_defaults'], formPagesMethodCode($method)) !== 1) {
+                    $violations[] = ['subject' => $controller, 'message' => sprintf("%s() answers a dialog, so it sends ['defaults' => {X}FormValues::%s] — the server owns the starting values", $form, $form === 'create' ? 'empty()' : 'of($model)')];
+                }
+
+                if (! method_exists($controller, $save) || (new ReflectionMethod($controller, $save))->getDeclaringClass()->getName() !== $controller) {
+                    continue;
+                }
+
+                $code = formPagesMethodCode(new ReflectionMethod($controller, $save));
+
+                if (preg_match($spec['dialog_back'], $code) !== 1 || preg_match($spec['dialog_away'], $code) === 1) {
+                    $violations[] = ['subject' => $controller, 'message' => sprintf('%s() saves what the %s dialog posts, so it answers with Inertia::flash(…)->back() — anywhere else takes the user off the list', $save, $form)];
+                }
+            }
+        }
+
+        expect(ruleUnexcused('form-pages', 'dialog-endpoints', $violations))->toBe([]);
     });
 });

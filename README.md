@@ -142,10 +142,10 @@ Each generator writes the test beside what it writes, with a `->todo()` per case
 | `make:port {name} --domain=\|--application= [--adapter= --infra=]` | A port, and later its adapter and the adapter's test |
 | `make:eloquent-repository {name} --domain=` | A repository, its exceptions, log payload and contract test |
 | `make:use-case {name} --domain= [--command] [--result] [--repo=] [--creates] [--query]` | A use case: handler, Command, Result, and for a list its query port and adapter |
-| `make:controller {name} --domain= --only= [--grid]` | Resource controller methods in the kit's shape, one test per action |
+| `make:controller {name} --domain= --only= [--grid] [--dialog=create,edit]` | Resource controller methods in the kit's shape, one test per action. `--dialog` answers the forms it names as a dialog: `defaults` as JSON, and the save goes back |
 | `make:action {verb} --model= --domain= [--bulk] [--use-case=]` | An action's controller, request and test |
 | `make:form-request {name} --domain=` | Store/Update requests and the form values |
-| `make:form-page {name}` | The form component, create/edit pages and TypeScript type |
+| `make:form-page {name} [--dialog=create,edit]` | The form component, create/edit pages and TypeScript type. `--dialog` puts the forms it names in a dialog on the list page instead of a page |
 | `make:list-page {name} --domain= [--grid] [--types-only]` | A list page, its toolbar, TypeScript types and Browser test |
 | `make:policy {model}` | A policy and its test |
 

@@ -142,10 +142,10 @@ generator ทุกตัวเขียน test ไว้ข้างไฟล�
 | `make:port {name} --domain=\|--application= [--adapter= --infra=]` | port และภายหลังคือ adapter พร้อม test ของ adapter |
 | `make:eloquent-repository {name} --domain=` | repository, exceptions, log payload และ contract test |
 | `make:use-case {name} --domain= [--command] [--result] [--repo=] [--creates] [--query]` | use case: handler, Command, Result และสำหรับ list คือ query port กับ adapter |
-| `make:controller {name} --domain= --only= [--grid]` | method ของ resource controller ในรูปของ kit พร้อม test แยกทีละ action |
+| `make:controller {name} --domain= --only= [--grid] [--dialog=create,edit]` | method ของ resource controller ในรูปของ kit พร้อม test แยกทีละ action โดย `--dialog` ทำให้ฟอร์มที่ระบุตอบแบบ dialog คือส่ง `defaults` เป็น JSON และบันทึกแล้วกลับไปหน้าเดิม |
 | `make:action {verb} --model= --domain= [--bulk] [--use-case=]` | controller, request และ test ของ action |
 | `make:form-request {name} --domain=` | Store/Update requests และ form values |
-| `make:form-page {name}` | form component, หน้า create/edit และ TypeScript type |
+| `make:form-page {name} [--dialog=create,edit]` | form component, หน้า create/edit และ TypeScript type โดย `--dialog` ย้ายฟอร์มที่ระบุไปเป็น dialog บนหน้า list แทนหน้าแยก |
 | `make:list-page {name} --domain= [--grid] [--types-only]` | หน้า list, toolbar, TypeScript types และ Browser test |
 | `make:policy {model}` | policy พร้อม test |
 
