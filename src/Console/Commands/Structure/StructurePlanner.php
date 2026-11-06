@@ -534,6 +534,7 @@ final class StructurePlanner
         $methods = array_values(array_intersect(self::RESOURCE_METHODS, array_keys($manifest['controller'])));
         $useCases = array_merge([], ...array_values($manifest['controller']));
         $grid = in_array('grid', $manifest['pages'], true);
+        $dialogs = self::dialogsOf($manifest['pages']);
 
         if ($methods !== []) {
             $context = $useCases === [] ? null : explode('/', $useCases[0])[0];
@@ -549,6 +550,10 @@ final class StructurePlanner
 
             if ($grid) {
                 $arguments['--grid'] = true;
+            }
+
+            if ($dialogs !== []) {
+                $arguments['--dialog'] = implode(',', $dialogs);
             }
 
             $missing = array_values(array_filter($useCases, fn (string $useCase): bool => $this->handlerOf($useCase) === null));
@@ -614,7 +619,7 @@ final class StructurePlanner
             }
         }
 
-        if (in_array('form', $manifest['pages'], true)) {
+        if (in_array('form', $manifest['pages'], true) || $dialogs !== []) {
             $create = $manifest['controller']['store'][0] ?? null;
             $update = $manifest['controller']['update'][0] ?? null;
             $context = $create === null ? null : explode('/', $create)[0];
@@ -629,7 +634,7 @@ final class StructurePlanner
             }
 
             $formPages = array_keys(array_filter($manifest['pages'], fn (string $kind): bool => $kind === 'form'));
-            $formNodes = array_map(fn (string $page): string => "page:{$resource}/{$page}", $formPages);
+            $formNodes = array_map(fn (string $page): string => "page:{$resource}/{$page}", array_keys(array_filter($manifest['pages'], fn (string $kind): bool => in_array($kind, ['form', 'dialog'], true))));
 
             $steps[] = $this->generator(11, "form request {$model}", class_exists("App\\Http\\Requests\\{$model}\\Store{$model}Request"), match (true) {
                 $create === null => 'store names no use case — write the requests by hand',
@@ -638,7 +643,10 @@ final class StructurePlanner
                 default => null,
             }, 'make:form-request', $arguments, $formNodes);
 
-            $steps[] = $this->generator(13, "form pages {$model}", array_filter($formPages, fn (string $page): bool => ! is_file($this->pagePath($page))) === [], class_exists("App\\Http\\Requests\\{$model}\\{$model}FormValues") ? null : "make:form-request writes {$model}FormValues first", 'make:form-page', ['name' => $model], $formNodes);
+            $built = array_filter($formPages, fn (string $page): bool => ! is_file($this->pagePath($page))) === []
+                && array_filter($dialogs, fn (string $form): bool => ! StructureReader::hasDialog($this->rootOf(), $model, $form)) === [];
+
+            $steps[] = $this->generator(13, "form pages {$model}", $built, class_exists("App\\Http\\Requests\\{$model}\\{$model}FormValues") ? null : "make:form-request writes {$model}FormValues first", 'make:form-page', ['name' => $model, ...($dialogs === [] ? [] : ['--dialog' => implode(',', $dialogs)])], $formNodes);
         }
 
         $index = $manifest['controller']['index'][0] ?? null;
@@ -670,6 +678,20 @@ final class StructurePlanner
         }
 
         return $steps;
+    }
+
+    /**
+     * The forms a resource opens in a dialog, `create` before `edit`: each page of kind `dialog`
+     * is kept at the path its form's page would have (form-pages.md, "Form dialogs").
+     *
+     * @param  array<string, string>  $pages
+     * @return list<string>
+     */
+    public static function dialogsOf(array $pages): array
+    {
+        $forms = array_map(basename(...), array_keys(array_filter($pages, fn (string $kind): bool => $kind === 'dialog')));
+
+        return array_values(array_intersect(StructureReader::DIALOG_FORMS, $forms));
     }
 
     /**

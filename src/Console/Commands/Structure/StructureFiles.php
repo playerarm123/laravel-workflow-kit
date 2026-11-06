@@ -24,7 +24,7 @@ final class StructureFiles
     /** The key of a main menu group, as `$this->group('{key}', …)` declares it. */
     public const string MENU_GROUP = '/^[a-z][a-z0-9_-]*$/';
 
-    public const array PAGE_KINDS = ['table', 'grid', 'form', 'page'];
+    public const array PAGE_KINDS = ['table', 'grid', 'form', 'dialog', 'page'];
 
     /**
      * Each section of a manifest and the keys and allowed values of one entry in it. A `map` keeps
@@ -841,6 +841,8 @@ final class StructureFiles
 
                 if (! in_array($kind, self::PAGE_KINDS, true)) {
                     $problems[] = sprintf('pages.%s: must be one of %s', $page, implode(', ', self::PAGE_KINDS));
+                } elseif ($kind === 'dialog' && ! in_array(basename((string) $page), StructureReader::DIALOG_FORMS, true)) {
+                    $problems[] = sprintf('pages.%s: a dialog is the create or the edit form, kept at the path its page would have: {folder}/create or {folder}/edit', $page);
                 }
             }
         }

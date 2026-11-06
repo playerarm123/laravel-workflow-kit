@@ -291,6 +291,44 @@ describe('StructurePlanner', function () {
                 ->and($steps["form pages {$model}"])->toBe([StructurePlanner::WAITING, "make:form-request writes {$model}FormValues first"]);
         });
 
+        it('opens each form the manifest keeps in a dialog with --dialog, and counts it built once its dialog is exported', function () {
+            $files = new StructureFiles(base_path());
+            $model = SAMPLING_PLAN_MODEL;
+            $manifest = $files->readResource($model);
+            $manifest['controller']['edit'] = [];
+            $manifest['pages']['sampling-sacks/edit'] = 'dialog';
+            $files->writeResource($manifest);
+            $dialog = resource_path('js/components/sampling-sack/form-dialog.tsx');
+            $plan = function (): array {
+                $planner = new StructurePlanner(new StructureReader(base_path()), new StructureFiles(base_path()), new StructureMarkers(samplingPlanMarkersRoot()));
+
+                return array_column($planner->steps([SAMPLING_PLAN_CONTEXT], [SAMPLING_PLAN_MODEL]), null, 'title');
+            };
+
+            try {
+                $before = $plan();
+                File::ensureDirectoryExists(dirname($dialog));
+                File::put($dialog, "export function EditSamplingSackDialog() {\n    return null;\n}\n");
+                $after = $plan();
+            } finally {
+                File::deleteDirectory(dirname($dialog));
+            }
+
+            expect($before["controller {$model}"]['arguments'])->toMatchArray(['--only' => 'index,edit,update', '--dialog' => 'edit'])
+                ->and($before["form pages {$model}"]['arguments'])->toMatchArray(['name' => $model, '--dialog' => 'edit'])
+                ->and($before["form pages {$model}"]['state'])->not->toBe(StructurePlanner::DONE)
+                ->and($before["form pages {$model}"]['nodes'])->toBe(["page:{$model}/sampling-sacks/edit"])
+                ->and($after["form pages {$model}"]['state'])->toBe(StructurePlanner::DONE);
+        });
+
+        it('passes no --dialog when every form is a page', function () {
+            $steps = (new StructurePlanner(new StructureReader(base_path()), new StructureFiles(base_path()), new StructureMarkers(samplingPlanMarkersRoot())))->steps([SAMPLING_PLAN_CONTEXT], [SAMPLING_PLAN_MODEL]);
+            $arguments = array_column($steps, 'arguments', 'title');
+
+            expect($arguments['controller '.SAMPLING_PLAN_MODEL])->not->toHaveKey('--dialog')
+                ->and($arguments['form pages '.SAMPLING_PLAN_MODEL])->not->toHaveKey('--dialog');
+        });
+
         it('takes a route as done once a route file registers its controller, whatever its uri', function () {
             $steps = samplingPlanSteps();
 
