@@ -31,6 +31,11 @@ function controllerTestGenerated(string $action): string
     return base_path('tests/Feature/Http/Controllers/'.CONTROLLER_MODEL."Controller/{$action}Test.php");
 }
 
+function indexRequestGenerated(): string
+{
+    return app_path('Http/Requests/'.CONTROLLER_MODEL.'/Index'.CONTROLLER_MODEL.'Request.php');
+}
+
 /**
  * The public methods of the generated controller, in the order the file declares them.
  *
@@ -158,6 +163,7 @@ function cleanControllerScratch(): void
 {
     File::deleteDirectory(app_path('Application/'.CONTROLLER_CONTEXT));
     File::deleteDirectory(base_path('tests/Feature/Http/Controllers/'.CONTROLLER_MODEL.'Controller'));
+    File::deleteDirectory(app_path('Http/Requests/'.CONTROLLER_MODEL));
     File::delete([controllerGenerated(), app_path('Policies/'.CONTROLLER_MODEL.'Policy.php')]);
 }
 
@@ -180,16 +186,12 @@ it('writes all seven methods in resource order, each read off its use case', fun
     expect(File::get(controllerGenerated()))
         ->toContain('namespace App\Http\Controllers;')
         ->toContain('class SamplingCrateController extends Controller')
-        ->toContain('public function index(Request $request, ListSamplingCratesHandler $listSamplingCrates): Response')
-        ->toContain("Gate::authorize('viewAny', SamplingCrate::class);")
-        ->toContain(<<<'PHP'
-        $result = $listSamplingCrates(new ListSamplingCratesCommand(
-            sort: $request->string('sort')->toString(),
-            search: $request->string('search')->toString(),
-            countryCode: $request->string('country_code')->toString(),
-            perPage: $request->string('per_page')->toString(),
-        ));
-PHP)
+        ->toContain('public function index(IndexSamplingCrateRequest $request, ListSamplingCratesHandler $listSamplingCrates): Response')
+        ->toContain('$result = $listSamplingCrates($request->toCommand());')
+        ->toContain('use App\Http\Requests\SamplingCrate\IndexSamplingCrateRequest;')
+        ->not->toContain("Gate::authorize('viewAny'")
+        ->not->toContain('new ListSamplingCratesCommand')
+        ->not->toContain('use Illuminate\Http\Request;')
         ->toContain("'crates' => \$result->crates,")
         ->toContain("'create' => Gate::allows('create', SamplingCrate::class),")
         ->toContain("'update' => Gate::allows('updateAny', SamplingCrate::class),")
@@ -216,6 +218,42 @@ PHP)
         ->toContain("it('redirects a guest to the login page')->todo();")
         ->toContain("it('rejects each invalid field')->todo();")
         ->toContain("it('answers 404 for an unknown id')->todo();");
+});
+
+it('writes the index request, which asks viewAny and builds the list Command from the raw query string', function () {
+    runMakeController(['--only' => 'index'])
+        ->expectsOutputToContain('Http/Requests/SamplingCrate/IndexSamplingCrateRequest.php')
+        ->assertSuccessful();
+
+    expect(File::get(indexRequestGenerated()))
+        ->toContain('namespace App\Http\Requests\SamplingCrate;')
+        ->toContain('class IndexSamplingCrateRequest extends FormRequest')
+        ->toContain("return Gate::allows('viewAny', SamplingCrate::class);")
+        ->toContain(<<<'PHP'
+    public function toCommand(): ListSamplingCratesCommand
+    {
+        return new ListSamplingCratesCommand(
+            sort: $this->string('sort')->toString(),
+            search: $this->string('search')->toString(),
+            countryCode: $this->string('country_code')->toString(),
+            perPage: $this->string('per_page')->toString(),
+        );
+    }
+PHP)
+        ->toContain('use App\Application\SamplingRacking\UseCases\ListSamplingCrates\ListSamplingCratesCommand;')
+        ->not->toContain('function rules(')
+        ->not->toContain('{{');
+});
+
+it('leaves an index request that already exists as it is', function () {
+    File::ensureDirectoryExists(dirname(indexRequestGenerated()));
+    File::put(indexRequestGenerated(), '<?php // kept by hand');
+
+    runMakeController(['--only' => 'index'])
+        ->expectsOutputToContain('already exists')
+        ->assertSuccessful();
+
+    expect(File::get(indexRequestGenerated()))->toBe('<?php // kept by hand');
 });
 
 it('writes only the methods --only names, and asks only for their buttons', function () {
@@ -245,10 +283,12 @@ it('writes a grid index that scrolls its rows and sends no sort', function () {
         ->toContain("'delete' => Gate::allows('deleteAny', SamplingCrate::class),")
         ->not->toContain("'sort' =>")
         ->not->toContain('{{')
+        ->toContain('$result = $listSamplingCrates($request->toCommand());')
+        ->and(File::get(indexRequestGenerated()))->toContain('public function toCommand(): ListSamplingCratesCommand')
         ->and(File::get(controllerTestGenerated('Index')))
         ->toContain("it('renders the page with its rows through Inertia::scroll() and its filters')->todo();");
 
-    $pint = Process::path(base_path())->run([base_path('vendor/bin/pint'), '--test', controllerGenerated()]);
+    $pint = Process::path(base_path())->run([base_path('vendor/bin/pint'), '--test', controllerGenerated(), indexRequestGenerated()]);
 
     expect($pint->successful())->toBeTrue($pint->output());
 });
@@ -410,7 +450,7 @@ it('writes PHP that parses, loads and pint leaves as it is', function () {
     runMakeController(['--only' => 'index,show,destroy'])->assertSuccessful();
     runMakeController(['--only' => 'create,store,edit,update'])->assertSuccessful();
 
-    $paths = [controllerGenerated(), ...File::files(base_path('tests/Feature/Http/Controllers/'.CONTROLLER_MODEL.'Controller'))];
+    $paths = [controllerGenerated(), indexRequestGenerated(), ...File::files(base_path('tests/Feature/Http/Controllers/'.CONTROLLER_MODEL.'Controller'))];
 
     foreach ($paths as $path) {
         expect(Process::run(['php', '-l', (string) $path])->successful())->toBeTrue();
@@ -434,7 +474,7 @@ it('writes PHP that parses, loads and pint leaves as it is', function () {
 it('writes dialog forms in PHP that parses and pint leaves as it is', function () {
     runMakeController(['--only' => 'index,create,store,edit,update', '--dialog' => null])->assertSuccessful();
 
-    $paths = [controllerGenerated(), ...File::files(base_path('tests/Feature/Http/Controllers/'.CONTROLLER_MODEL.'Controller'))];
+    $paths = [controllerGenerated(), indexRequestGenerated(), ...File::files(base_path('tests/Feature/Http/Controllers/'.CONTROLLER_MODEL.'Controller'))];
 
     foreach ($paths as $path) {
         expect(Process::run(['php', '-l', (string) $path])->successful())->toBeTrue();

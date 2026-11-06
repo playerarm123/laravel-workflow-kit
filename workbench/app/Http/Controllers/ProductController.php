@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Application\Catalog\UseCases\ListProducts\ListProductsCommand;
 use App\Application\Catalog\UseCases\ListProducts\ListProductsHandler;
+use App\Http\Requests\Product\IndexProductRequest;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -12,9 +12,9 @@ use Inertia\Response;
  */
 class ProductController extends Controller
 {
-    public function index(ListProductsHandler $listProducts): Response
+    public function index(IndexProductRequest $request, ListProductsHandler $listProducts): Response
     {
-        $listProducts(new ListProductsCommand);
+        $listProducts($request->toCommand());
 
         return Inertia::render('products/index');
     }

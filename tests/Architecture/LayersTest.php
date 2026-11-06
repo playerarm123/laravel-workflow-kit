@@ -20,6 +20,7 @@ require_once __DIR__.'/Support/rules.php';
  *     domain_forbidden: list<string>,
  *     application_forbidden: list<string>,
  *     application_illuminate: list<string>,
+ *     application_request: list<string>,
  *     entry_points: array<string, string>,
  *     entry_forbidden: list<string>,
  *     models_forbidden: list<string>,
@@ -60,6 +61,7 @@ function layersSpec(): array
             'Illuminate\Http\UploadedFile',
             'Illuminate\Contracts\Auth',
         ],
+        'application_request' => ['Illuminate\Http\Request', 'Illuminate\Foundation\Http\FormRequest'],
         'entry_points' => [
             'App\Http' => 'app/Http',
             'App\Console' => 'app/Console',
@@ -320,6 +322,10 @@ describe('layers', function () {
         $violations = layersJudge('app/Application', function (string $dependency): ?string {
             if (layersFirstMatch($dependency, layersSpec()['application_forbidden']) !== null) {
                 return 'application code never reaches infrastructure, HTTP, Eloquent models or policies';
+            }
+
+            if (layersFirstMatch($dependency, layersSpec()['application_request']) !== null) {
+                return 'application code never reads the HTTP request — the controller\'s FormRequest builds the Command in its toCommand() (Index{Model}Request for a list, Store/Update{Model}Request for a form, {Model}{Verb}Request for an action), so the controller stays `$handler($request->toCommand())` (list-queries.md, form-pages.md, actions.md)';
             }
 
             if (ruleIsIn($dependency, 'Illuminate') && layersFirstMatch($dependency, layersSpec()['application_illuminate']) === null) {

@@ -34,7 +34,7 @@ Scaffold a list page after its PHP half (list-queries.md) is filled in. Run `php
 
 Then add the cells or card fields, row actions, dialogs, `can` and translations. The command lists the translation keys and the route still missing. *Review only.* The page's menu entry is `kit:apply`'s (see Menu below).
 
-The controller half is `php artisan make:controller {Name} --domain={Context} --only=index,destroy`, with `--grid` for the grid shape. It reads `List{Names}Command` for the raw query string arguments and `List{Names}Result` for the rows prop, and writes each action's test. A grid's index sends the rows through `Inertia::scroll(…)` and no `sort`, and the command warns when the Command still takes `sort` or `direction`. *Review only.*
+The controller half is `php artisan make:controller {Name} --domain={Context} --only=index,destroy`, with `--grid` for the grid shape. It reads `List{Names}Command` for the raw query string arguments and `List{Names}Result` for the rows prop. It writes `Index{Model}Request`, whose `toCommand()` builds that Command (list-queries.md), and each action's test. A grid's index sends the rows through `Inertia::scroll(…)` and no `sort`, and the command warns when the Command still takes `sort` or `direction`. *Review only.*
 
 ## Menu
 

@@ -60,7 +60,7 @@ public function store(StoreCustomerRequest $request, CreateCustomerHandler $crea
 - Catch a refusal the handler throws by name and answer with `FlashToast::error()` (exceptions.md). A missing row, a forbidden user and a failure are answered by `ExceptionResponses`, so the controller catches none of them.
 
 **Don't**
-- Build a Command in a controller, with `new` or `::from()`. A `List{Name}Command` is the one exception, because a list takes raw strings with no FormRequest (list-queries.md). *Check `commands`.*
+- Build a Command in a controller, with `new` or `::from()`. A list's Command comes from `Index{Model}Request::toCommand()` too (list-queries.md). *Check `commands`.*
 - Flash with `->with()`, `session()->flash()` or `Session::flash()`. The toast hook reads `FlashToast::KEY` only, and the title is translated in PHP. *Check `flash`.*
 - Open a transaction (handlers.md).
 

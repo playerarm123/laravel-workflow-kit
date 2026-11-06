@@ -2,11 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Application\Audit\UseCases\ListAuditEntries\ListAuditEntriesCommand;
 use App\Application\Audit\UseCases\ListAuditEntries\ListAuditEntriesHandler;
+use App\Http\Requests\AuditEntry\IndexAuditEntryRequest;
 use App\Models\AuditEntry;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -15,19 +13,9 @@ use Inertia\Response;
  */
 class AuditEntryController extends Controller
 {
-    public function index(Request $request, ListAuditEntriesHandler $listAuditEntries): Response
+    public function index(IndexAuditEntryRequest $request, ListAuditEntriesHandler $listAuditEntries): Response
     {
-        Gate::authorize('viewAny', AuditEntry::class);
-
-        $result = $listAuditEntries(new ListAuditEntriesCommand(
-            sort: $request->string('sort')->toString(),
-            direction: $request->string('direction')->toString(),
-            search: $request->string('search')->toString(),
-            subjectType: $request->string('subject_type')->toString(),
-            createdFrom: $request->string('created_from')->toString(),
-            createdTo: $request->string('created_to')->toString(),
-            perPage: $request->string('per_page')->toString(),
-        ));
+        $result = $listAuditEntries($request->toCommand());
 
         return Inertia::render('audit-entries/index', [
             'auditEntries' => $result->auditEntries,

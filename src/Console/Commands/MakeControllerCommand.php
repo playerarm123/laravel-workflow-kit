@@ -24,6 +24,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * use cases a human already filled in. `--only` picks the methods, and a run against a
  * controller that already exists adds the ones it lacks, in resource order, without touching
  * the rest. Each new action gets its test at the path testing.md mirrors, every case a todo.
+ * index comes with `Index{Model}Request`, which asks viewAny and builds the list Command from
+ * the raw query string (list-queries.md).
  * `--grid` writes index for a grid page: rows through `Inertia::scroll()` and no sort.
  * `--dialog[=create,edit]` writes the forms it names for a dialog (form-pages.md, "Form
  * dialogs"): create or edit answers its defaults as JSON, and store or update goes back.
@@ -226,6 +228,10 @@ class MakeControllerCommand extends ControllerMakeCommand
             } else {
                 $this->addToController($path, $files);
                 $this->warnAboutCanKeys($existing, $adding);
+            }
+
+            if (in_array('index', $adding, true)) {
+                $this->writeIndexRequest();
             }
 
             foreach ($adding as $method) {
@@ -503,18 +509,7 @@ class MakeControllerCommand extends ControllerMakeCommand
         $command = $this->useCaseClass('list', 'Command');
         $handler = $this->useCaseClass('list', 'Handler');
 
-        $this->imports = [$command, $handler, $this->modelClass(), 'Illuminate\Http\Request', 'Illuminate\Support\Facades\Gate', 'Inertia\Inertia', 'Inertia\Response'];
         $this->abilities[] = 'viewAny';
-
-        $arguments = array_map(
-            fn (ReflectionParameter $parameter): string => sprintf(
-                "            %s: \$request->string('%s')->toString(),",
-                $parameter->getName(),
-                Str::snake($parameter->getName()),
-            ),
-            (new ReflectionMethod($command, '__construct'))->getParameters(),
-        );
-
         $this->warnAboutGridSort($command);
 
         $can = array_filter([
@@ -523,14 +518,49 @@ class MakeControllerCommand extends ControllerMakeCommand
             'delete' => in_array('destroy', $methods, true) ? 'deleteAny' : null,
         ]);
 
+        // The Gate and the model are imported only for the `can` prop: the request asks viewAny.
+        $this->imports = [
+            $handler,
+            $this->requestClass('Index'.$this->model().'Request'),
+            'Inertia\Inertia',
+            'Inertia\Response',
+            ...($can === [] ? [] : [$this->modelClass(), 'Illuminate\Support\Facades\Gate']),
+        ];
+
         return [
-            '{{ listCommand }}' => class_basename($command),
             '{{ listHandler }}' => class_basename($handler),
             '{{ listVariable }}' => Str::camel($this->useCase('list')),
-            '{{ listArguments }}' => implode("\n", $arguments),
             '{{ rows }}' => $this->rowsProperty(),
             '{{ can }}' => $this->canBlock($can, $this->model().'::class'),
         ];
+    }
+
+    /**
+     * `Index{Model}Request`, which index takes: it asks the policy for viewAny and its
+     * `toCommand()` hands every query string value to the list Command raw, one argument per
+     * parameter (list-queries.md). One that already exists is left as it is.
+     */
+    protected function writeIndexRequest(): void
+    {
+        $command = $this->useCaseClass('list', 'Command');
+        $class = $this->requestClass('Index'.$this->model().'Request');
+
+        $this->imports = [$command, $this->modelClass(), 'Illuminate\Foundation\Http\FormRequest', 'Illuminate\Support\Facades\Gate'];
+
+        $arguments = array_map(
+            fn (ReflectionParameter $parameter): string => sprintf(
+                "            %s: \$this->string('%s')->toString(),",
+                $parameter->getName(),
+                Str::snake($parameter->getName()),
+            ),
+            (new ReflectionMethod($command, '__construct'))->getParameters(),
+        );
+
+        $this->writeFromStub('index-request.stub', app_path('Http/Requests/'.$this->model().'/'.class_basename($class).'.php'), 'Request', [
+            '{{ namespace }}' => Str::beforeLast($class, '\\'),
+            '{{ listCommand }}' => class_basename($command),
+            '{{ listArguments }}' => implode("\n", $arguments),
+        ]);
     }
 
     /**

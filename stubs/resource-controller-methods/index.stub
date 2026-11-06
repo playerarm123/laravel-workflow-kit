@@ -1,16 +1,12 @@
     /**
      * Display a listing of the resource.
      *
-     * The query string goes into the Command raw and unvalidated: the handler settles every
-     * value, so a hand-edited url still gets a page, not a 422 (list-queries.md).
+     * Index{{ model }}Request asks the policy and hands over the Command, built from the raw
+     * query string (list-queries.md).
      */
-    public function index(Request $request, {{ listHandler }} ${{ listVariable }}): Response
+    public function index(Index{{ model }}Request $request, {{ listHandler }} ${{ listVariable }}): Response
     {
-        Gate::authorize('viewAny', {{ model }}::class);
-
-        $result = ${{ listVariable }}(new {{ listCommand }}(
-{{ listArguments }}
-        ));
+        $result = ${{ listVariable }}($request->toCommand());
 
         return Inertia::render('{{ prefix }}/index', [
             '{{ rows }}' => $result->{{ rows }},

@@ -29,7 +29,6 @@ require_once __DIR__.'/Support/rules.php';
  *     requests_path: string,
  *     write_methods: list<string>,
  *     starter_kit: list<string>,
- *     list_command_prefix: string,
  *     form_values_glob: string,
  *     types_path: string,
  *     pages_path: string,
@@ -78,7 +77,6 @@ function formPagesSpec(): array
         'requests_path' => 'app/Http/Requests',
         'write_methods' => ['store', 'update'],
         'starter_kit' => ['App\Http\Controllers\Settings'],
-        'list_command_prefix' => 'List',
         'form_values_glob' => 'app/Http/Requests/*/*FormValues.php',
         'types_path' => 'resources/js/types',
         'pages_path' => 'resources/js/pages',
@@ -270,9 +268,8 @@ describe('form pages', function () {
         expect(ruleUnexcused('form-pages', 'store-update', $violations))->toBe([]);
     });
 
-    it('builds no Command in a controller except a list command', function () {
+    it('builds no Command in a controller', function () {
         $violations = [];
-        $prefix = formPagesSpec()['list_command_prefix'];
 
         foreach (ruleSourceFiles(formPagesSpec()['controllers_path'], ['php']) as $file) {
             foreach (explode("\n", ruleCodeWithoutComments($file)) as $line) {
@@ -281,9 +278,7 @@ describe('form pages', function () {
                 foreach ($matches as $match) {
                     $command = $match[1] !== '' ? $match[1] : $match[2];
 
-                    if (! str_starts_with($command, $prefix)) {
-                        $violations[] = ['subject' => ruleClassOf($file), 'message' => sprintf('builds %s — move it into the FormRequest\'s toCommand(): `%s`', $command, trim($line))];
-                    }
+                    $violations[] = ['subject' => ruleClassOf($file), 'message' => sprintf('builds %s — move it into the FormRequest\'s toCommand(): `%s`', $command, trim($line))];
                 }
             }
         }
