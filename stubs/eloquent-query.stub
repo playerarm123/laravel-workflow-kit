@@ -3,11 +3,13 @@
 namespace {{ namespace }};
 
 use {{ namespacedCriteria }};
+use {{ namespacedModel }};
 use {{ namespacedQuery }};
 use {{ namespacedRow }};
+use {{ namespacedSort }};
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Override;
-use RuntimeException;
 
 /**
  * See list-queries.md for the shape this adapter must take.
@@ -20,37 +22,43 @@ class {{ class }} extends EloquentListQuery implements {{ query }}
      * @var list<literal-string>
      */
     private const SEARCHABLE_COLUMNS = [
-        // 'table.column',
+        // '{{ table }}.name',
     ];
 
     #[Override]
     public function paginate({{ criteria }} $criteria): LengthAwarePaginator
     {
-        // Build the scoped, filtered, sorted query, then finish with paginateRows():
-        //
-        //     $query = Model::query()
-        //         ->with([/* every relation toRow() reads */])
-        //         ->where('table.scope_column', $criteria->scopeValue)
-        //         ->tap(fn (Builder $query) => $this->applySearch($query, $criteria->search, self::SEARCHABLE_COLUMNS))
-        //         ->when(! $criteria->createdAt->isEmpty(), fn (Builder $query) => $this->applyCreatedBetween(
-        //             $query,
-        //             $criteria->createdAt,
-        //             'table.created_at',
-        //         ))
-        //         ->orderBy($this->sortColumn($criteria->sort), $criteria->direction);
-        //
-        //     return $this->paginateRows($query, $criteria->perPage, fn (Model $model): {{ rowType }} => $this->toRow($model));
-        //
-        // sortColumn() matches every case of {{ sort }}, so a new case without a column is
-        // a PHPStan error rather than a 500:
-        //
-        //     private function sortColumn({{ sort }} $sort): string
-        //     {
-        //         return match ($sort) {
-        //             {{ sort }}::CreatedAt => 'table.created_at',
-        //         };
-        //     }
+        $query = {{ model }}::query()
+            // ->with([...])  every relation toRow() reads
+            // ->where('{{ table }}.owner_id', $criteria->ownerId)  the scope, first, when the list has one
+            ->tap(fn (Builder $query) => $this->applySearch($query, $criteria->search, self::SEARCHABLE_COLUMNS))
+            // one ->when() per filter, e.g.
+            // ->when($criteria->status !== null, fn (Builder $query) => $query->where('{{ table }}.status', $criteria->status))
+            ->when(! $criteria->createdAt->isEmpty(), fn (Builder $query) => $this->applyCreatedBetween(
+                $query,
+                $criteria->createdAt,
+                '{{ table }}.created_at',
+            ))
+            ->orderBy($this->sortColumn($criteria->sort), $criteria->direction);
 
-        throw new RuntimeException('{{ class }}::paginate() is not implemented yet.');
+        return $this->paginateRows($query, $criteria->perPage, fn ({{ model }} ${{ modelVariable }}): {{ rowType }} => $this->toRow(${{ modelVariable }}));
+    }
+
+    /**
+     * Matches every case of {{ sort }}, so a new case without a column is a PHPStan error
+     * rather than a 500.
+     */
+    private function sortColumn({{ sort }} $sort): string
+    {
+        return match ($sort) {
+            {{ sort }}::CreatedAt => '{{ table }}.created_at',
+        };
+    }
+
+    private function toRow({{ model }} ${{ modelVariable }}): {{ rowType }}
+    {
+        return new {{ rowType }}(
+            id: ${{ modelVariable }}->id,
+        );
     }
 }

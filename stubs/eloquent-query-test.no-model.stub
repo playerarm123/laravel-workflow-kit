@@ -1,0 +1,17 @@
+<?php
+
+require_once __DIR__.'/../ListQueryContract.php';
+
+use {{ namespacedCriteria }};
+use {{ namespacedQuery }};
+
+/**
+ * Fill in the hooks, then add each filter's and each sort key's own cases below the contract.
+ * See list-queries.md, "Tests".
+ */
+listQueryContract(
+    query: {{ query }}::class,
+    criteria: fn (array $overrides): {{ criteria }} => throw new LogicException('Build {{ criteria }} from perPage/search overrides.'),
+    seed: fn (int $count) => throw new LogicException('Create $count rows inside the scope, tying on the default sort.'),
+    break: fn () => throw new LogicException('Make the read fail, e.g. breakListQueryColumn().'),
+);

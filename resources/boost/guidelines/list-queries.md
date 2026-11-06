@@ -19,10 +19,10 @@ These live at fixed paths. `php artisan kit:install` writes them from the kit, a
 ## Scaffold, never hand-write
 Run `php artisan make:use-case List{Name} --domain={Context} --command --result --query`. It writes:
 - the Command, Handler, Result, Criteria, Row and port, and the `{Name}ListSort` enum beside the context (kept when it already exists)
-- the Eloquent adapter
-- a test file that already calls `listQueryContract()`
+- the Eloquent adapter, reading through `App\Models\{Singular}` with `paginate()`, `sortColumn()` and `toRow()` written out
+- a test file that already calls `listQueryContract()`, with the `criteria`, `seed` and `break` hooks filled in
 
-The Command comes with `sort`, `direction`, `search`, `createdFrom`, `createdTo` and `perPage`, and the Result with `{rows}`, `sort` and `filters`. The Handler settles each value as the table below says and returns the Result. A filter is one line in each of the Command, the Handler, the Criteria and its `toFilters()`.
+The Command comes with `sort`, `direction`, `search`, `createdFrom`, `createdTo` and `perPage`, and the Result with `{rows}`, `sort` and `filters`. The Handler settles each value as the table below says and returns the Result. A filter is one line in each of the Command, the Handler, the Criteria and its `toFilters()`, plus a `->when()` in the adapter. The adapter's `SEARCHABLE_COLUMNS` starts empty, and `applySearch()` skips a search with no columns, so the search box narrows nothing until you name one. The generator warns when the model does not exist yet. A read port whose use case does not start with `List` names no model, so its adapter keeps a commented outline.
 
 Then fill them in and bind the port to the adapter in a service provider. *Checks `implementation`, `binding`.*
 

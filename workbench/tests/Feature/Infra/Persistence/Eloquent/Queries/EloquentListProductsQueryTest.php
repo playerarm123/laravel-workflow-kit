@@ -2,16 +2,34 @@
 
 require_once __DIR__.'/../ListQueryContract.php';
 
+use App\Application\Catalog\ProductListSort;
 use App\Application\Catalog\UseCases\ListProducts\ListProductsCriteria;
 use App\Application\Catalog\UseCases\ListProducts\ListProductsQuery;
+use App\Application\Concerns\DateRange;
+use App\Infra\Persistence\Eloquent\Queries\EloquentListProductsQuery;
+use App\Models\Product;
 
 /**
- * Fill in the hooks, then add each filter's and each sort key's own cases below the contract.
- * See list-queries.md, "Tests".
+ * Pass seedMatching once SEARCHABLE_COLUMNS names a column, and seedOutOfScope once the list
+ * has a scope. Add each filter's and each sort key's own cases below the contract. See
+ * list-queries.md, "Tests".
  */
 listQueryContract(
     query: ListProductsQuery::class,
-    criteria: fn (array $overrides): ListProductsCriteria => throw new LogicException('Build ListProductsCriteria from perPage/search overrides.'),
-    seed: fn (int $count) => throw new LogicException('Create $count rows inside the scope, tying on the default sort.'),
-    break: fn () => throw new LogicException('Make the read fail, e.g. breakListQueryColumn().'),
+    criteria: fn (array $overrides): ListProductsCriteria => new ListProductsCriteria(
+        sort: ProductListSort::CreatedAt,
+        direction: 'desc',
+        search: $overrides['search'] ?? '',
+        createdAt: DateRange::fromInput('', ''),
+        perPage: $overrides['perPage'] ?? 10,
+    ),
+    seed: fn (int $count) => Product::factory()->count($count)->create(),
+    break: fn () => breakListQueryColumn('products', 'created_at'),
+    // seedMatching: fn (string $text) => Product::factory()->create(['name' => $text]),
 );
+
+describe('EloquentListProductsQuery', function () {
+    it('is what the read port resolves to', function () {
+        expect(app(ListProductsQuery::class))->toBeInstanceOf(EloquentListProductsQuery::class);
+    });
+});
