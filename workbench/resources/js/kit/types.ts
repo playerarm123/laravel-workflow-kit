@@ -181,7 +181,7 @@ export type ResourceSection = 'controller' | 'actions' | 'pages';
 export type ReplaceableSection =
     'ports' | 'useCases' | 'services' | 'applicationServices';
 
-export type PageKind = 'table' | 'grid' | 'form' | 'page';
+export type PageKind = 'table' | 'grid' | 'form' | 'dialog' | 'page';
 
 /**
  * An HTTP resource's manifest as it is on disk.

@@ -181,6 +181,8 @@ public function update(UpdateCustomerRequest $request, Customer $customer, Updat
 
 **Don't** load, post or render a field in `form-dialog.tsx`: no `<Form>`, `<form>` or `<input>`, no `useForm`, `useHttp` or `router`, and no `fetch`. *ESLint check `form-dialog`.*
 
+In the structure manifest, a form in a dialog is a page of kind `dialog` at the path its page would have, so `"customers/edit": "dialog"` beside `"customers/create": "form"` keeps create a page. `kit:apply` passes `--dialog` to `make:controller` and `make:form-page` for it (structure.md).
+
 **Why:** the dialog asks the same server for the same `{X}FormValues` the page would get, so the form is one component whether it sits on a page or in a dialog, and nothing in TypeScript builds starting values. Going back keeps the list's URL, so the user sees the saved row where they left it.
 
 ## File uploads

@@ -298,7 +298,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | Policy | โล่ | ชมพูกุหลาบ |
 | Controller | กล่องมีหัว | คราม |
 | Action | แคปซูล | ส้ม |
-| Page | แผ่นกระดาษพับมุม ไอคอนตามชนิด (table, grid, form, page) | เทา |
+| Page | แผ่นกระดาษพับมุม ไอคอนตามชนิด (table, grid, form, dialog, page) | เทา |
 | Elsewhere | เส้นประ | เทาจาง |
 
 การ์ดแสดงได้สูงสุดหกบรรทัด เกินนั้นขึ้นว่า `… N more` status แสดงการเปลี่ยนสถานะ (`Open → Sealed`, `Sealed · final`) แทนค่า enum แสดง case, value object แสดง field และ entity แสดง state (`status: CrateStatus`) แล้วตามด้วย method
@@ -369,7 +369,7 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 | New HTTP resource | Name, as its controller is named without Controller; It stands for no model | ชื่อซ้ำ หรือเป็น `AuditEntry` ของ kit เอง |
 | Controller method | Method name; Use cases it calls (กรองตามชื่อ: `index` มีเฉพาะ `command-result`, `store` และ `update` ต้องรับ Command, `destroy` ต้องเป็น `plain`) | `index` ไม่ได้เรียก use case แบบ `command-result` ตัวเดียว, `store` หรือ `update` ไม่ได้เรียกตัวที่รับ Command ตัวเดียว, `destroy` ไม่ได้เรียกตัวแบบ plain ตัวเดียว ([form-pages.md](../resources/boost/guidelines/form-pages.md)) |
 | Action | Verb; Acts on: One row, A selection of rows; Use case both call | ไม่ได้ติ๊กอะไรเลย, use case ของ bulk action ไม่ได้รับ Command และคืน `int` ([actions.md](../resources/boost/guidelines/actions.md)) |
-| Page | Path under resources/js/pages; Kind: `table`, `grid`, `form` หรือ `page` | path ไม่ตรงกับที่ generator เขียน, หน้ารายการไม่มี `index`, หน้าฟอร์มไม่มี `store` หรือ `update` |
+| Page | Path under resources/js/pages; Kind: `table`, `grid`, `form`, `dialog` (ฟอร์ม create หรือ edit ที่เปิดใน dialog ใช้ path เดียวกับที่หน้าของฟอร์มนั้นจะอยู่) หรือ `page` | path ไม่ตรงกับที่ generator เขียน, หน้ารายการไม่มี `index`, หน้าฟอร์มไม่มี `store` หรือ `update`, dialog สร้างไม่มี `create` กับ `store`, dialog แก้ไขไม่มี `edit` กับ `update` |
 | Model and policy | Model หรือ No model; Policy abilities, separated by commas หรือ No policy | มี policy แต่ไม่มี model, model หรือ policy สร้างไปแล้ว |
 
 ### แก้และลบ

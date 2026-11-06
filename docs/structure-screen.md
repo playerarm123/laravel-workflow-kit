@@ -298,7 +298,7 @@ Each kind has its own shape, colour and icon. The **Legend** at the top left nam
 | Policy | shield | rose |
 | Controller | box with a header | indigo |
 | Action | pill | orange |
-| Page | folded sheet, icon by kind (table, grid, form, page) | zinc |
+| Page | folded sheet, icon by kind (table, grid, form, dialog, page) | zinc |
 | Elsewhere | dashed | grey |
 
 A card lists up to six lines, then `… N more`. A status lists its moves (`Open → Sealed`, `Sealed · final`) in place of its values. An enum lists its cases, a value object its fields, and an entity its state (`status: CrateStatus`) then its methods.
@@ -369,7 +369,7 @@ In the enum and value object forms, rows move up with the arrow and go with the 
 | New HTTP resource | Name, as its controller is named without Controller; It stands for no model | The name is taken, or is the kit's own `AuditEntry`. |
 | Controller method | Method name; Use cases it calls (filtered by the name: `index` offers `command-result`, `store` and `update` take a Command, `destroy` is `plain`) | `index` does not call exactly one `command-result` use case, `store` or `update` exactly one taking a Command, or `destroy` exactly one plain one ([form-pages.md](../resources/boost/guidelines/form-pages.md)). |
 | Action | Verb; Acts on: One row, A selection of rows; Use case both call | Neither is ticked. A bulk action's use case does not take a Command and return `int` ([actions.md](../resources/boost/guidelines/actions.md)). |
-| Page | Path under resources/js/pages; Kind: `table`, `grid`, `form` or `page` | The path is not where its generator writes it. A list page needs `index`, a form page needs `store` or `update`. |
+| Page | Path under resources/js/pages; Kind: `table`, `grid`, `form`, `dialog` (a create or edit form in a dialog, at the path its page would have) or `page` | The path is not where its generator writes it. A list page needs `index`, a form page needs `store` or `update`, a create dialog needs `create` and `store`, an edit dialog `edit` and `update`. |
 | Model and policy | Model, or No model; Policy abilities, separated by commas, or No policy | A policy has no model. The model or policy is already built. |
 
 ### Editing and removing
