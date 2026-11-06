@@ -2,7 +2,6 @@
 
 namespace Playerarm123\LaravelWorkflowKit\Console\Commands\Structure;
 
-use Illuminate\Support\Str;
 use ReflectionClass;
 use ReflectionEnum;
 use ReflectionEnumBackedCase;
@@ -74,11 +73,6 @@ final class StructureReader
      * The starter kit's own controllers, which act on the signed-in user's account.
      */
     public const string STARTER_CONTROLLERS = 'App\Http\Controllers\Settings';
-
-    /**
-     * The forms a dialog can hold, each named after the controller method that loads it.
-     */
-    public const array DIALOG_FORMS = ['create', 'edit'];
 
     private const string JSON_RESPONSE = 'Illuminate\Http\JsonResponse';
 
@@ -282,6 +276,8 @@ final class StructureReader
         $resourceController = $controllers[$resource] ?? null;
 
         if ($resourceController !== null && $this->actionOf($resource, $resourceController) === null) {
+            $dialogs = FormDialogs::exported($this->root, $resource);
+
             foreach ($this->publicMethods($resourceController) as $method) {
                 $controller[$method->getName()] = $this->useCasesOf($method);
 
@@ -293,7 +289,7 @@ final class StructureReader
                     }
                 }
 
-                $dialog = $this->dialogOf($resource, $method);
+                $dialog = $this->dialogOf($resource, $method, $dialogs);
 
                 if ($dialog !== null) {
                     $pages[$dialog] = 'dialog';
@@ -1433,37 +1429,19 @@ final class StructureReader
      * The form a `create` or `edit` method opens in a dialog (form-pages.md, "Form dialogs"), at the
      * path its page would have, or null. It is one once the method answers JSON and the resource's
      * `form-dialog.tsx` exports `Create{Model}Dialog` or `Edit{Model}Dialog`.
+     *
+     * @param  list<string>  $exported  the forms `form-dialog.tsx` exports a dialog for
      */
-    private function dialogOf(string $resource, ReflectionMethod $method): ?string
+    private function dialogOf(string $resource, ReflectionMethod $method, array $exported): ?string
     {
         $form = $method->getName();
         $type = $method->getReturnType();
 
-        if (! in_array($form, self::DIALOG_FORMS, true) || ! $type instanceof ReflectionNamedType || $type->getName() !== self::JSON_RESPONSE) {
+        if (! in_array($form, $exported, true) || ! $type instanceof ReflectionNamedType || $type->getName() !== self::JSON_RESPONSE) {
             return null;
         }
 
-        return self::hasDialog($this->root, $resource, $form) ? self::formPageOf($resource, $form) : null;
-    }
-
-    /**
-     * Whether the model's `form-dialog.tsx` exports the dialog of this form, as make:form-page
-     * writes it: `Create{Model}Dialog` or `Edit{Model}Dialog`.
-     */
-    public static function hasDialog(string $root, string $model, string $form): bool
-    {
-        $path = $root.'/resources/js/components/'.Str::kebab($model).'/form-dialog.tsx';
-
-        return is_file($path) && preg_match('/^export\s+function\s+'.Str::studly($form).$model.'Dialog\b/m', StructureFiles::text($path)) === 1;
-    }
-
-    /**
-     * Where make:form-page writes a resource's create or edit page, and the path its form keeps
-     * in the manifest when it lives in a dialog: `Crate`, `edit` → `crates/edit`.
-     */
-    public static function formPageOf(string $model, string $form): string
-    {
-        return Str::kebab(Str::pluralStudly($model)).'/'.$form;
+        return FormDialogs::pageOf($resource, $form);
     }
 
     /**

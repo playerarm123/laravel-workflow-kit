@@ -30,7 +30,7 @@ The kit builds on these shadcn components, added with `php artisan kit:ui-add <n
 1. `php artisan make:use-case Create{X} --domain={Context} --command --creates --repo={X}`, and `Update{X}` with `--command --repo={X}`.
 2. `php artisan make:form-request {X} --domain={Context}` reads both Commands and writes `Store{X}Request`, `Update{X}Request` and `{X}FormValues`. Fill in the rules, `toCommand()` and `of()`.
 3. `php artisan make:controller {X} --domain={Context} --only=create,store,edit,update` writes those four methods in the shape below (add `--dialog[=create,edit]` for the forms that live in a dialog), and adds them to a controller that already exists without touching its other methods. It writes a test per action with a todo for each case. Then fill in what it cannot know: a toast's `:name`, extra props, `can` keys for other models, and the refusals to catch. *Review only.*
-4. `php artisan make:form-page {X}` reads the `@return array{…}` of `{X}FormValues::toArray()` and writes the TypeScript type, the form component and both page shells. With `--dialog[=create,edit]` it writes `components/{aggregate}/form-dialog.tsx` in place of the pages it names, and prints how the list page opens them. Then lay out the fields and add translations. *Review only.*
+4. `php artisan make:form-page {X}` reads the `@return array{…}` of `{X}FormValues::toArray()` and writes the TypeScript type, the form component and both page shells. With `--dialog[=create,edit]` it writes `components/{aggregate}/form-dialog.tsx` in place of the pages it names, or adds the dialogs that file does not export yet, and prints how the list page opens them. Then lay out the fields and add translations. *Review only.*
 
 ## The controller
 

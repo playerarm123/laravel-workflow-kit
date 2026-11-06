@@ -534,7 +534,8 @@ final class StructurePlanner
         $methods = array_values(array_intersect(self::RESOURCE_METHODS, array_keys($manifest['controller'])));
         $useCases = array_merge([], ...array_values($manifest['controller']));
         $grid = in_array('grid', $manifest['pages'], true);
-        $dialogs = self::dialogsOf($manifest['pages']);
+        $dialogs = FormDialogs::inPages($model, $manifest['pages']);
+        $dialogOption = $dialogs === [] ? [] : ['--dialog' => implode(',', $dialogs)];
 
         if ($methods !== []) {
             $context = $useCases === [] ? null : explode('/', $useCases[0])[0];
@@ -552,16 +553,23 @@ final class StructurePlanner
                 $arguments['--grid'] = true;
             }
 
-            if ($dialogs !== []) {
-                $arguments['--dialog'] = implode(',', $dialogs);
-            }
+            $arguments = [...$arguments, ...$dialogOption];
 
+            /*
+             * A form the manifest keeps in a dialog is built only once its create or edit answers
+             * JSON. make:controller leaves a method that renders a page as it is, so that one waits
+             * for a person to turn it into a dialog.
+             */
+            $controllerFile = $this->rootOf()."/app/Http/Controllers/{$model}Controller.php";
+            $code = StructureFiles::text($controllerFile);
+            $pagesStill = array_values(array_filter($dialogs, fn (string $form): bool => FormDialogs::answerOf($code, $form) === 'page'));
             $missing = array_values(array_filter($useCases, fn (string $useCase): bool => $this->handlerOf($useCase) === null));
-            $done = array_diff($methods, $this->publicMethodsOf($this->rootOf()."/app/Http/Controllers/{$model}Controller.php")) === [];
+            $done = array_diff($methods, $this->publicMethodsOf($controllerFile)) === [] && $pagesStill === [];
 
             $steps[] = $this->generator(9, "controller {$model}", $done, match (true) {
                 $context === null => 'no use case names the context the controller belongs to — write it by hand',
                 $missing !== [] => 'the use cases it calls come first: '.implode(', ', $missing),
+                $pagesStill !== [] => sprintf('%s() still %s a page, but the manifest keeps the form in a dialog: make it answer JSON by hand (form-pages.md, "Form dialogs")', implode('() and ', $pagesStill), count($pagesStill) === 1 ? 'renders' : 'render'),
                 default => null,
             }, 'make:controller', $arguments, ["controller:{$resource}"]);
 
@@ -634,7 +642,8 @@ final class StructurePlanner
             }
 
             $formPages = array_keys(array_filter($manifest['pages'], fn (string $kind): bool => $kind === 'form'));
-            $formNodes = array_map(fn (string $page): string => "page:{$resource}/{$page}", array_keys(array_filter($manifest['pages'], fn (string $kind): bool => in_array($kind, ['form', 'dialog'], true))));
+            $dialogPages = array_map(fn (string $form): string => FormDialogs::pageOf($model, $form), $dialogs);
+            $formNodes = array_map(fn (string $page): string => "page:{$resource}/{$page}", [...$formPages, ...$dialogPages]);
 
             $steps[] = $this->generator(11, "form request {$model}", class_exists("App\\Http\\Requests\\{$model}\\Store{$model}Request"), match (true) {
                 $create === null => 'store names no use case — write the requests by hand',
@@ -644,9 +653,9 @@ final class StructurePlanner
             }, 'make:form-request', $arguments, $formNodes);
 
             $built = array_filter($formPages, fn (string $page): bool => ! is_file($this->pagePath($page))) === []
-                && array_filter($dialogs, fn (string $form): bool => ! StructureReader::hasDialog($this->rootOf(), $model, $form)) === [];
+                && array_diff($dialogs, FormDialogs::exported($this->rootOf(), $model)) === [];
 
-            $steps[] = $this->generator(13, "form pages {$model}", $built, class_exists("App\\Http\\Requests\\{$model}\\{$model}FormValues") ? null : "make:form-request writes {$model}FormValues first", 'make:form-page', ['name' => $model, ...($dialogs === [] ? [] : ['--dialog' => implode(',', $dialogs)])], $formNodes);
+            $steps[] = $this->generator(13, "form pages {$model}", $built, class_exists("App\\Http\\Requests\\{$model}\\{$model}FormValues") ? null : "make:form-request writes {$model}FormValues first", 'make:form-page', ['name' => $model, ...$dialogOption], $formNodes);
         }
 
         $index = $manifest['controller']['index'][0] ?? null;
@@ -678,20 +687,6 @@ final class StructurePlanner
         }
 
         return $steps;
-    }
-
-    /**
-     * The forms a resource opens in a dialog, `create` before `edit`: each page of kind `dialog`
-     * is kept at the path its form's page would have (form-pages.md, "Form dialogs").
-     *
-     * @param  array<string, string>  $pages
-     * @return list<string>
-     */
-    public static function dialogsOf(array $pages): array
-    {
-        $forms = array_map(basename(...), array_keys(array_filter($pages, fn (string $kind): bool => $kind === 'dialog')));
-
-        return array_values(array_intersect(StructureReader::DIALOG_FORMS, $forms));
     }
 
     /**

@@ -564,6 +564,13 @@ JSON)
             expect($this->files->resourceProblems('Crate', ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => ['crates/create' => 'form', 'crates/edit' => 'dialog']]))->toBe([]);
         });
 
+        it('refuses a dialog away from its model\'s folder, and one with no model to hold the form of', function () {
+            $resource = ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => ['boxes/create' => 'dialog']];
+
+            expect($this->files->resourceProblems('Crate', $resource))->toBe(['pages.boxes/create: a dialog is the create or the edit form, kept at the path its page would have: crates/create or crates/edit'])
+                ->and($this->files->resourceProblems('Crate', [...$resource, 'model' => null, 'pages' => ['crates/create' => 'dialog']]))->toBe(['pages.crates/create: a dialog holds the form of a model, so it needs a resource with a model']);
+        });
+
         it('names every fault of a resource with the wrong shape', function () {
             expect($this->files->resourceProblems('Crate', [
                 'resource' => 'Box',
@@ -584,7 +591,7 @@ JSON)
                 '"policy" must list camelCase abilities, or be null',
                 'pages.Crates/Index: a page is its path under resources/js/pages, in kebab case',
                 'pages.Crates/Index: must be one of table, grid, form, dialog, page',
-                'pages.crates/show: a dialog is the create or the edit form, kept at the path its page would have: {folder}/create or {folder}/edit',
+                'pages.crates/show: a dialog is the create or the edit form, kept at the path its page would have: crates/create or crates/edit',
             ]);
         });
     });

@@ -8,6 +8,7 @@ use Override;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\ReadsDialogForms;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\ResolvesDomain;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\WritesGeneratedFiles;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\FormDialogs;
 use Playerarm123\LaravelWorkflowKit\WorkflowKit;
 use ReflectionMethod;
 use ReflectionNamedType;
@@ -323,8 +324,8 @@ class MakeControllerCommand extends ControllerMakeCommand
 
         $forms = [];
 
-        foreach (self::DIALOG_FORM_NAMES as $form) {
-            $answers = $this->answerOf($contents, $form);
+        foreach (FormDialogs::forms() as $form) {
+            $answers = FormDialogs::answerOf($contents, $form);
 
             if ($answers === 'page' && in_array($form, $named, true)) {
                 $this->warnings[] = sprintf('%s() already renders a page, so the form stays a page. Turn it into a dialog by hand (form-pages.md, "Form dialogs").', $form);
@@ -341,29 +342,12 @@ class MakeControllerCommand extends ControllerMakeCommand
     }
 
     /**
-     * How a controller that exists answers a form's method: `json` for a dialog, `page` for a
-     * page, null when it has no such method.
-     */
-    protected function answerOf(string $contents, string $method): ?string
-    {
-        if (preg_match('/^\s*public function '.$method.'\s*\([^)]*\)\s*:\s*(\w+)/m', $contents, $match) !== 1) {
-            return null;
-        }
-
-        return $match[1] === 'JsonResponse' ? 'json' : 'page';
-    }
-
-    /**
      * Whether the form a method belongs to lives in a dialog: create and store follow create, edit
      * and update follow edit.
      */
     protected function inDialog(string $method): bool
     {
-        $form = match ($method) {
-            'create', 'store' => 'create',
-            'edit', 'update' => 'edit',
-            default => null,
-        };
+        $form = FormDialogs::formOf($method);
 
         return $form !== null && in_array($form, $this->dialogs, true);
     }

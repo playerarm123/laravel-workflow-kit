@@ -230,7 +230,27 @@ describe('StructureResourceEditor', function () {
             expect($editor->savePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'pages', null, 'sampling-route-cases/edit', ['kind' => 'dialog']))->toBe([])
                 ->and(samplingRouteManifest()['pages'])->toBe(['sampling-route-cases/edit' => 'dialog', 'sampling-route-cases/index' => 'table'])
                 ->and($editor->removePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'controller', 'edit')['name'][0] ?? null)->toContain('The edit dialog loads from edit')
-                ->and($editor->removePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'controller', 'update')['name'][0] ?? null)->toContain('so update stays while the dialog does');
+                ->and($editor->removePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'controller', 'update')['name'][0] ?? null)->toContain('so update stays while the dialog does')
+                ->and($editor->removePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'pages', 'sampling-route-cases/index')['name'] ?? [])->toBe(['The edit dialog opens from sampling-route-cases/index, so it stays while the dialog does.'])
+                ->and($editor->saveResource(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'SamplingRouteOther', null)['model'] ?? [])->toBe(['A dialog keeps the path of its model\'s form, so remove the dialogs before changing the model.']);
+        });
+
+        it('refuses a dialog with no list page in its folder to open from', function () {
+            $editor = samplingRouteEditor();
+            $editor->savePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'controller', null, 'create', ['useCases' => []]);
+            $editor->savePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'controller', null, 'store', ['useCases' => [samplingRouteUseCase('CreateSamplingRouteCase')]]);
+            $editor->removePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'pages', 'sampling-route-cases/index');
+
+            expect($editor->savePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'pages', null, 'sampling-route-cases/create', ['kind' => 'dialog']))
+                ->toBe(['kind' => ['A dialog has no page of its own: it opens from the list page at sampling-route-cases/index, so add that page first.']]);
+        });
+
+        it('refuses a dialog on a resource with no model, which kit:apply could not build', function () {
+            $editor = samplingRouteEditor();
+            $editor->saveResource(SAMPLING_ROUTE_CASE, samplingRouteVersion(), null, null);
+
+            expect($editor->savePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'pages', null, 'sampling-route-cases/create', ['kind' => 'dialog']))
+                ->toBe(['kind' => ['A dialog holds the form of a model, which make:form-page builds it from, so give the resource a model first.']]);
         });
 
         it('renames a piece the code does not have yet', function () {

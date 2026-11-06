@@ -264,6 +264,37 @@ it('keeps create a page and puts only edit in a dialog, with one form for both',
         ->and(File::exists(base_path(formPageGenerated()['edit_browser'])))->toBeFalse();
 });
 
+it('adds a dialog the form-dialog.tsx does not export yet, and leaves the ones it does', function () {
+    runMakeFormPage(['--dialog' => 'edit'])->assertSuccessful();
+
+    runMakeFormPage(['--dialog' => 'create,edit'])
+        ->expectsOutputToContain('gained CreateSamplingPalletDialog')
+        ->assertSuccessful();
+
+    $dialog = File::get(base_path(formPageGenerated()['dialog']));
+    $eslint = Process::path(base_path())->run([base_path('node_modules/.bin/eslint'), '--no-ignore', base_path(formPageGenerated()['dialog'])]);
+
+    expect(substr_count($dialog, 'export function EditSamplingPalletDialog'))->toBe(1)
+        ->and(substr_count($dialog, 'export function CreateSamplingPalletDialog'))->toBe(1)
+        ->and(substr_count($dialog, "from '@/hooks/use-dialog';"))->toBe(1)
+        ->and($dialog)->toContain("import type { Dialog, ItemDialog } from '@/hooks/use-dialog';")
+        ->and($eslint->successful())->toBeTrue($eslint->output());
+
+    runMakeFormPage(['--dialog' => 'create,edit'])
+        ->expectsOutputToContain('already exists')
+        ->assertSuccessful();
+
+    expect(File::get(base_path(formPageGenerated()['dialog'])))->toBe($dialog);
+});
+
+it('says a form written for a page cannot close a dialog', function () {
+    runMakeFormPage()->assertSuccessful();
+
+    runMakeFormPage(['--dialog' => 'edit'])
+        ->expectsOutputToContain('was written for a page, so a dialog cannot close it')
+        ->assertSuccessful();
+});
+
 it('adds the dialog cases to the list page\'s Browser test, once', function () {
     File::ensureDirectoryExists(base_path('tests/Browser/SamplingPallets'));
     File::put(base_path(formPageGenerated()['index_browser']), "<?php\n\nit('renders the rows')->todo();\n");
