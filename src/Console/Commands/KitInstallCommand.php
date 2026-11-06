@@ -5,6 +5,7 @@ namespace Playerarm123\LaravelWorkflowKit\Console\Commands;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use InvalidArgumentException;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\KitInstaller;
 use Playerarm123\LaravelWorkflowKit\WorkflowKit;
 
@@ -13,8 +14,13 @@ use Playerarm123\LaravelWorkflowKit\WorkflowKit;
  * file the project must keep as the kit ships it is written when it is missing and overwritten
  * only with `--force`; a file the kit writes once, such as the actor port, is never overwritten.
  * The `kit-files` checks fail for every file this would still write.
+ *
+ * `--with=` adds a feature the project chooses, such as the image library. The project records
+ * it in `.kit/features.json`, so every later run keeps its files up to date too.
  */
-#[Signature('kit:install {--force : Overwrite the kit files that differ from the kit\'s copy}')]
+#[Signature('kit:install
+    {--force : Overwrite the kit files that differ from the kit\'s copy}
+    {--with=* : Also install a feature the kit ships, such as media}')]
 #[Description('Write the workflow kit\'s files into the project, as the guidelines\' Kit files describe')]
 class KitInstallCommand extends Command
 {
@@ -32,7 +38,19 @@ class KitInstallCommand extends Command
 
     public function handle(): int
     {
-        $report = (new KitInstaller(WorkflowKit::kitPath(), base_path()))->install((bool) $this->option('force'));
+        $installer = new KitInstaller(WorkflowKit::kitPath(), base_path());
+
+        try {
+            $report = $installer->install((bool) $this->option('force'), array_values(array_map(strval(...), (array) $this->option('with'))));
+        } catch (InvalidArgumentException $e) {
+            $this->components->error($e->getMessage());
+
+            return self::FAILURE;
+        }
+
+        foreach ($report['enabled'] as $feature) {
+            $this->components->info(sprintf('Feature [%s] installed and recorded in %s.', $feature, KitInstaller::FEATURES_FILE));
+        }
 
         foreach ($report['written'] as $path) {
             $this->components->info(sprintf('Kit file [%s] written.', $path));
@@ -51,6 +69,15 @@ class KitInstallCommand extends Command
 
         if ($report['written'] !== []) {
             $this->components->bulletList(self::BY_HAND);
+        }
+
+        foreach ($report['enabled'] as $feature) {
+            $byHand = $installer->byHandOf($feature);
+
+            if ($byHand !== []) {
+                $this->components->twoColumnDetail(sprintf('Wire the %s feature by hand', $feature));
+                $this->components->bulletList($byHand);
+            }
         }
 
         return self::SUCCESS;

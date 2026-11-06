@@ -162,7 +162,8 @@ function ruleUnexcused(string $rule, string $check, array $violations): array
 /**
  * The kit's own copy of a project file, which `php artisan kit:install` writes: under
  * resources/kit/files when the project must keep it as the kit ships it, under
- * resources/kit/scaffold when the kit writes it once and the project owns it from then on.
+ * resources/kit/scaffold when the kit writes it once and the project owns it from then on, and
+ * the same two folders of each feature under resources/kit/features/{name}.
  * A pattern (`database/migrations/*_create_x_table.php`) resolves to the file it matches.
  *
  * @return array{path: string, scaffold: bool}|null
@@ -170,16 +171,31 @@ function ruleUnexcused(string $rule, string $check, array $violations): array
 function ruleKitCopyOf(string $relative): ?array
 {
     $kit = dirname(__DIR__, 3).'/resources/kit';
+    $roots = [$kit, ...(glob($kit.'/features/*', GLOB_ONLYDIR) ?: [])];
 
-    foreach (['files' => false, 'scaffold' => true] as $folder => $scaffold) {
-        $matches = glob($kit.'/'.$folder.'/'.$relative) ?: [];
+    foreach ($roots as $root) {
+        foreach (['files' => false, 'scaffold' => true] as $folder => $scaffold) {
+            $matches = glob($root.'/'.$folder.'/'.$relative) ?: [];
 
-        if ($matches !== []) {
-            return ['path' => $matches[0], 'scaffold' => $scaffold];
+            if ($matches !== []) {
+                return ['path' => $matches[0], 'scaffold' => $scaffold];
+            }
         }
     }
 
     return null;
+}
+
+/**
+ * Whether the project installed the kit's feature $name (`kit:install --with={name}`), as its
+ * `.kit/features.json` records it. A feature's checks hold only where it is installed.
+ */
+function ruleFeatureEnabled(string $name): bool
+{
+    $path = ruleProjectPath('.kit/features.json');
+    $names = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
+
+    return is_array($names) && in_array($name, $names, true);
 }
 
 /**

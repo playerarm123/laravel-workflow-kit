@@ -127,7 +127,7 @@ generator ทุกตัวเขียน test ไว้ข้างไฟล�
 |---|---|
 | `kit:setup [--database=] [--skip-dependencies]` | ตั้งค่าโปรเจกต์ที่สร้างจาก React starter kit ให้ครบในครั้งเดียว |
 | `kit:ui-add {components*} [--overwrite=] [--allow=] [--dry-run]` | เพิ่ม shadcn component ให้ตรงกับ stack ใช้แทน `npx shadcn add` ([stack.md](resources/boost/guidelines/stack.md)) |
-| `kit:install [--force]` | วางไฟล์ของ kit ลงในโปรเจกต์ |
+| `kit:install [--force] [--with=]` | วางไฟล์ของ kit ลงในโปรเจกต์ ส่วน `--with=` ใช้ติดตั้งฟีเจอร์เสริมที่ kit มีให้เลือก แล้วบันทึกไว้ใน `.kit/features.json` เพื่อให้การรันครั้งต่อไปอัปเดตฟีเจอร์นั้นด้วย |
 | `kit:import [--context=] [--resource=] [--force]` | เขียน structure manifest จากโค้ด |
 | `kit:plan [--context=] [--resource=]` | แสดงขั้นตอนที่จะสร้างตาม manifest |
 | `kit:apply [--context=] [--resource=]` | รันขั้นตอนเหล่านั้น |

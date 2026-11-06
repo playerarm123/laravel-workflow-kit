@@ -2,6 +2,7 @@
 
 namespace Playerarm123\LaravelWorkflowKit\Console\Commands\Structure;
 
+use InvalidArgumentException;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
@@ -14,6 +15,12 @@ use SplFileInfo;
  * overwritten only when asked to. `{kit}/scaffold/{path}` is written once when it is missing
  * and belongs to the project from then on, so it is never overwritten.
  *
+ * `{kit}/features/{name}/` is a feature a project chooses to install, such as the image library.
+ * Its `files/` and `scaffold/` mean the same as the kit's own. Once installed, the feature is
+ * recorded in the project's `.kit/features.json`, so every later install keeps it up to date and
+ * the checks hold its files to the kit's copy. Its `feature.json` lists what the project wires by
+ * hand once (`by_hand`).
+ *
  * A migration is matched by its name without the timestamp, so a project that already runs the
  * kit's table under another timestamp never gets a second migration for it.
  */
@@ -21,16 +28,126 @@ final class KitInstaller
 {
     private const string MIGRATIONS = 'database/migrations/';
 
+    /**
+     * Where a project records the features it installed, from its root.
+     */
+    public const string FEATURES_FILE = '.kit/features.json';
+
     public function __construct(private readonly string $kitPath, private readonly string $projectPath) {}
 
     /**
-     * @return array{written: list<string>, overwritten: list<string>, unchanged: list<string>, differs: list<string>, kept: list<string>}
+     * Writes the kit's files, those of every feature the project installed before, and those of
+     * the features $with names, which are recorded as installed from then on.
+     *
+     * @param  list<string>  $with
+     * @return array{written: list<string>, overwritten: list<string>, unchanged: list<string>, differs: list<string>, kept: list<string>, enabled: list<string>}
+     *
+     * @throws InvalidArgumentException when $with names a feature the kit does not ship
      */
-    public function install(bool $force = false): array
+    public function install(bool $force = false, array $with = []): array
     {
-        $report = ['written' => [], 'overwritten' => [], 'unchanged' => [], 'differs' => [], 'kept' => []];
+        $shipped = $this->features();
+        $unknown = array_values(array_diff($with, $shipped));
 
-        foreach ($this->filesIn('files') as $relative => $source) {
+        if ($unknown !== []) {
+            throw new InvalidArgumentException(sprintf(
+                'The kit has no feature [%s]. It ships: %s.',
+                implode(', ', $unknown),
+                $shipped === [] ? 'none' : implode(', ', $shipped),
+            ));
+        }
+
+        $before = $this->enabledFeatures();
+        $enabled = array_values(array_diff(array_unique($with), $before));
+
+        if ($enabled !== []) {
+            $this->recordFeatures([...$before, ...$enabled]);
+        }
+
+        $report = ['written' => [], 'overwritten' => [], 'unchanged' => [], 'differs' => [], 'kept' => [], 'enabled' => $enabled];
+
+        foreach ($this->folders('files') as $folder) {
+            $this->installFiles($folder, $force, $report);
+        }
+
+        foreach ($this->folders('scaffold') as $folder) {
+            $this->installScaffold($folder, $report);
+        }
+
+        return $report;
+    }
+
+    /**
+     * Every feature the kit ships, by name, in name order.
+     *
+     * @return list<string>
+     */
+    public function features(): array
+    {
+        $names = array_map(basename(...), glob($this->kitPath.'/features/*', GLOB_ONLYDIR) ?: []);
+        sort($names);
+
+        return $names;
+    }
+
+    /**
+     * The features the project installed, as its `.kit/features.json` records them, in name
+     * order. A name the kit no longer ships is left out.
+     *
+     * @return list<string>
+     */
+    public function enabledFeatures(): array
+    {
+        $path = $this->projectPath.'/'.self::FEATURES_FILE;
+        $names = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
+
+        if (! is_array($names)) {
+            return [];
+        }
+
+        return array_values(array_intersect($this->features(), array_filter($names, is_string(...))));
+    }
+
+    /**
+     * What feature $name asks the project to wire by hand once, from its `feature.json`.
+     *
+     * @return list<string>
+     */
+    public function byHandOf(string $name): array
+    {
+        $path = $this->kitPath.'/features/'.$name.'/feature.json';
+        $manifest = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
+        $lines = is_array($manifest) ? ($manifest['by_hand'] ?? null) : null;
+
+        return is_array($lines) ? array_values(array_filter($lines, is_string(...))) : [];
+    }
+
+    /**
+     * Where each of the kit's own files (`{kit}/files/`, and `files/` of every feature the
+     * project installed) lands in the project, from the project root: the files the `kit-files`
+     * checks hold to the kit's copy.
+     *
+     * @return list<string>
+     */
+    public function ownedPaths(): array
+    {
+        $paths = [];
+
+        foreach ($this->folders('files') as $folder) {
+            foreach (array_keys($this->filesIn($folder)) as $relative) {
+                $paths[] = substr($this->targetOf($relative), strlen($this->projectPath) + 1);
+            }
+        }
+
+        return $paths;
+    }
+
+    /**
+     * @param  array{written: list<string>, overwritten: list<string>, unchanged: list<string>, differs: list<string>, kept: list<string>, enabled: list<string>}  $report
+     */
+    private function installFiles(string $folder, bool $force, array &$report): void
+    {
+        foreach ($this->filesIn($folder) as $relative => $source) {
             $target = $this->targetOf($relative);
             $shown = substr($target, strlen($this->projectPath) + 1);
 
@@ -46,8 +163,14 @@ final class KitInstaller
                 $report['differs'][] = $shown;
             }
         }
+    }
 
-        foreach ($this->filesIn('scaffold') as $relative => $source) {
+    /**
+     * @param  array{written: list<string>, overwritten: list<string>, unchanged: list<string>, differs: list<string>, kept: list<string>, enabled: list<string>}  $report
+     */
+    private function installScaffold(string $folder, array &$report): void
+    {
+        foreach ($this->filesIn($folder) as $relative => $source) {
             $target = $this->targetOf($relative);
             $shown = substr($target, strlen($this->projectPath) + 1);
 
@@ -58,22 +181,33 @@ final class KitInstaller
                 $report['written'][] = $shown;
             }
         }
-
-        return $report;
     }
 
     /**
-     * Where each of the kit's own files (`{kit}/files/`) lands in the project, from the project
-     * root: the files the `kit-files` checks hold to the kit's copy.
+     * The kit's folder of one kind (`files` or `scaffold`), then that folder of each feature the
+     * project installed, as paths from the kit's root.
      *
      * @return list<string>
      */
-    public function ownedPaths(): array
+    private function folders(string $kind): array
     {
-        return array_map(
-            fn (string $relative): string => substr($this->targetOf($relative), strlen($this->projectPath) + 1),
-            array_keys($this->filesIn('files')),
-        );
+        return [$kind, ...array_map(fn (string $name): string => "features/{$name}/{$kind}", $this->enabledFeatures())];
+    }
+
+    /**
+     * @param  list<string>  $names
+     */
+    private function recordFeatures(array $names): void
+    {
+        $names = array_values(array_unique($names));
+        sort($names);
+        $path = $this->projectPath.'/'.self::FEATURES_FILE;
+
+        if (! is_dir(dirname($path))) {
+            mkdir(dirname($path), 0755, true);
+        }
+
+        file_put_contents($path, json_encode($names, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
     }
 
     /**

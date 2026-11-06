@@ -127,7 +127,7 @@ Each generator writes the test beside what it writes, with a `->todo()` per case
 |---|---|
 | `kit:setup [--database=] [--skip-dependencies]` | Set up a project made from the React starter kit, in one run |
 | `kit:ui-add {components*} [--overwrite=] [--allow=] [--dry-run]` | Add shadcn components the way the stack wants them, instead of `npx shadcn add` ([stack.md](resources/boost/guidelines/stack.md)) |
-| `kit:install [--force]` | Write the kit's files into the project |
+| `kit:install [--force] [--with=]` | Write the kit's files into the project. `--with=` adds a feature the kit ships for projects that choose it; `.kit/features.json` records it, so later runs keep it up to date |
 | `kit:import [--context=] [--resource=] [--force]` | Write the structure manifest from the code |
 | `kit:plan [--context=] [--resource=]` | Show the steps that build the manifest |
 | `kit:apply [--context=] [--resource=]` | Run those steps |
