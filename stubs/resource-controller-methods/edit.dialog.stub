@@ -1,0 +1,12 @@
+    /**
+     * Answer the edit dialog's starting values, the stored row as the form shows it
+     * (form-pages.md, "Form dialogs").
+     */
+    public function edit({{ model }} ${{ variable }}): JsonResponse
+    {
+        Gate::authorize('update', ${{ variable }});
+
+        return response()->json([
+            'defaults' => {{ model }}FormValues::of(${{ variable }}),
+        ]);
+    }

@@ -5,6 +5,7 @@ namespace Playerarm123\LaravelWorkflowKit\Console\Commands;
 use Illuminate\Routing\Console\ControllerMakeCommand;
 use Illuminate\Support\Str;
 use Override;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\ReadsDialogForms;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\ResolvesDomain;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\WritesGeneratedFiles;
 use Playerarm123\LaravelWorkflowKit\WorkflowKit;
@@ -23,6 +24,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * controller that already exists adds the ones it lacks, in resource order, without touching
  * the rest. Each new action gets its test at the path testing.md mirrors, every case a todo.
  * `--grid` writes index for a grid page: rows through `Inertia::scroll()` and no sort.
+ * `--dialog[=create,edit]` writes the forms it names for a dialog (form-pages.md, "Form
+ * dialogs"): create or edit answers its defaults as JSON, and store or update goes back.
  *
  * An action that is not create, edit or delete is an invokable controller of its own
  * (`make:action`). The route, the policy abilities and the translations are printed, never
@@ -31,6 +34,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'make:controller')]
 class MakeControllerCommand extends ControllerMakeCommand
 {
+    use ReadsDialogForms;
     use ResolvesDomain;
     use WritesGeneratedFiles;
 
@@ -71,8 +75,16 @@ class MakeControllerCommand extends ControllerMakeCommand
         'create' => [
             'renders the form with empty defaults',
         ],
+        'create.dialog' => [
+            'answers the empty defaults as JSON',
+        ],
         'store' => [
             'creates the row, redirects and answers with a success toast',
+            'rejects each invalid field',
+            'answers with an error toast for each refusal the controller catches',
+        ],
+        'store.dialog' => [
+            'creates the row, goes back and answers with a success toast',
             'rejects each invalid field',
             'answers with an error toast for each refusal the controller catches',
         ],
@@ -84,8 +96,18 @@ class MakeControllerCommand extends ControllerMakeCommand
             'renders the form with the defaults of the row',
             'answers 404 for an unknown id',
         ],
+        'edit.dialog' => [
+            'answers the defaults of the row as JSON',
+            'answers 404 for an unknown id',
+        ],
         'update' => [
             'updates the row, redirects and answers with a success toast',
+            'rejects each invalid field',
+            'answers with an error toast for each refusal the controller catches',
+            'answers 404 for an unknown id',
+        ],
+        'update.dialog' => [
+            'updates the row, goes back and answers with a success toast',
             'rejects each invalid field',
             'answers with an error toast for each refusal the controller catches',
             'answers 404 for an unknown id',
@@ -128,6 +150,13 @@ class MakeControllerCommand extends ControllerMakeCommand
      */
     protected array $methodImports = [];
 
+    /**
+     * The forms this run writes for a dialog, `create` and/or `edit`, settled once per run.
+     *
+     * @var list<string>
+     */
+    protected array $dialogs = [];
+
     #[Override]
     public function handle(): int
     {
@@ -136,6 +165,7 @@ class MakeControllerCommand extends ControllerMakeCommand
         $this->langKeys = [];
         $this->abilities = [];
         $this->methodImports = [];
+        $this->dialogs = [];
 
         foreach (self::REFUSED as $option => $reason) {
             if ($this->input->hasParameterOption('--'.$option)) {
@@ -170,6 +200,13 @@ class MakeControllerCommand extends ControllerMakeCommand
 
         $path = $this->controllerPath();
         $existing = $this->files->exists($path) ? $this->publicMethodsIn($this->files->get($path)) : [];
+        $dialogs = $this->dialogForms($this->files->exists($path) ? $this->files->get($path) : '');
+
+        if ($dialogs === null) {
+            return self::FAILURE;
+        }
+
+        $this->dialogs = $dialogs;
         $adding = array_values(array_diff($only, $existing));
         $methods = array_values(array_intersect(self::METHODS, [...$existing, ...$adding]));
 
@@ -230,6 +267,7 @@ class MakeControllerCommand extends ControllerMakeCommand
             ['update', null, InputOption::VALUE_REQUIRED, 'The use case update calls, Update and the model by default'],
             ['delete', null, InputOption::VALUE_REQUIRED, 'The plain use case destroy calls, Delete and the model by default'],
             ['grid', null, InputOption::VALUE_NONE, 'Write index for a grid page: rows through Inertia::scroll() and no sort'],
+            ['dialog', null, InputOption::VALUE_OPTIONAL, 'Write the forms it names for a dialog, comma separated: create, edit (both when left empty)', false],
         ];
     }
 
@@ -266,6 +304,68 @@ class MakeControllerCommand extends ControllerMakeCommand
         }
 
         return array_values(array_intersect(self::METHODS, $names));
+    }
+
+    /**
+     * The forms that live in a dialog: the ones `--dialog` names (both when it names none), and
+     * the ones the controller already answers as JSON, so a method added beside them follows
+     * them. Null when `--dialog` names something that is not a form.
+     *
+     * @return list<string>|null
+     */
+    protected function dialogForms(string $contents): ?array
+    {
+        $named = $this->dialogFormsNamed();
+
+        if ($named === null) {
+            return null;
+        }
+
+        $forms = [];
+
+        foreach (self::DIALOG_FORM_NAMES as $form) {
+            $answers = $this->answerOf($contents, $form);
+
+            if ($answers === 'page' && in_array($form, $named, true)) {
+                $this->warnings[] = sprintf('%s() already renders a page, so the form stays a page. Turn it into a dialog by hand (form-pages.md, "Form dialogs").', $form);
+
+                continue;
+            }
+
+            if ($answers === 'json' || in_array($form, $named, true)) {
+                $forms[] = $form;
+            }
+        }
+
+        return $forms;
+    }
+
+    /**
+     * How a controller that exists answers a form's method: `json` for a dialog, `page` for a
+     * page, null when it has no such method.
+     */
+    protected function answerOf(string $contents, string $method): ?string
+    {
+        if (preg_match('/^\s*public function '.$method.'\s*\([^)]*\)\s*:\s*(\w+)/m', $contents, $match) !== 1) {
+            return null;
+        }
+
+        return $match[1] === 'JsonResponse' ? 'json' : 'page';
+    }
+
+    /**
+     * Whether the form a method belongs to lives in a dialog: create and store follow create, edit
+     * and update follow edit.
+     */
+    protected function inDialog(string $method): bool
+    {
+        $form = match ($method) {
+            'create', 'store' => 'create',
+            'edit', 'update' => 'edit',
+            default => null,
+        };
+
+        return $form !== null && in_array($form, $this->dialogs, true);
     }
 
     /**
@@ -386,16 +486,28 @@ class MakeControllerCommand extends ControllerMakeCommand
 
         $this->methodImports[$method] = $this->imports;
 
-        return rtrim($this->render('resource-controller-methods/'.$this->shapeOf($method).'.stub', $replacements));
+        return rtrim($this->render('resource-controller-methods/'.$this->stubOf($method).'.stub', $replacements));
     }
 
     /**
-     * The stub and test cases a method takes: `index.grid` for index under `--grid`, its own
-     * name otherwise.
+     * The test cases a method takes: `index.grid` for index under `--grid`, `{method}.dialog` for a
+     * method of a form that lives in a dialog, its own name otherwise.
      */
     protected function shapeOf(string $method): string
     {
-        return $method === 'index' && $this->option('grid') ? 'index.grid' : $method;
+        return match (true) {
+            $method === 'index' && $this->option('grid') => 'index.grid',
+            $this->inDialog($method) => $method.'.dialog',
+            default => $method,
+        };
+    }
+
+    /**
+     * The stub a method renders from. store keeps its own, because only its body differs.
+     */
+    protected function stubOf(string $method): string
+    {
+        return $method === 'store' ? 'store' : $this->shapeOf($method);
     }
 
     /**
@@ -462,7 +574,9 @@ class MakeControllerCommand extends ControllerMakeCommand
      */
     protected function formReplacements(string $method): array
     {
-        $this->imports = [$this->modelClass(), $this->requestClass($this->model().'FormValues'), 'Illuminate\Support\Facades\Gate', 'Inertia\Inertia', 'Inertia\Response'];
+        $this->imports = $this->inDialog($method)
+            ? [$this->modelClass(), $this->requestClass($this->model().'FormValues'), 'Illuminate\Http\JsonResponse', 'Illuminate\Support\Facades\Gate']
+            : [$this->modelClass(), $this->requestClass($this->model().'FormValues'), 'Illuminate\Support\Facades\Gate', 'Inertia\Inertia', 'Inertia\Response'];
         $this->abilities[] = $method === 'create' ? 'create' : 'update';
 
         return [];
@@ -483,7 +597,13 @@ class MakeControllerCommand extends ControllerMakeCommand
 
         $toShow = in_array('show', $methods, true) && $this->returnsTheNewId($handler);
 
-        $body = $toShow
+        $body = $this->inDialog('store')
+            ? <<<'PHP'
+        ${{ createVariable }}($request->toCommand());
+
+        return Inertia::flash(FlashToast::KEY, FlashToast::success(__('{{ prefix }}.created')))->back();
+PHP
+            : ($toShow
             ? <<<'PHP'
         $id = ${{ createVariable }}($request->toCommand());
 
@@ -497,7 +617,7 @@ PHP
         Inertia::flash(FlashToast::KEY, FlashToast::success(__('{{ prefix }}.created')));
 
         return to_route('{{ prefix }}.index');
-PHP;
+PHP);
 
         return [
             '{{ createHandler }}' => class_basename($handler),

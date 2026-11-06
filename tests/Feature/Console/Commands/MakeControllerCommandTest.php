@@ -302,6 +302,62 @@ it('sends store and update back to the list when there is no show page', functio
         ->not->toContain('$id =');
 });
 
+it('writes both forms for a dialog: create and edit answer JSON, store and update go back', function () {
+    runMakeController(['--only' => 'index,create,store,edit,update', '--dialog' => null])->assertSuccessful();
+
+    expect(File::get(controllerGenerated()))
+        ->toContain('public function create(): JsonResponse')
+        ->toContain("'defaults' => SamplingCrateFormValues::empty(),")
+        ->toContain('public function edit(SamplingCrate $samplingCrate): JsonResponse')
+        ->toContain("'defaults' => SamplingCrateFormValues::of(\$samplingCrate),")
+        ->toContain("return Inertia::flash(FlashToast::KEY, FlashToast::success(__('sampling-crates.created')))->back();")
+        ->toContain("return Inertia::flash(FlashToast::KEY, FlashToast::success(__('sampling-crates.updated')))->back();")
+        ->toContain('use Illuminate\Http\JsonResponse;')
+        ->not->toContain('Inertia::render(\'sampling-crates/create\'')
+        ->not->toContain('to_route(');
+
+    expect(File::get(controllerTestGenerated('Create')))->toContain("it('answers the empty defaults as JSON')->todo();")
+        ->and(File::get(controllerTestGenerated('Edit')))->toContain("it('answers the defaults of the row as JSON')->todo();")
+        ->and(File::get(controllerTestGenerated('Store')))->toContain("it('creates the row, goes back and answers with a success toast')->todo();")
+        ->and(File::get(controllerTestGenerated('Update')))->toContain("it('updates the row, goes back and answers with a success toast')->todo();");
+});
+
+it('writes only the form --dialog names for a dialog, and keeps the other a page', function () {
+    runMakeController(['--only' => 'create,store,edit,update', '--dialog' => 'edit'])->assertSuccessful();
+
+    expect(File::get(controllerGenerated()))
+        ->toContain('public function create(): Response')
+        ->toContain("Inertia::render('sampling-crates/create'")
+        ->toContain("return to_route('sampling-crates.index');")
+        ->toContain('public function edit(SamplingCrate $samplingCrate): JsonResponse')
+        ->toContain("return Inertia::flash(FlashToast::KEY, FlashToast::success(__('sampling-crates.updated')))->back();");
+});
+
+it('follows a form the controller already answers as JSON when it adds the method that saves it', function () {
+    runMakeController(['--only' => 'edit', '--dialog' => 'edit'])->assertSuccessful();
+    runMakeController(['--only' => 'update'])->assertSuccessful();
+
+    expect(File::get(controllerGenerated()))
+        ->toContain("return Inertia::flash(FlashToast::KEY, FlashToast::success(__('sampling-crates.updated')))->back();")
+        ->not->toContain('to_route(');
+});
+
+it('keeps a form that already renders a page a page, and says so', function () {
+    runMakeController(['--only' => 'create'])->assertSuccessful();
+
+    runMakeController(['--only' => 'store', '--dialog' => 'create'])
+        ->expectsOutputToContain('create() already renders a page, so the form stays a page')
+        ->assertSuccessful();
+
+    expect(File::get(controllerGenerated()))->toContain("return to_route('sampling-crates.index');");
+});
+
+it('refuses a --dialog that names something that is not a form', function () {
+    runMakeController(['--dialog' => 'show'])
+        ->expectsOutputToContain('--dialog names show, which is not a form. Pick from create, edit.')
+        ->assertFailed();
+});
+
 it('reads the model from a name that ends in Controller', function () {
     $this->artisan('make:controller', ['name' => CONTROLLER_MODEL.'Controller', '--domain' => CONTROLLER_CONTEXT, '--only' => 'show'])
         ->assertSuccessful();
@@ -373,4 +429,18 @@ it('writes PHP that parses, loads and pint leaves as it is', function () {
 
     expect(array_values(array_diff($public, get_class_methods(Controller::class))))
         ->toBe(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy']);
+});
+
+it('writes dialog forms in PHP that parses and pint leaves as it is', function () {
+    runMakeController(['--only' => 'index,create,store,edit,update', '--dialog' => null])->assertSuccessful();
+
+    $paths = [controllerGenerated(), ...File::files(base_path('tests/Feature/Http/Controllers/'.CONTROLLER_MODEL.'Controller'))];
+
+    foreach ($paths as $path) {
+        expect(Process::run(['php', '-l', (string) $path])->successful())->toBeTrue();
+    }
+
+    $pint = Process::path(base_path())->run([base_path('vendor/bin/pint'), '--test', ...array_map('strval', $paths)]);
+
+    expect($pint->successful())->toBeTrue($pint->output());
 });

@@ -1,0 +1,11 @@
+    /**
+     * Answer the create dialog's starting values (form-pages.md, "Form dialogs").
+     */
+    public function create(): JsonResponse
+    {
+        Gate::authorize('create', {{ model }}::class);
+
+        return response()->json([
+            'defaults' => {{ model }}FormValues::empty(),
+        ]);
+    }
