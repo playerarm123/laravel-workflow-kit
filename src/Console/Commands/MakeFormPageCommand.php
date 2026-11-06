@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\ReadsDialogForms;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\WritesGeneratedFiles;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\FormDialogs;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureFiles;
 use Playerarm123\LaravelWorkflowKit\WorkflowKit;
 
@@ -66,7 +67,7 @@ class MakeFormPageCommand extends Command implements PromptsForMissingInput
         }
 
         $this->dialogs = $dialogs;
-        $pages = array_values(array_diff(self::DIALOG_FORM_NAMES, $dialogs));
+        $pages = array_values(array_diff(FormDialogs::forms(), $dialogs));
 
         if (! class_exists($this->namespacedFormValues())) {
             $this->components->error(sprintf(
@@ -316,12 +317,16 @@ TSX;
      */
     protected function writeDialogs(): ?string
     {
+        if ($this->files->exists($this->dialogPath())) {
+            return $this->addDialogs();
+        }
+
         $dialogs = array_map(
             fn (string $form): string => trim($this->render("form-page-dialog-{$form}.stub", [])),
             $this->dialogs,
         );
 
-        $hooks = array_map(fn (string $form): string => $form === 'create' ? 'Dialog' : 'ItemDialog', $this->dialogs);
+        $hooks = array_map($this->dialogHook(...), $this->dialogs);
 
         return $this->writeFromStub('form-page-dialog.stub', $this->dialogPath(), 'Dialog', [
             '{{ imports }}' => $this->importBlock([
@@ -334,6 +339,50 @@ TSX;
             ]),
             '{{ dialogs }}' => implode("\n\n", $dialogs),
         ]);
+    }
+
+    /**
+     * A `form-dialog.tsx` that is already there gains the dialogs `--dialog` names and it does
+     * not export yet, below the ones it has, with their hook types in its `use-dialog` import.
+     * What it already exports is left as it is.
+     */
+    protected function addDialogs(): ?string
+    {
+        $path = $this->dialogPath();
+        $contents = $this->files->get($path);
+        $missing = array_values(array_diff($this->dialogs, FormDialogs::exportedIn($contents, $this->subject())));
+
+        if ($missing === []) {
+            $this->components->warn(sprintf('Dialog [%s] already exists.', $this->relativePath($path)));
+
+            return null;
+        }
+
+        $hooks = array_map($this->dialogHook(...), $missing);
+
+        if (preg_match("/^import\\s+type\\s*\\{([^}]*)\\}\\s*from\\s*'@\\/hooks\\/use-dialog';/m", $contents, $import) === 1) {
+            $names = array_values(array_unique([...array_filter(array_map('trim', explode(',', $import[1]))), ...$hooks]));
+            sort($names);
+            $contents = str_replace($import[0], sprintf("import type { %s } from '@/hooks/use-dialog';", implode(', ', $names)), $contents);
+        } else {
+            $contents = $this->addImport($contents, sprintf("import type { %s } from '@/hooks/use-dialog';", implode(', ', $hooks)), '@/hooks/use-dialog');
+        }
+
+        $dialogs = array_map(fn (string $form): string => trim($this->render("form-page-dialog-{$form}.stub", [])), $missing);
+        $this->files->put($path, rtrim($contents)."\n\n".implode("\n\n", $dialogs)."\n");
+
+        $this->components->info(sprintf('Dialog [%s] gained %s.', $this->relativePath($path), implode(', ', array_map(fn (string $form): string => FormDialogs::dialogOf($this->subject(), $form), $missing))));
+
+        return $path;
+    }
+
+    /**
+     * The `use-dialog` type a form's dialog takes: the create dialog opens empty, the edit one on
+     * a row.
+     */
+    protected function dialogHook(string $form): string
+    {
+        return $form === 'create' ? 'Dialog' : 'ItemDialog';
     }
 
     protected function dialogPath(): string
@@ -373,6 +422,12 @@ TSX;
      */
     protected function warnAboutDialogPages(): void
     {
+        $form = resource_path('js/components/'.$this->slug().'/form.tsx');
+
+        if ($this->files->exists($form) && ! str_contains($this->files->get($form), 'onSuccess')) {
+            $this->warnings[] = sprintf('[%s] was written for a page, so a dialog cannot close it. Give it the onCancel and onSuccess a dialog passes (form-pages.md, "Form dialogs").', $this->relativePath($form));
+        }
+
         foreach ($this->dialogs as $form) {
             $page = resource_path('js/pages/'.$this->prefix()."/{$form}.tsx");
 

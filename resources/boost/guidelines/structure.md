@@ -155,7 +155,7 @@ It has a file of its own, because an entry point calls into more than one contex
   - `table` when it calls `useDataTable(`;
   - `grid` when it renders `<InfiniteScroll`;
   - `form` when it imports a form from `@/components/*/form`;
-  - `dialog` for a create or edit form that opens in a dialog instead (form-pages.md, "Form dialogs"), kept at the path its page would have (`crates/edit`): its `create` or `edit` returns `JsonResponse`, and `resources/js/components/{model}/form-dialog.tsx` exports `Create{Model}Dialog` or `Edit{Model}Dialog`;
+  - `dialog` for a create or edit form that opens in a dialog instead (form-pages.md, "Form dialogs"), kept at the path its page would have (`crates/edit`): its `create` or `edit` returns `JsonResponse`, and `resources/js/components/{model}/form-dialog.tsx` exports `Create{Model}Dialog` or `Edit{Model}Dialog`. `kit:plan` waits on a controller whose `create` or `edit` still renders a page, since `make:controller` leaves it as it is;
   - `page` for anything else.
 - `menu`: the entry in the main menu of the resource's page at `{folder}/index` (its table or grid, else its plain page, such as a board), its title's translation key and its lucide icon, and when it has them the key of the `group` it sits in, the translation key of its `description` and the policy's `ability` it asks in place of `viewAny`, read from `app/Http/Navigation.php`; `null` keeps the list page out of the menu on purpose; left out, the manifest says nothing yet (list-pages.md, "Menu"). For example `"menu": { "title": "invoices.title", "icon": "wallet", "group": "finance" }`.
 
@@ -258,7 +258,7 @@ The structure screen changes the manifests too. From the overview, create a cont
   - `index` reads its page through one use case that takes a Command and returns a Result, `store` and `update` write through one that takes a Command, and `destroy` deletes through one plain use case (form-pages.md, write-path.md);
   - an action calls one use case that takes a Command, shared by its row and bulk controllers, and a bulk action's returns `int` (actions.md);
   - a page of a resource with a model sits where its generator writes it: a list page at `{names}/index`, named after the index's `List{Names}` use case, and a form page at `{models}/create` or `{models}/edit`, where a dialog keeps its form's path too;
-  - a list page needs `index`, and a form page `store` or `update`; a create dialog needs `create` and `store`, and an edit dialog `edit` and `update`; a policy needs a model to attach to;
+  - a list page needs `index`, and a form page `store` or `update`; a create dialog needs `create` and `store`, and an edit dialog `edit` and `update`; a dialog needs a model and opens from a page at `{models}/index`; a policy needs a model to attach to;
   - an enum or a value object belongs to an aggregate of its own context, or to none in the shared kernel, which holds nothing else; an enum's cases are TitleCase with values no two share, and a value object's fields are camelCase;
   - an enum that lists where its cases may go is a status, named `*Status`, and lets at least one case become another (states.md). Each case goes only to other cases of the enum, and a case the form leaves out is final;
   - a field's type is a builtin, a class a manifest designs (an enum, a value object, an entity) or a class the code already has, so a value object can name an enum that is only designed;

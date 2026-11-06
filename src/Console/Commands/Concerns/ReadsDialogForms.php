@@ -2,17 +2,14 @@
 
 namespace Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns;
 
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\FormDialogs;
+
 /**
  * `--dialog[=create,edit]`, which `make:controller` and `make:form-page` share: the forms of a
  * resource that live in a dialog instead of a page of their own (form-pages.md, "Form dialogs").
  */
 trait ReadsDialogForms
 {
-    /**
-     * The forms a dialog can hold.
-     */
-    protected const array DIALOG_FORM_NAMES = ['create', 'edit'];
-
     /**
      * The forms `--dialog` names: none when it is left out, both when it names none. Null, with
      * the error printed, when it names something that is not a form.
@@ -28,22 +25,22 @@ trait ReadsDialogForms
         }
 
         if (! is_string($option) || $option === '') {
-            return self::DIALOG_FORM_NAMES;
+            return FormDialogs::forms();
         }
 
         $named = array_values(array_filter(array_map('trim', explode(',', strtolower($option)))));
-        $unknown = array_diff($named, self::DIALOG_FORM_NAMES);
+        $unknown = array_diff($named, FormDialogs::forms());
 
         if ($unknown !== []) {
             $this->components->error(sprintf(
                 '--dialog names %s, which is not a form. Pick from %s.',
                 implode(', ', $unknown),
-                implode(', ', self::DIALOG_FORM_NAMES),
+                implode(', ', FormDialogs::forms()),
             ));
 
             return null;
         }
 
-        return array_values(array_intersect(self::DIALOG_FORM_NAMES, $named));
+        return array_values(array_intersect(FormDialogs::forms(), $named));
     }
 }

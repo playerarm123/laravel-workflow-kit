@@ -321,6 +321,29 @@ describe('StructurePlanner', function () {
                 ->and($after["form pages {$model}"]['state'])->toBe(StructurePlanner::DONE);
         });
 
+        it('keeps the controller waiting while a form the manifest keeps in a dialog still renders a page', function () {
+            $files = new StructureFiles(base_path());
+            $model = SAMPLING_PLAN_MODEL;
+            $manifest = $files->readResource($model);
+            $manifest['controller'] = ['index' => $manifest['controller']['index'], 'edit' => [], 'update' => []];
+            $manifest['pages']['sampling-sacks/edit'] = 'dialog';
+            $files->writeResource($manifest);
+            $controller = app_path("Http/Controllers/{$model}Controller.php");
+            $write = fn (string $edit): bool => (bool) File::put($controller, "<?php\n\nnamespace App\\Http\\Controllers;\n\nclass {$model}Controller\n{\n    public function index(): void {}\n\n    public function edit(): {$edit} {}\n\n    public function update(): void {}\n}\n");
+
+            try {
+                $write('\\Inertia\\Response');
+                $page = samplingPlanSteps()["controller {$model}"];
+                $write('JsonResponse');
+                $json = samplingPlanSteps()["controller {$model}"];
+            } finally {
+                File::delete($controller);
+            }
+
+            expect($page)->toBe([StructurePlanner::WAITING, 'edit() still renders a page, but the manifest keeps the form in a dialog: make it answer JSON by hand (form-pages.md, "Form dialogs")'])
+                ->and($json[0])->toBe(StructurePlanner::DONE);
+        });
+
         it('passes no --dialog when every form is a page', function () {
             $steps = (new StructurePlanner(new StructureReader(base_path()), new StructureFiles(base_path()), new StructureMarkers(samplingPlanMarkersRoot())))->steps([SAMPLING_PLAN_CONTEXT], [SAMPLING_PLAN_MODEL]);
             $arguments = array_column($steps, 'arguments', 'title');

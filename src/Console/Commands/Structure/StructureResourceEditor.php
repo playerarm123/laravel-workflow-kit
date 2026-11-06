@@ -26,12 +26,6 @@ final class StructureResourceEditor
 
     private const array TAKES_COMMAND = ['command', 'command-result'];
 
-    /**
-     * The controller methods a form dialog needs: the one it loads its defaults from, then the
-     * one it posts to (form-pages.md, "Form dialogs").
-     */
-    private const array DIALOG_METHODS = ['create' => ['create', 'store'], 'edit' => ['edit', 'update']];
-
     public function __construct(
         private readonly StructureFiles $files,
         private readonly StructureReader $reader,
@@ -89,6 +83,8 @@ final class StructureResourceEditor
             $errors['model'][] = 'A model is named in StudlyCase.';
         } elseif (in_array('model', $built, true) && $model !== $manifest['model']) {
             $errors['model'][] = 'The code already has this model, so the screen leaves it alone.';
+        } elseif (is_string($manifest['model']) && $model !== $manifest['model'] && FormDialogs::inPages($manifest['model'], $manifest['pages']) !== []) {
+            $errors['model'][] = 'A dialog keeps the path of its model\'s form, so remove the dialogs before changing the model.';
         }
 
         if ($policy !== null) {
@@ -400,13 +396,11 @@ final class StructureResourceEditor
 
         if (preg_match(self::PAGE, $name) !== 1) {
             $errors['name'][] = 'A page is its path under resources/js/pages, in kebab case, with a folder: agents/index.';
-        } elseif (is_string($manifest['model']) && $kind !== 'page') {
+        } elseif (is_string($manifest['model']) && ! in_array($kind, ['page', 'dialog'], true)) {
             $paths = $this->generatedPaths($manifest, $kind);
 
             if ($paths !== [] && ! in_array($name, $paths, true)) {
-                $errors['name'][] = $kind === 'dialog'
-                    ? 'A dialog keeps the path its form\'s page would have: '.implode(' or ', $paths).'.'
-                    : 'A '.$kind.' page sits at '.implode(' or ', $paths).', where its generator writes it.';
+                $errors['name'][] = 'A '.$kind.' page sits at '.implode(' or ', $paths).', where its generator writes it.';
             }
         }
 
@@ -419,17 +413,49 @@ final class StructureResourceEditor
         }
 
         if ($kind === 'dialog' && ! isset($errors['name'])) {
-            $form = basename($name);
-            $methods = self::DIALOG_METHODS[$form] ?? null;
-
-            if ($methods === null) {
-                $errors['name'][] = 'A dialog is the create or the edit form, kept at the path its page would have: agents/create or agents/edit.';
-            } elseif (array_diff($methods, array_keys($controller)) !== []) {
-                $errors['kind'][] = sprintf('The %s dialog loads its defaults from %s and posts to %s, so add both first (form-pages.md, "Form dialogs").', $form, ...$methods);
-            }
+            $errors = $this->merge($errors, $this->dialogErrors($manifest, $name));
         }
 
         return [$kind, $errors];
+    }
+
+    /**
+     * A form kept in a dialog (form-pages.md, "Form dialogs"): the create or edit form of the
+     * model, at the path its page would have, beside the method it loads from and the one it
+     * posts to. It has no page of its own, so it opens from the list page in the same folder,
+     * where make:form-page also puts its Browser test cases.
+     *
+     * @param  array<string, mixed>  $manifest
+     * @return array<string, list<string>>
+     */
+    private function dialogErrors(array $manifest, string $name): array
+    {
+        $model = is_string($manifest['model']) ? $manifest['model'] : null;
+
+        if ($model === null) {
+            return ['kind' => ['A dialog holds the form of a model, which make:form-page builds it from, so give the resource a model first.']];
+        }
+
+        $problem = StructureFiles::dialogProblem($name, $model);
+
+        if ($problem !== null) {
+            return ['name' => [ucfirst($problem).'.']];
+        }
+
+        $errors = [];
+        $form = basename($name);
+        [$load, $post] = FormDialogs::METHODS[$form];
+        $list = FormDialogs::folderOf($model).'/index';
+
+        if (array_diff([$load, $post], array_keys($manifest['controller'])) !== []) {
+            $errors['kind'][] = sprintf('The %s dialog loads its defaults from %s and posts to %s, so add both first (form-pages.md, "Form dialogs").', $form, $load, $post);
+        }
+
+        if (! array_key_exists($list, $manifest['pages'])) {
+            $errors['kind'][] = "A dialog has no page of its own: it opens from the list page at {$list}, so add that page first.";
+        }
+
+        return $errors;
     }
 
     /**
@@ -442,10 +468,8 @@ final class StructureResourceEditor
      */
     private function generatedPaths(array $manifest, string $kind): array
     {
-        if (in_array($kind, ['form', 'dialog'], true)) {
-            $folder = Str::kebab(Str::pluralStudly((string) $manifest['model']));
-
-            return ["{$folder}/create", "{$folder}/edit"];
+        if ($kind === 'form') {
+            return array_map(fn (string $form): string => FormDialogs::pageOf((string) $manifest['model'], $form), FormDialogs::forms());
         }
 
         $index = $manifest['controller']['index'][0] ?? null;
@@ -458,19 +482,28 @@ final class StructureResourceEditor
     }
 
     /**
-     * Why a controller method may not go: a page or a dialog still needs it.
+     * Why a controller method or a page may not go: a page or a dialog still needs it.
      *
      * @param  array<string, mixed>  $manifest
      * @return array<string, list<string>>
      */
     private function dependants(array $manifest, string $section, string $name): array
     {
+        /** @var array<string, string> $pages */
+        $pages = $manifest['pages'];
+        $model = is_string($manifest['model']) ? $manifest['model'] : null;
+        $dialogs = $model === null ? [] : FormDialogs::inPages($model, $pages);
+
+        if ($section === 'pages' && $dialogs !== [] && $name === FormDialogs::folderOf((string) $model).'/index') {
+            return ['name' => [count($dialogs) === 1
+                ? "The {$dialogs[0]} dialog opens from {$name}, so it stays while the dialog does."
+                : 'The '.implode(' and ', $dialogs)." dialogs open from {$name}, so it stays while they do."]];
+        }
+
         if ($section !== 'controller') {
             return [];
         }
 
-        /** @var array<string, string> $pages */
-        $pages = $manifest['pages'];
         /** @var array<string, list<string>> $controller */
         $controller = $manifest['controller'];
         $kinds = array_values($pages);
@@ -485,9 +518,11 @@ final class StructureResourceEditor
             return ['name' => ["{$name} is where the form pages post, so it stays while they do."]];
         }
 
-        foreach (StructurePlanner::dialogsOf($pages) as $form) {
-            if (in_array($name, self::DIALOG_METHODS[$form], true)) {
-                return ['name' => ["The {$form} dialog loads from {$form} and posts to ".self::DIALOG_METHODS[$form][1].", so {$name} stays while the dialog does."]];
+        foreach ($dialogs as $form) {
+            [$load, $post] = FormDialogs::METHODS[$form];
+
+            if (in_array($name, [$load, $post], true)) {
+                return ['name' => ["The {$form} dialog loads from {$load} and posts to {$post}, so {$name} stays while the dialog does."]];
             }
         }
 

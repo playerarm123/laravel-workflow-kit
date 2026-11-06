@@ -841,8 +841,12 @@ final class StructureFiles
 
                 if (! in_array($kind, self::PAGE_KINDS, true)) {
                     $problems[] = sprintf('pages.%s: must be one of %s', $page, implode(', ', self::PAGE_KINDS));
-                } elseif ($kind === 'dialog' && ! in_array(basename((string) $page), StructureReader::DIALOG_FORMS, true)) {
-                    $problems[] = sprintf('pages.%s: a dialog is the create or the edit form, kept at the path its page would have: {folder}/create or {folder}/edit', $page);
+                } elseif ($kind === 'dialog') {
+                    $problem = self::dialogProblem((string) $page, is_string($model) ? $model : null);
+
+                    if ($problem !== null) {
+                        $problems[] = sprintf('pages.%s: %s', $page, $problem);
+                    }
                 }
             }
         }
@@ -852,6 +856,22 @@ final class StructureFiles
         }
 
         return $problems;
+    }
+
+    /**
+     * What is wrong with a page of kind `dialog` at this path (form-pages.md, "Form dialogs"), or
+     * null: a dialog is a model's create or edit form, kept at the path make:form-page would give
+     * its page, so the reader finds it there again and kit:apply knows which form it builds.
+     */
+    public static function dialogProblem(string $page, ?string $model): ?string
+    {
+        if ($model === null) {
+            return 'a dialog holds the form of a model, so it needs a resource with a model';
+        }
+
+        $paths = array_map(fn (string $form): string => FormDialogs::pageOf($model, $form), FormDialogs::forms());
+
+        return in_array($page, $paths, true) ? null : 'a dialog is the create or the edit form, kept at the path its page would have: '.implode(' or ', $paths);
     }
 
     /**
