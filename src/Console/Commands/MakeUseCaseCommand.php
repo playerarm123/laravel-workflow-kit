@@ -6,6 +6,7 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Contracts\Console\PromptsForMissingInput;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Override;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\ResolvesDomain;
@@ -124,6 +125,11 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
             '{{ namespacedRow }}' => $this->namespacedRow(),
             '{{ sort }}' => $this->sortName(),
             '{{ namespacedSort }}' => $this->namespacedSort(),
+            '{{ rows }}' => $this->rowsName(),
+            '{{ model }}' => (string) $this->listSubject(),
+            '{{ namespacedModel }}' => (string) $this->namespacedModel(),
+            '{{ modelVariable }}' => Str::camel((string) $this->listSubject()),
+            '{{ table }}' => (string) $this->tableName(),
         ];
     }
 
@@ -141,6 +147,10 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
 
     protected function handlerBody(): string
     {
+        if ($this->carriesQuery()) {
+            return $this->listHandlerBody();
+        }
+
         if ($this->writes()) {
             return $this->writingHandlerBody();
         }
@@ -180,6 +190,29 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
     }
 
     /**
+     * A list settles every raw value of its Command into the Criteria, each with a fallback
+     * so a hand-edited url still gets a page, and hands back what it settled on
+     * (list-queries.md). `desc` is the natural order of the default sort, newest first.
+     */
+    protected function listHandlerBody(): string
+    {
+        return '        $criteria = new '.$this->criteriaName()."(\n"
+            .'            sort: '.$this->sortName()."::fromInput(\$command->sort),\n"
+            ."            direction: \$command->direction === 'asc' ? 'asc' : 'desc',\n"
+            ."            search: trim(\$command->search),\n"
+            ."            // one settled value per filter, null meaning \"do not filter\", e.g.\n"
+            ."            // status: SampleStatus::tryFrom(\$command->status),\n"
+            ."            createdAt: DateRange::fromInput(\$command->createdFrom, \$command->createdTo),\n"
+            ."            perPage: PageSize::fromInput(\$command->perPage)->value,\n"
+            ."        );\n\n"
+            .'        return new '.$this->resultName()."(\n"
+            .'            '.$this->rowsName().": \$this->query->paginate(\$criteria),\n"
+            ."            sort: \$criteria->toSort(),\n"
+            ."            filters: \$criteria->toFilters(),\n"
+            .'        );';
+    }
+
+    /**
      * A handler writes when it is given a repository to write through.
      */
     protected function writes(): bool
@@ -206,6 +239,11 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
             $this->namespacedRepository(),
             $this->writes() ? $this->rootNamespace().'Application\\Audit\\AuditLog' : null,
             $this->writes() ? 'Illuminate\\Support\\Facades\\DB' : null,
+            ...($this->carriesQuery() ? [
+                $this->namespacedSort(),
+                $this->rootNamespace().'Application\\Concerns\\DateRange',
+                $this->rootNamespace().'Application\\Concerns\\PageSize',
+            ] : []),
         ]);
         sort($imports);
 
@@ -329,11 +367,67 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
      */
     protected function listItemName(): string
     {
+        $subject = $this->listSubject();
+
+        return $subject === null ? $this->useCaseName() : $subject.'List';
+    }
+
+    /**
+     * `ListLotteryTypes` lists `LotteryType`, the model its adapter reads. A use case that
+     * does not start with List names no model.
+     */
+    protected function listSubject(): ?string
+    {
         $name = $this->useCaseName();
 
         return str_starts_with($name, 'List') && strlen($name) > 4
-            ? Str::singular(substr($name, 4)).'List'
-            : $name;
+            ? Str::singular(substr($name, 4))
+            : null;
+    }
+
+    protected function namespacedModel(): ?string
+    {
+        $subject = $this->listSubject();
+
+        return $subject === null ? null : $this->qualifyModel($subject);
+    }
+
+    /**
+     * The table the adapter qualifies its columns with: the model's own when it exists,
+     * otherwise the one Laravel would give it.
+     */
+    protected function tableName(): ?string
+    {
+        $model = $this->namespacedModel();
+
+        if ($model === null) {
+            return null;
+        }
+
+        return class_exists($model) && is_subclass_of($model, Model::class)
+            ? (new $model)->getTable()
+            : Str::snake(Str::pluralStudly((string) $this->listSubject()));
+    }
+
+    /**
+     * A list names its model, so its adapter and that adapter's test are written out in full.
+     * Any other read port keeps the commented outline.
+     */
+    protected function queryStub(string $stub): string
+    {
+        return $this->listSubject() === null ? $stub.'.no-model.stub' : $stub.'.stub';
+    }
+
+    /**
+     * The Result property the rows travel in: `ListLotteryTypes` hands back `lotteryTypes`,
+     * the name make:controller reads for the rows prop. A use case that does not start with
+     * List hands back `rows`.
+     */
+    protected function rowsName(): string
+    {
+        $subject = $this->listSubject();
+
+        return $subject === null ? 'rows' : Str::camel(Str::pluralStudly($subject));
     }
 
     /**
@@ -493,7 +587,7 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
     {
         if ($this->carriesCommand()) {
             $this->createFromStub(
-                'use-case-command.stub',
+                $this->carriesQuery() ? 'use-case-list-command.stub' : 'use-case-command.stub',
                 $this->qualifyClass($this->commandName()),
                 'Command',
             );
@@ -501,7 +595,7 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
 
         if ($this->carriesResult()) {
             $this->createFromStub(
-                'use-case-result.stub',
+                $this->carriesQuery() ? 'use-case-list-result.stub' : 'use-case-result.stub',
                 $this->qualifyClass($this->resultName()),
                 'Result',
             );
@@ -543,7 +637,7 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
         );
 
         $this->createFromStub(
-            'eloquent-query.stub',
+            $this->queryStub('eloquent-query'),
             $this->namespacedAdapter(),
             'Query adapter',
         );
@@ -601,11 +695,11 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
         $contents = str_replace(
             array_keys($this->stubReplacements()),
             array_values($this->stubReplacements()),
-            $this->files->get(WorkflowKit::stubPath('eloquent-query-test.stub')),
+            $this->files->get(WorkflowKit::stubPath($this->queryStub('eloquent-query-test'))),
         );
 
         $this->makeDirectory($path);
-        $this->files->put($path, $contents);
+        $this->files->put($path, $this->sortImports($contents));
 
         $this->components->info(sprintf('Query adapter test [%s] created successfully.', $this->relativePath($path)));
     }
@@ -626,7 +720,24 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
             $this->components->warn(sprintf('Repository [%s] does not exist yet.', $repository));
         }
 
+        $this->warnAboutMissingModel();
+
         $this->warnAboutMissingBinding();
+    }
+
+    /**
+     * The adapter reads through the model the list is named after, and its test seeds through
+     * that model's factory.
+     */
+    protected function warnAboutMissingModel(): void
+    {
+        $model = $this->namespacedModel();
+
+        if (! $this->carriesQuery() || $model === null || class_exists($model)) {
+            return;
+        }
+
+        $this->components->warn(sprintf('Model [%s] does not exist yet — %s reads through it.', $model, $this->adapterName()));
     }
 
     /**

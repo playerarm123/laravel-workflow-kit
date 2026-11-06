@@ -1,7 +1,12 @@
 <?php
 
 use App\Application\Concerns\DateRange;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Testing\PendingCommand;
 
 /**
@@ -45,10 +50,28 @@ afterEach(function () {
     File::deleteDirectory(app_path('Application/Sampling'));
     File::deleteDirectory(base_path('tests/Feature/Application/Sampling'));
 
-    foreach (['EloquentListSamplingItemQuery', 'EloquentListSamplingItemsQuery', 'EloquentListSamplingLoadablesQuery', 'EloquentReadSamplingItemQuery'] as $adapter) {
+    foreach (['EloquentListSamplingItemQuery', 'EloquentListSamplingItemsQuery', 'EloquentListSamplingLoadablesQuery', 'EloquentListSamplingParcelsQuery', 'EloquentListSamplingBinsQuery', 'EloquentReadSamplingItemQuery'] as $adapter) {
         File::delete([queryAdapterPath($adapter), queryAdapterTestPath($adapter)]);
     }
+
+    File::delete(app_path('Models/SamplingBin.php'));
 });
+
+/**
+ * The code PHP runs, without its comments — what the list-queries rules read.
+ */
+function codeWithoutComments(string $path): string
+{
+    $code = '';
+
+    foreach (token_get_all(File::get($path)) as $token) {
+        if (! is_array($token) || ! in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+            $code .= is_array($token) ? $token[1] : $token;
+        }
+    }
+
+    return $code;
+}
 
 it('generates the handler in the use cases root when it carries no payload', function () {
     runMakeUseCase(['name' => 'ArchiveSamplingItem', '--domain' => 'Sampling'])
@@ -179,6 +202,7 @@ it('creates the result class beside the handler when asked for a command and a r
 
     expect(File::get(useCaseClassPath('ReadSamplingItem/ReadSamplingItemResult')))
         ->toContain('final class ReadSamplingItemResult extends Data')
+        ->toContain('// define the result payload here')
         ->not->toContain('{{');
 });
 
@@ -478,6 +502,107 @@ it('generates a sort and a criteria that load and settle as written', function (
         ->and($built->toFilters())->toBe(['search' => '', 'created_from' => null, 'created_to' => null]);
 });
 
+it('writes a list command whose every field is a raw string defaulting to empty', function () {
+    runMakeUseCase(['name' => 'ListSamplingItem', '--domain' => 'Sampling', '--query' => true], carries: null)
+        ->assertSuccessful();
+
+    expect(File::get(useCaseClassPath('ListSamplingItem/ListSamplingItemCommand')))
+        ->toContain('namespace App\Application\Sampling\UseCases\ListSamplingItem;')
+        ->toContain('final class ListSamplingItemCommand extends Data')
+        ->toContain("public readonly string \$sort = '',")
+        ->toContain("public readonly string \$direction = '',")
+        ->toContain("public readonly string \$search = '',")
+        ->toContain("public readonly string \$createdFrom = '',")
+        ->toContain("public readonly string \$createdTo = '',")
+        ->toContain("public readonly string \$perPage = '',")
+        ->not->toContain('EnumCast')
+        ->not->toContain('define the command payload here')
+        ->not->toContain('{{');
+});
+
+it('writes a list result carrying the rows, the sort and the filters', function () {
+    runMakeUseCase(['name' => 'ListSamplingItem', '--domain' => 'Sampling', '--query' => true], carries: null)
+        ->assertSuccessful();
+
+    expect(File::get(useCaseClassPath('ListSamplingItem/ListSamplingItemResult')))
+        ->toContain('use Illuminate\Pagination\LengthAwarePaginator;')
+        ->toContain('final class ListSamplingItemResult extends Data')
+        ->toContain('@param  LengthAwarePaginator<int, SamplingItemListRow>  $samplingItems')
+        ->toContain('public readonly LengthAwarePaginator $samplingItems,')
+        ->toContain('public readonly array $sort,')
+        ->toContain('public readonly array $filters,')
+        ->not->toContain('EnumCast')
+        ->not->toContain('define the result payload here')
+        ->not->toContain('{{');
+});
+
+it('names the rows after the plural subject of the list', function () {
+    runMakeUseCase(['name' => 'ListSamplingItems', '--domain' => 'Sampling', '--query' => true], carries: null)->run();
+
+    expect(File::get(useCaseClassPath('ListSamplingItems/ListSamplingItemsResult')))
+        ->toContain('public readonly LengthAwarePaginator $samplingItems,')
+        ->and(File::get(useCaseClassPath('ListSamplingItems/ListSamplingItemsHandler')))
+        ->toContain('samplingItems: $this->query->paginate($criteria),');
+});
+
+it('writes a list handler that settles the command into the criteria and returns the result', function () {
+    runMakeUseCase(['name' => 'ListSamplingItem', '--domain' => 'Sampling', '--query' => true], carries: null)
+        ->assertSuccessful();
+
+    expect(File::get(useCaseClassPath('ListSamplingItem/ListSamplingItemHandler')))
+        ->toContain('use App\Application\Concerns\DateRange;')
+        ->toContain('use App\Application\Concerns\PageSize;')
+        ->toContain('use App\Application\Sampling\SamplingItemListSort;')
+        ->toContain('$criteria = new ListSamplingItemCriteria(')
+        ->toContain('sort: SamplingItemListSort::fromInput($command->sort),')
+        ->toContain("direction: \$command->direction === 'asc' ? 'asc' : 'desc',")
+        ->toContain('search: trim($command->search),')
+        ->toContain('createdAt: DateRange::fromInput($command->createdFrom, $command->createdTo),')
+        ->toContain('perPage: PageSize::fromInput($command->perPage)->value,')
+        ->toContain('return new ListSamplingItemResult(')
+        ->toContain('samplingItems: $this->query->paginate($criteria),')
+        ->toContain('sort: $criteria->toSort(),')
+        ->toContain('filters: $criteria->toFilters(),')
+        ->not->toContain('implement the use case here')
+        ->not->toContain('{{');
+});
+
+it('generates a list command, handler and result that run together as written', function () {
+    runMakeUseCase(['name' => 'ListSamplingParcels', '--domain' => 'Sampling', '--query' => true], carries: null)->run();
+
+    $namespace = 'App\Application\Sampling\UseCases\ListSamplingParcels';
+    $handler = $namespace.'\ListSamplingParcelsHandler';
+    $command = $namespace.'\ListSamplingParcelsCommand';
+
+    $settled = null;
+    $query = Mockery::mock($namespace.'\ListSamplingParcelsQuery');
+    $query->shouldReceive('paginate')->once()->andReturnUsing(function ($criteria) use (&$settled) {
+        $settled = $criteria;
+
+        return new LengthAwarePaginator([], 0, $criteria->perPage);
+    });
+
+    $result = (new $handler($query))(new $command(
+        sort: 'not-a-column',
+        direction: 'sideways',
+        search: '  crate  ',
+        createdFrom: '2026-02-10',
+        createdTo: 'not-a-day',
+        perPage: '25',
+    ));
+
+    expect($settled->search)->toBe('crate')
+        ->and($settled->perPage)->toBe(25)
+        ->and($result->samplingParcels)->toBeInstanceOf(LengthAwarePaginator::class)
+        ->and($result->sort)->toBe(['column' => 'created_at', 'direction' => 'desc'])
+        ->and($result->filters)->toBe(['search' => 'crate', 'created_from' => '2026-02-10', 'created_to' => null]);
+
+    $empty = new $command;
+
+    expect([$empty->sort, $empty->direction, $empty->search, $empty->createdFrom, $empty->createdTo, $empty->perPage])
+        ->each->toBe('');
+});
+
 it('creates the eloquent adapter under the queries folder, never under repositories', function () {
     runMakeUseCase(['name' => 'ListSamplingItem', '--domain' => 'Sampling', '--query' => true], carries: null)
         ->assertSuccessful();
@@ -539,6 +664,173 @@ it('creates the adapter test mirroring where the adapter lands', function () {
         ->toContain('listQueryContract(')
         ->toContain('query: ListSamplingItemQuery::class')
         ->toContain('use App\Application\Sampling\UseCases\ListSamplingItem\ListSamplingItemCriteria;')
+        ->not->toContain('{{');
+});
+
+it('writes the adapter of a list in full, reading through the model it is named after', function () {
+    runMakeUseCase(['name' => 'ListSamplingItem', '--domain' => 'Sampling', '--query' => true], carries: null)
+        ->assertSuccessful();
+
+    $adapter = queryAdapterPath('EloquentListSamplingItemQuery');
+
+    expect(File::get($adapter))
+        ->toContain('use App\Models\SamplingItem;')
+        ->toContain('use App\Application\Sampling\SamplingItemListSort;')
+        ->toContain('use Illuminate\Database\Eloquent\Builder;')
+        ->toContain('$query = SamplingItem::query()')
+        ->toContain('->tap(fn (Builder $query) => $this->applySearch($query, $criteria->search, self::SEARCHABLE_COLUMNS))')
+        ->toContain("'sampling_items.created_at',")
+        ->toContain('->orderBy($this->sortColumn($criteria->sort), $criteria->direction);')
+        ->toContain('return $this->paginateRows($query, $criteria->perPage, fn (SamplingItem $samplingItem): SamplingItemListRow => $this->toRow($samplingItem));')
+        ->toContain('private function sortColumn(SamplingItemListSort $sort): string')
+        ->toContain("SamplingItemListSort::CreatedAt => 'sampling_items.created_at',")
+        ->toContain('private function toRow(SamplingItem $samplingItem): SamplingItemListRow')
+        ->toContain('id: $samplingItem->id,')
+        ->not->toContain('RuntimeException')
+        ->not->toContain('{{');
+
+    // the list-queries `shape` rule reads the code without its comments
+    expect(codeWithoutComments($adapter))
+        ->toContain('$this->paginateRows(')
+        ->not->toMatch('#->paginate\(#')
+        ->not->toMatch('#\b(I?LIKE)\b#')
+        ->not->toMatch('#/\*\*\s*@var\b#');
+});
+
+it('writes the adapter test with every hook of the contract filled in', function () {
+    runMakeUseCase(['name' => 'ListSamplingItem', '--domain' => 'Sampling', '--query' => true], carries: null)->run();
+
+    expect(File::get(queryAdapterTestPath('EloquentListSamplingItemQuery')))
+        ->toContain(<<<'PHP'
+use App\Application\Concerns\DateRange;
+use App\Application\Sampling\SamplingItemListSort;
+use App\Application\Sampling\UseCases\ListSamplingItem\ListSamplingItemCriteria;
+use App\Application\Sampling\UseCases\ListSamplingItem\ListSamplingItemQuery;
+use App\Infra\Persistence\Eloquent\Queries\EloquentListSamplingItemQuery;
+use App\Models\SamplingItem;
+PHP)
+        ->toContain(<<<'PHP'
+    criteria: fn (array $overrides): ListSamplingItemCriteria => new ListSamplingItemCriteria(
+        sort: SamplingItemListSort::CreatedAt,
+        direction: 'desc',
+        search: $overrides['search'] ?? '',
+        createdAt: DateRange::fromInput('', ''),
+        perPage: $overrides['perPage'] ?? 10,
+    ),
+    seed: fn (int $count) => SamplingItem::factory()->count($count)->create(),
+    break: fn () => breakListQueryColumn('sampling_items', 'created_at'),
+PHP)
+        ->toContain("describe('EloquentListSamplingItemQuery', function () {")
+        ->toContain('expect(app(ListSamplingItemQuery::class))->toBeInstanceOf(EloquentListSamplingItemQuery::class);')
+        ->not->toContain('LogicException')
+        ->not->toContain('{{');
+});
+
+it('writes an adapter and a test that pint leaves as they are', function () {
+    runMakeUseCase(['name' => 'ListSamplingItem', '--domain' => 'Sampling', '--query' => true], carries: null)->run();
+
+    $pint = Process::path(base_path())->run([
+        base_path('vendor/bin/pint'),
+        '--test',
+        queryAdapterPath('EloquentListSamplingItemQuery'),
+        queryAdapterTestPath('EloquentListSamplingItemQuery'),
+    ]);
+
+    expect($pint->successful())->toBeTrue($pint->output());
+});
+
+/**
+ * A model whose table is not the one Laravel would guess, keyed by a string like every
+ * model the kit's lists read.
+ */
+function writeSamplingBinModel(): void
+{
+    File::put(app_path('Models/SamplingBin.php'), <<<'PHP'
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class SamplingBin extends Model
+{
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    protected $table = 'sample_bins';
+
+    protected $guarded = [];
+}
+PHP);
+}
+
+it('qualifies the columns with the table the model already declares', function () {
+    writeSamplingBinModel();
+
+    runMakeUseCase(['name' => 'ListSamplingBins', '--domain' => 'Sampling', '--query' => true], carries: null)
+        ->doesntExpectOutputToContain('does not exist yet')
+        ->assertSuccessful();
+
+    expect(File::get(queryAdapterPath('EloquentListSamplingBinsQuery')))
+        ->toContain("SamplingBinListSort::CreatedAt => 'sample_bins.created_at',")
+        ->and(File::get(queryAdapterTestPath('EloquentListSamplingBinsQuery')))
+        ->toContain("breakListQueryColumn('sample_bins', 'created_at')");
+});
+
+it('generates a list that reads, pages, searches and filters the database as written', function () {
+    writeSamplingBinModel();
+    runMakeUseCase(['name' => 'ListSamplingBins', '--domain' => 'Sampling', '--query' => true], carries: null)->run();
+
+    // A project names its searchable columns; the generated adapter leaves the list empty.
+    $adapterPath = queryAdapterPath('EloquentListSamplingBinsQuery');
+    File::put($adapterPath, str_replace("// 'sample_bins.name',", "'sample_bins.name',", File::get($adapterPath)));
+
+    Schema::create('sample_bins', function (Blueprint $table) {
+        $table->string('id')->primary();
+        $table->string('name');
+        $table->timestamps();
+    });
+
+    DB::table('sample_bins')->insert([
+        ['id' => 'bin-1', 'name' => 'red bin', 'created_at' => '2026-03-01 09:00:00', 'updated_at' => '2026-03-01 09:00:00'],
+        ['id' => 'bin-2', 'name' => 'blue bin', 'created_at' => '2026-03-02 09:00:00', 'updated_at' => '2026-03-02 09:00:00'],
+        ['id' => 'bin-3', 'name' => 'green bin', 'created_at' => '2026-03-03 09:00:00', 'updated_at' => '2026-03-03 09:00:00'],
+    ]);
+
+    $namespace = 'App\Application\Sampling\UseCases\ListSamplingBins';
+    $command = $namespace.'\ListSamplingBinsCommand';
+    $handler = new ($namespace.'\ListSamplingBinsHandler')(new ('App\Infra\Persistence\Eloquent\Queries\EloquentListSamplingBinsQuery'));
+    $ids = fn ($result): array => array_map(fn ($row) => $row->toArray()['id'], $result->samplingBins->items());
+
+    $everything = $handler(new $command);
+
+    expect($everything->samplingBins->total())->toBe(3)
+        ->and($everything->samplingBins->items())->each->toBeInstanceOf($namespace.'\SamplingBinListRow')
+        ->and($ids($everything))->toBe(['bin-3', 'bin-2', 'bin-1'])
+        ->and($ids($handler(new $command(direction: 'asc'))))->toBe(['bin-1', 'bin-2', 'bin-3'])
+        ->and($ids($handler(new $command(search: 'blue'))))->toBe(['bin-2'])
+        ->and($ids($handler(new $command(createdFrom: '2026-03-02', createdTo: '2026-03-02'))))->toBe(['bin-2'])
+        ->and($handler(new $command(search: 'blue'))->filters)->toBe(['search' => 'blue', 'created_from' => null, 'created_to' => null]);
+});
+
+it('warns when the model the adapter reads through does not exist yet', function () {
+    runMakeUseCase(['name' => 'ListSamplingItem', '--domain' => 'Sampling', '--query' => true], carries: null)
+        ->expectsOutputToContain('Model [App\Models\SamplingItem] does not exist yet — EloquentListSamplingItemQuery reads through it.')
+        ->assertSuccessful();
+});
+
+it('keeps the commented outline for a read port that names no model', function () {
+    runMakeUseCase(['name' => 'ReadSamplingItem', '--domain' => 'Sampling', '--query' => true], carries: null)
+        ->doesntExpectOutputToContain('Model [')
+        ->assertSuccessful();
+
+    expect(File::get(queryAdapterPath('EloquentReadSamplingItemQuery')))
+        ->toContain("throw new RuntimeException('EloquentReadSamplingItemQuery::paginate() is not implemented yet.');")
+        ->not->toContain('App\Models')
+        ->not->toContain('{{')
+        ->and(File::get(queryAdapterTestPath('EloquentReadSamplingItemQuery')))
+        ->toContain('LogicException')
         ->not->toContain('{{');
 });
 
