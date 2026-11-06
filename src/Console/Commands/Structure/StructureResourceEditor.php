@@ -26,6 +26,12 @@ final class StructureResourceEditor
 
     private const array TAKES_COMMAND = ['command', 'command-result'];
 
+    /**
+     * The controller methods a form dialog needs: the one it loads its defaults from, then the
+     * one it posts to (form-pages.md, "Form dialogs").
+     */
+    private const array DIALOG_METHODS = ['create' => ['create', 'store'], 'edit' => ['edit', 'update']];
+
     public function __construct(
         private readonly StructureFiles $files,
         private readonly StructureReader $reader,
@@ -398,7 +404,9 @@ final class StructureResourceEditor
             $paths = $this->generatedPaths($manifest, $kind);
 
             if ($paths !== [] && ! in_array($name, $paths, true)) {
-                $errors['name'][] = 'A '.$kind.' page sits at '.implode(' or ', $paths).', where its generator writes it.';
+                $errors['name'][] = $kind === 'dialog'
+                    ? 'A dialog keeps the path its form\'s page would have: '.implode(' or ', $paths).'.'
+                    : 'A '.$kind.' page sits at '.implode(' or ', $paths).', where its generator writes it.';
             }
         }
 
@@ -408,6 +416,17 @@ final class StructureResourceEditor
 
         if ($kind === 'form' && ! array_key_exists('store', $controller) && ! array_key_exists('update', $controller)) {
             $errors['kind'][] = 'A form page posts to store or update, so add one of them first.';
+        }
+
+        if ($kind === 'dialog' && ! isset($errors['name'])) {
+            $form = basename($name);
+            $methods = self::DIALOG_METHODS[$form] ?? null;
+
+            if ($methods === null) {
+                $errors['name'][] = 'A dialog is the create or the edit form, kept at the path its page would have: agents/create or agents/edit.';
+            } elseif (array_diff($methods, array_keys($controller)) !== []) {
+                $errors['kind'][] = sprintf('The %s dialog loads its defaults from %s and posts to %s, so add both first (form-pages.md, "Form dialogs").', $form, ...$methods);
+            }
         }
 
         return [$kind, $errors];
@@ -423,7 +442,7 @@ final class StructureResourceEditor
      */
     private function generatedPaths(array $manifest, string $kind): array
     {
-        if ($kind === 'form') {
+        if (in_array($kind, ['form', 'dialog'], true)) {
             $folder = Str::kebab(Str::pluralStudly((string) $manifest['model']));
 
             return ["{$folder}/create", "{$folder}/edit"];
@@ -439,7 +458,7 @@ final class StructureResourceEditor
     }
 
     /**
-     * Why a controller method may not go: a page still needs it.
+     * Why a controller method may not go: a page or a dialog still needs it.
      *
      * @param  array<string, mixed>  $manifest
      * @return array<string, list<string>>
@@ -464,6 +483,12 @@ final class StructureResourceEditor
 
         if (in_array($name, ['store', 'update'], true) && $writers === [] && in_array('form', $kinds, true)) {
             return ['name' => ["{$name} is where the form pages post, so it stays while they do."]];
+        }
+
+        foreach (StructurePlanner::dialogsOf($pages) as $form) {
+            if (in_array($name, self::DIALOG_METHODS[$form], true)) {
+                return ['name' => ["The {$form} dialog loads from {$form} and posts to ".self::DIALOG_METHODS[$form][1].", so {$name} stays while the dialog does."]];
+            }
         }
 
         return [];

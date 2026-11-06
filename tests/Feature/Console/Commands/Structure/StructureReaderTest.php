@@ -396,6 +396,23 @@ describe('StructureReader', function () {
             ]);
         });
 
+        it('reads a form the controller answers as JSON as a dialog, once its form-dialog.tsx exports it', function () {
+            $controller = base_path('app/Http/Controllers/SamplingBinController.php');
+            $dialog = resource_path('js/components/sampling-bin/form-dialog.tsx');
+            File::put($controller, "<?php\n\nnamespace App\\Http\\Controllers;\n\nuse Illuminate\\Http\\JsonResponse;\n\nclass SamplingBinController\n{\n    public function create(): JsonResponse { return response()->json([]); }\n\n    public function edit(): JsonResponse { return response()->json([]); }\n\n    public function update(): void {}\n}\n");
+            File::ensureDirectoryExists(dirname($dialog));
+            File::put($dialog, "export function CreateSamplingBinDialog() {\n    return null;\n}\n\n// export function EditSamplingBinDialog() is still to write.\n");
+
+            try {
+                $pages = $this->reader->readResource('SamplingBin')['pages'];
+            } finally {
+                File::delete($controller);
+                File::deleteDirectory(dirname($dialog));
+            }
+
+            expect($pages)->toBe(['sampling-bins/create' => 'dialog']);
+        });
+
         it('reads a controller named after no model, with no policy', function () {
             expect($this->reader->readResource('SamplingReport'))->toBe([
                 'resource' => 'SamplingReport',

@@ -155,6 +155,7 @@ It has a file of its own, because an entry point calls into more than one contex
   - `table` when it calls `useDataTable(`;
   - `grid` when it renders `<InfiniteScroll`;
   - `form` when it imports a form from `@/components/*/form`;
+  - `dialog` for a create or edit form that opens in a dialog instead (form-pages.md, "Form dialogs"), kept at the path its page would have (`crates/edit`): its `create` or `edit` returns `JsonResponse`, and `resources/js/components/{model}/form-dialog.tsx` exports `Create{Model}Dialog` or `Edit{Model}Dialog`;
   - `page` for anything else.
 - `menu`: the entry in the main menu of the resource's page at `{folder}/index` (its table or grid, else its plain page, such as a board), its title's translation key and its lucide icon, and when it has them the key of the `group` it sits in, the translation key of its `description` and the policy's `ability` it asks in place of `viewAny`, read from `app/Http/Navigation.php`; `null` keeps the list page out of the menu on purpose; left out, the manifest says nothing yet (list-pages.md, "Menu"). For example `"menu": { "title": "invoices.title", "icon": "wallet", "group": "finance" }`.
 
@@ -201,9 +202,9 @@ Each step is a `make:*` generator or one line written into a project file. They 
 | port, service, application service, use case | `make:port`, `make:domain-service`, `make:application-service`, `make:use-case` | nothing |
 | binding | a line above `// kit:bindings` | the port and its adapter |
 | model, policy | `make:model --factory`, `make:policy` | nothing |
-| controller | `make:controller --only=…` | the use cases its methods call |
+| controller | `make:controller --only=…` (`--dialog=create,edit` names the forms of kind `dialog`) | the use cases its methods call |
 | action | `make:action` | the fields of its use case's Command |
-| form request, form pages | `make:form-request`, `make:form-page` | the fields of the create Command, then `{Model}FormValues` |
+| form request, form pages | `make:form-request`, `make:form-page` (`--dialog=…` as for the controller) | the fields of the create Command, then `{Model}FormValues` |
 | list page | `make:list-page` | a key other than `id` in its Row's `toArray()` |
 | route | a line above `// kit:routes` | the controller |
 | menu | a line above `// kit:menu` in `app/Http/Navigation.php` | the index route, the page at `{folder}/index`, the policy's `viewAny` (or the `ability` the entry names) and the `group` it names |
@@ -216,7 +217,7 @@ A step that waits for code a person writes (a Command's fields, a Row's keys) is
 
 **Do**
 - Put `// kit:bindings` on its own line as the last entry of one provider's `$bindings`, `// kit:routes` as the last line of the route group new pages belong in, and `// kit:menu` as the last line of the main menu's list in `app/Http/Navigation.php` (list-pages.md). `kit:apply` writes each new line above its marker, with full class names, so no `use` line changes. Without a marker, or with more than one, it prints the line for you to place. *Review only.*
-- Finish by hand what no generator writes, which `kit:plan` lists last as the check's own messages: a second repository or one from another context, a handler that returns `int`, a controller method outside the resource ones, a policy ability other than the CRUD ones, `#[UsePolicy]` on the model, and a page of kind `page`. *Review only.*
+- Finish by hand what no generator writes, which `kit:plan` lists last as the check's own messages: a second repository or one from another context, a handler that returns `int`, a controller method outside the resource ones, a policy ability other than the CRUD ones, `#[UsePolicy]` on the model, a page of kind `page`, and the lines that open a dialog from the list page, which `make:form-page` prints. *Review only.*
 - Count a route as done once a route file registers its controller, whatever uri it chose. A `Route::resource()` counts only once it registers every controller method the manifest lists: `kit:apply` widens its `only([...])` to cover a method added later, and leaves one an `except([...])` holds back for you to change by hand. *Review only.*
 
 **Why:** the generators already write every piece the way the rules want it. What was left to a person was the order to run them in and the flags each one takes, which the manifest already says. The run stops where only a person can go on, and says why, so it never writes a page for a Row that has no columns.
@@ -256,8 +257,8 @@ The structure screen changes the manifests too. From the overview, create a cont
   - an adapter is `Infra/{Folder}/{Prefix}{Port}`, the class `make:port --adapter` writes;
   - `index` reads its page through one use case that takes a Command and returns a Result, `store` and `update` write through one that takes a Command, and `destroy` deletes through one plain use case (form-pages.md, write-path.md);
   - an action calls one use case that takes a Command, shared by its row and bulk controllers, and a bulk action's returns `int` (actions.md);
-  - a page of a resource with a model sits where its generator writes it: a list page at `{names}/index`, named after the index's `List{Names}` use case, and a form page at `{models}/create` or `{models}/edit`;
-  - a list page needs `index`, and a form page `store` or `update`; a policy needs a model to attach to;
+  - a page of a resource with a model sits where its generator writes it: a list page at `{names}/index`, named after the index's `List{Names}` use case, and a form page at `{models}/create` or `{models}/edit`, where a dialog keeps its form's path too;
+  - a list page needs `index`, and a form page `store` or `update`; a create dialog needs `create` and `store`, and an edit dialog `edit` and `update`; a policy needs a model to attach to;
   - an enum or a value object belongs to an aggregate of its own context, or to none in the shared kernel, which holds nothing else; an enum's cases are TitleCase with values no two share, and a value object's fields are camelCase;
   - an enum that lists where its cases may go is a status, named `*Status`, and lets at least one case become another (states.md). Each case goes only to other cases of the enum, and a case the form leaves out is final;
   - a field's type is a builtin, a class a manifest designs (an enum, a value object, an entity) or a class the code already has, so a value object can name an enum that is only designed;
@@ -275,7 +276,7 @@ A refused change comes back under the field that holds it, and nothing is writte
 - Change a built aggregate's children one at a time, the same way: it keeps its name and its repository, but takes a new child, which `kit:apply` builds with `make:entity --child`, and gives up a child the code does not have yet. The child's table, its model and the repository's `syncChildren()` stay yours to write (repositories.md). *Review only.*
 - Keep an aggregate's name, and its repository, while a service or a use case in any context injects it, or while it holds an enum, a value object or an exception. Keep a use case's name while a refusal of its own belongs to it. The editor refuses all of these, and lists who still needs it. *Review only.*
 - Keep an enum's or a value object's name while a value object's field names it, and an exception's while a method throws it. *Review only.*
-- Keep `index` while a list page needs it, and the last of `store` and `update` while a form page posts to it. *Review only.*
+- Keep `index` while a list page needs it, the last of `store` and `update` while a form page posts to it, and the two methods a dialog loads from and posts to while it is there. *Review only.*
 
 **Why:** a design written straight into the manifest is checked against the rules before any code exists, so `kit:apply` never builds a piece the architecture checks would refuse.
 

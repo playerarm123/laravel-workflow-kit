@@ -27,7 +27,7 @@ export const RESOURCE_SECTION_LABELS: Record<ResourceSection, string> = {
     pages: 'page',
 };
 
-const PAGE_KINDS: PageKind[] = ['table', 'grid', 'form', 'page'];
+const PAGE_KINDS: PageKind[] = ['table', 'grid', 'form', 'dialog', 'page'];
 
 /**
  * Every field any section posts, flat, so an error the editor names by field lands under it.

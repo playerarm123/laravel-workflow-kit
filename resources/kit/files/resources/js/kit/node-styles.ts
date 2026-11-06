@@ -1,4 +1,5 @@
 import {
+    AppWindow,
     Box,
     Boxes,
     Cog,
@@ -237,6 +238,7 @@ const PAGE_ICONS: Partial<Record<string, LucideIcon>> = {
     table: Table,
     grid: LayoutGrid,
     form: FileText,
+    dialog: AppWindow,
     page: File,
 };
 
@@ -250,7 +252,8 @@ export const KIND_LABELS: Record<StructureNodeKind, string> =
 
 /**
  * How a card looks, from its kind and its variant: a list use case reads green, a status is an
- * enum whose icon shows it moves, a page's icon shows its kind.
+ * enum whose icon shows it moves, a page's icon shows its kind. A form in a dialog is drawn as a
+ * page, at the path its page would have, with a window for its icon.
  */
 export function styleOf(
     node: Pick<StructureNodeData, 'kind' | 'variant'>,
@@ -267,7 +270,10 @@ export function styleOf(
         return {
             ...KIND_STYLES.page,
             key: `page:${node.variant}`,
-            label: `Page (${node.variant})`,
+            label:
+                node.variant === 'dialog'
+                    ? 'Form dialog'
+                    : `Page (${node.variant})`,
             icon: PAGE_ICONS[node.variant] ?? File,
         };
     }

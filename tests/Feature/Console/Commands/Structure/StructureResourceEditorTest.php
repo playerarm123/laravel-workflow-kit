@@ -222,6 +222,17 @@ describe('StructureResourceEditor', function () {
                 ]);
         });
 
+        it('keeps a form in a dialog once the methods it loads from and posts to are there, and those stay while it does', function () {
+            $editor = samplingRouteEditor();
+            $editor->savePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'controller', null, 'edit', ['useCases' => []]);
+            $editor->savePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'controller', null, 'update', ['useCases' => [samplingRouteUseCase('ArchiveSamplingRouteCase')]]);
+
+            expect($editor->savePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'pages', null, 'sampling-route-cases/edit', ['kind' => 'dialog']))->toBe([])
+                ->and(samplingRouteManifest()['pages'])->toBe(['sampling-route-cases/edit' => 'dialog', 'sampling-route-cases/index' => 'table'])
+                ->and($editor->removePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'controller', 'edit')['name'][0] ?? null)->toContain('The edit dialog loads from edit')
+                ->and($editor->removePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'controller', 'update')['name'][0] ?? null)->toContain('so update stays while the dialog does');
+        });
+
         it('renames a piece the code does not have yet', function () {
             $editor = samplingRouteEditor();
             $editor->savePiece(SAMPLING_ROUTE_CASE, samplingRouteVersion(), 'controller', null, 'picker', ['useCases' => [samplingRouteUseCase('ListSamplingRouteCases')]]);
@@ -251,6 +262,9 @@ describe('StructureResourceEditor', function () {
             'a kind the schema does not know' => ['pages', null, 'sampling-route-cases/show', ['kind' => 'card'], 'kind'],
             'a list page away from where make:list-page writes it' => ['pages', 'sampling-route-cases/index', 'cases/index', ['kind' => 'table'], 'name'],
             'a form page with nothing to post to' => ['pages', null, 'sampling-route-cases/create', ['kind' => 'form'], 'kind'],
+            'a dialog with nothing to load from or post to' => ['pages', null, 'sampling-route-cases/create', ['kind' => 'dialog'], 'kind'],
+            'a dialog that is neither create nor edit' => ['pages', null, 'sampling-route-cases/show', ['kind' => 'dialog'], 'name'],
+            'a dialog away from its form\'s page' => ['pages', null, 'cases/create', ['kind' => 'dialog'], 'name'],
         ]);
 
         it('refuses a change to a manifest that changed since the page loaded', function () {

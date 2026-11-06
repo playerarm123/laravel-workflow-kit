@@ -87,7 +87,7 @@ File and class names by convention, the field order the user gave, grouping fiel
 
 ### 1. Backend
 
-If the project uses the structure manifest (`.kit/structure/`), design the use cases, controller methods and pages in the manifest first, then let `php artisan kit:apply` run the generators (the `structure.md` guideline). A step where apply stops and waits is the part a person fills in.
+If the project uses the structure manifest (`.kit/structure/`), design the use cases, controller methods and pages in the manifest first, then let `php artisan kit:apply` run the generators (the `structure.md` guideline). A form in a dialog is a page of kind `dialog` at the path its page would have (`customers/edit`), beside the `create` or `edit` method it loads from and the `store` or `update` it posts to. A step where apply stops and waits is the part a person fills in.
 
 Order:
 
