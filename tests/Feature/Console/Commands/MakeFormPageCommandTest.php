@@ -25,7 +25,7 @@ function runMakeFormPage(array $arguments = []): PendingCommand
 /**
  * The generated files, relative to the project root as the rules helpers read them.
  *
- * @return array{types: string, form: string, create: string, edit: string, create_browser: string, edit_browser: string}
+ * @return array{types: string, form: string, create: string, edit: string, create_browser: string, edit_browser: string, dialog: string, index_browser: string}
  */
 function formPageGenerated(): array
 {
@@ -36,6 +36,8 @@ function formPageGenerated(): array
         'edit' => 'resources/js/pages/sampling-pallets/edit.tsx',
         'create_browser' => 'tests/Browser/SamplingPallets/CreateTest.php',
         'edit_browser' => 'tests/Browser/SamplingPallets/EditTest.php',
+        'dialog' => 'resources/js/components/sampling-pallet/form-dialog.tsx',
+        'index_browser' => 'tests/Browser/SamplingPallets/IndexTest.php',
     ];
 }
 
@@ -214,3 +216,91 @@ it('reports the routes and translation keys the pages still need', function () {
         ->toContain('lang/en.json is missing')
         ->toContain('sampling-pallets.create_title');
 });
+
+it('puts both forms in a dialog that loads the server defaults, and writes no page', function () {
+    runMakeFormPage(['--dialog' => null])
+        ->expectsOutputToContain('useDialog()')
+        ->assertSuccessful();
+
+    expect(File::get(base_path(formPageGenerated()['form'])))
+        ->toContain('onCancel: () => void;')
+        ->toContain('onSuccess={onSuccess}')
+        ->toContain('preserveState: true')
+        ->toContain('defaultValue={defaults.label}')
+        ->not->toContain('cancelHref')
+        ->not->toContain('Card')
+        ->not->toMatch('/\{\{ \w+ \}\}/')
+        ->and(File::get(base_path(formPageGenerated()['dialog'])))
+        ->toContain('export function CreateSamplingPalletDialog({ dialog }: { dialog: Dialog })')
+        ->toContain('export function EditSamplingPalletDialog<TItem extends { id: string }>')
+        ->toContain('load={SamplingPalletController.create()}')
+        ->toContain('SamplingPalletController.edit(target)')
+        ->toContain('SamplingPalletController.store.form()')
+        ->toContain('SamplingPalletController.update.form(target)')
+        ->toContain("import { FormDialog } from '@/components/form-dialog';")
+        ->toContain("import type { Dialog, ItemDialog } from '@/hooks/use-dialog';")
+        ->not->toMatch('/\{\{ \w+ \}\}/')
+        ->and(File::exists(base_path(formPageGenerated()['create'])))->toBeFalse()
+        ->and(File::exists(base_path(formPageGenerated()['edit'])))->toBeFalse()
+        ->and(File::exists(base_path(formPageGenerated()['create_browser'])))->toBeFalse()
+        ->and(File::exists(base_path(formPageGenerated()['edit_browser'])))->toBeFalse();
+});
+
+it('keeps create a page and puts only edit in a dialog, with one form for both', function () {
+    runMakeFormPage(['--dialog' => 'edit'])->assertSuccessful();
+
+    expect(File::get(base_path(formPageGenerated()['form'])))
+        ->toContain('cancelHref: RouteDefinition<\'get\'>;')
+        ->toContain('onCancel: () => void;')
+        ->toContain('<Card>')
+        ->and(File::get(base_path(formPageGenerated()['create'])))
+        ->toContain('cancelHref={index()}')
+        ->and(File::get(base_path(formPageGenerated()['dialog'])))
+        ->toContain('export function EditSamplingPalletDialog')
+        ->not->toContain('CreateSamplingPalletDialog')
+        ->toContain("import type { ItemDialog } from '@/hooks/use-dialog';")
+        ->and(File::exists(base_path(formPageGenerated()['create_browser'])))->toBeTrue()
+        ->and(File::exists(base_path(formPageGenerated()['edit'])))->toBeFalse()
+        ->and(File::exists(base_path(formPageGenerated()['edit_browser'])))->toBeFalse();
+});
+
+it('adds the dialog cases to the list page\'s Browser test, once', function () {
+    File::ensureDirectoryExists(base_path('tests/Browser/SamplingPallets'));
+    File::put(base_path(formPageGenerated()['index_browser']), "<?php\n\nit('renders the rows')->todo();\n");
+
+    runMakeFormPage(['--dialog' => 'edit'])->assertSuccessful();
+    File::delete(base_path(formPageGenerated()['form']));
+    File::delete(base_path(formPageGenerated()['dialog']));
+    runMakeFormPage(['--dialog' => 'edit'])->assertSuccessful();
+
+    $test = File::get(base_path(formPageGenerated()['index_browser']));
+
+    expect(substr_count($test, "it('edits a row from the edit dialog and keeps the list where it was')->todo();"))->toBe(1)
+        ->and($test)->toContain("it('renders the rows')->todo();")
+        ->toContain("it('shows each invalid field under its input in the dialog')->todo();")
+        ->not->toContain('create dialog');
+});
+
+it('says where the dialog cases go when the list page has no Browser test yet', function () {
+    runMakeFormPage(['--dialog' => 'create'])
+        ->expectsOutputToContain('the dialog cases have nowhere to go')
+        ->assertSuccessful();
+});
+
+it('refuses a --dialog that names something that is not a form', function () {
+    runMakeFormPage(['--dialog' => 'index'])
+        ->expectsOutputToContain('--dialog names index, which is not a form.')
+        ->assertFailed();
+});
+
+it('writes dialog files the form-pages ESLint rules and import order accept', function (string $dialog) {
+    runMakeFormPage(['--dialog' => $dialog])->assertSuccessful();
+
+    $files = array_values(array_filter(
+        array_map(base_path(...), [formPageGenerated()['form'], formPageGenerated()['dialog'], formPageGenerated()['create']]),
+        File::exists(...),
+    ));
+    $eslint = Process::path(base_path())->run([base_path('node_modules/.bin/eslint'), '--no-ignore', ...$files]);
+
+    expect($eslint->successful())->toBeTrue($eslint->output());
+})->with(['both' => '', 'edit only' => 'edit']);

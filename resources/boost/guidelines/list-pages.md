@@ -93,8 +93,8 @@ A list page is `resources/js/pages/**/index.tsx` whose props carry a `Paginated<
 - Build the columns in the component with `createColumnHelper<DataTableFeatures, Row>()`. A string `header` is a translation key.
 - Pass `query: { ...filters, sort: sort.column, direction: sort.direction, per_page: rows.per_page }`, straight from the props.
 - Pass `perPageOptions: [10, 25, 50]` to match `PageSize` on the server, and both `emptyState` (nothing yet) and `noResultsState` (filtered to nothing). The hook picks between them.
-- Row buttons come from `useActions()`. The page renders its own dialogs (`useItemDialog`, `useConfirmDialog`) next to `<DataTable>`, because the table renders none.
-- Page-level buttons (create) go in `headerActions`, and the domain toolbar goes in `toolbar`.
+- Row buttons come from `useActions()`. The page renders its own dialogs (`useDialog`, `useItemDialog`, `useConfirmDialog`) next to `<DataTable>`, because the table renders none.
+- Page-level buttons (create) go in `headerActions`, and the domain toolbar goes in `toolbar`. A form that lives in a dialog opens from there too: create with `createDialog.open`, edit with `actions.edit.dialog({ dialog: editDialog })` (form-pages.md, "Form dialogs").
 
 **Grid page**
 - Pass `query: { ...filters }` and render `<DataTableToolbar dt={list}>`, or the domain toolbar `<{Name}TableToolbar dt={list} />`, above the grid.

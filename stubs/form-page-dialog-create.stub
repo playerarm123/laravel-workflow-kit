@@ -1,0 +1,27 @@
+/**
+ * The create form in a dialog. The list page holds `useDialog()` and opens it from its header
+ * button; the server answers the starting values from `create`.
+ */
+export function Create{{ subject }}Dialog({ dialog }: { dialog: Dialog }) {
+    const { t } = useTranslation();
+
+    return (
+        <FormDialog<{{ subject }}FormValues>
+            open={dialog.isOpen}
+            onOpenChange={dialog.onOpenChange}
+            title={t('{{ prefix }}.create_title')}
+            description={t('{{ prefix }}.create_description')}
+            load={ {{ subject }}Controller.create()}
+        >
+            {(defaults, done) => (
+                <{{ subject }}Form
+                    action={ {{ subject }}Controller.store.form()}
+                    defaults={defaults}
+                    submitLabel={t('common.save')}
+                    onCancel={done}
+                    onSuccess={done}
+                />
+            )}
+        </FormDialog>
+    );
+}

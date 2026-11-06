@@ -1,0 +1,16 @@
+    /**
+     * Update the specified resource in storage, from the edit dialog.
+     *
+     * Authorized and validated by Update{{ model }}Request, which reads the id from the bound
+     * model. It goes back, so the list keeps its filters, sort and page. Catch here, by name, each
+     * refusal the user can act on, and answer it with FlashToast::error() (exceptions.md).
+     */
+    public function update(
+        Update{{ model }}Request $request,
+        {{ model }} ${{ variable }},
+        {{ updateHandler }} ${{ updateVariable }},
+    ): RedirectResponse {
+        ${{ updateVariable }}($request->toCommand());
+
+        return Inertia::flash(FlashToast::KEY, FlashToast::success(__('{{ prefix }}.updated')))->back();
+    }
