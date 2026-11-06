@@ -6,7 +6,8 @@
         "Route the library for signed-in users in routes/web.php, beside audit-entries in the auth group (not verified, so the policies alone decide who gets in): Route::resource('media-folders', MediaFolderController::class)->only(['store', 'update', 'destroy']); Route::post('media-items/move', MediaItemBulkMoveController::class)->name('media-items.bulk-move'); Route::resource('media-items', MediaItemController::class)->only(['index', 'store', 'update', 'destroy'])",
         "php artisan storage:link, so the public disk serves the images",
         "php artisan migrate",
-        "php artisan kit:import, so the structure manifest holds the Media context and its two resources",
+        "php artisan kit:import, then put the library in the menu: give .kit/structure/http/MediaItem.json \"menu\": {\"title\": \"media-items.title\", \"icon\": \"images\", \"description\": \"media-items.menu_description\"} (or \"menu\": null to keep it out) and run php artisan kit:apply",
+        "php artisan wayfinder:generate --with-form, then your package manager's build, which the library's Feature tests need",
         "Decide who keeps the library: app/Policies/MediaItemPolicy.php and MediaFolderPolicy.php let every user with a verified email in until you change them, and mediaLibraryManager() / mediaLibraryOutsider() in tests/Helpers/MediaLibrary.php change with them"
     ]
 }
