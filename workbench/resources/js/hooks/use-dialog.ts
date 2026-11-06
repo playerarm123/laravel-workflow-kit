@@ -11,6 +11,33 @@ import { useState } from 'react';
  * (see `ViewDialog`), so no component has to pass through the hook to reach the item it needs.
  */
 
+export type Dialog = {
+    isOpen: boolean;
+    open: () => void;
+    close: () => void;
+    /** Plugs straight into the Dialog's `onOpenChange`. It can only close; opening must come from `open` */
+    onOpenChange: (isOpen: boolean) => void;
+};
+
+/**
+ * A dialog opened for no item (a create form): there is nothing to show yet, so open or closed is
+ * all it holds. The caller passes `open` to the button, as with `useItemDialog`.
+ */
+export function useDialog(): Dialog {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return {
+        isOpen,
+        open: () => setIsOpen(true),
+        close: () => setIsOpen(false),
+        onOpenChange: (next) => {
+            if (!next) {
+                setIsOpen(false);
+            }
+        },
+    };
+}
+
 export type ItemDialog<TItem> = {
     /** The item the dialog is showing. `null` means closed */
     target: TItem | null;
