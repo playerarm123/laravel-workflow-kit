@@ -124,6 +124,7 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
             '{{ namespacedRow }}' => $this->namespacedRow(),
             '{{ sort }}' => $this->sortName(),
             '{{ namespacedSort }}' => $this->namespacedSort(),
+            '{{ rows }}' => $this->rowsName(),
         ];
     }
 
@@ -141,6 +142,10 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
 
     protected function handlerBody(): string
     {
+        if ($this->carriesQuery()) {
+            return $this->listHandlerBody();
+        }
+
         if ($this->writes()) {
             return $this->writingHandlerBody();
         }
@@ -180,6 +185,29 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
     }
 
     /**
+     * A list settles every raw value of its Command into the Criteria, each with a fallback
+     * so a hand-edited url still gets a page, and hands back what it settled on
+     * (list-queries.md). `desc` is the natural order of the default sort, newest first.
+     */
+    protected function listHandlerBody(): string
+    {
+        return '        $criteria = new '.$this->criteriaName()."(\n"
+            .'            sort: '.$this->sortName()."::fromInput(\$command->sort),\n"
+            ."            direction: \$command->direction === 'asc' ? 'asc' : 'desc',\n"
+            ."            search: trim(\$command->search),\n"
+            ."            // one settled value per filter, null meaning \"do not filter\", e.g.\n"
+            ."            // status: SampleStatus::tryFrom(\$command->status),\n"
+            ."            createdAt: DateRange::fromInput(\$command->createdFrom, \$command->createdTo),\n"
+            ."            perPage: PageSize::fromInput(\$command->perPage)->value,\n"
+            ."        );\n\n"
+            .'        return new '.$this->resultName()."(\n"
+            .'            '.$this->rowsName().": \$this->query->paginate(\$criteria),\n"
+            ."            sort: \$criteria->toSort(),\n"
+            ."            filters: \$criteria->toFilters(),\n"
+            .'        );';
+    }
+
+    /**
      * A handler writes when it is given a repository to write through.
      */
     protected function writes(): bool
@@ -206,6 +234,11 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
             $this->namespacedRepository(),
             $this->writes() ? $this->rootNamespace().'Application\\Audit\\AuditLog' : null,
             $this->writes() ? 'Illuminate\\Support\\Facades\\DB' : null,
+            ...($this->carriesQuery() ? [
+                $this->namespacedSort(),
+                $this->rootNamespace().'Application\\Concerns\\DateRange',
+                $this->rootNamespace().'Application\\Concerns\\PageSize',
+            ] : []),
         ]);
         sort($imports);
 
@@ -334,6 +367,20 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
         return str_starts_with($name, 'List') && strlen($name) > 4
             ? Str::singular(substr($name, 4)).'List'
             : $name;
+    }
+
+    /**
+     * The Result property the rows travel in: `ListLotteryTypes` hands back `lotteryTypes`,
+     * the name make:controller reads for the rows prop. A use case that does not start with
+     * List hands back `rows`.
+     */
+    protected function rowsName(): string
+    {
+        $name = $this->useCaseName();
+
+        return str_starts_with($name, 'List') && strlen($name) > 4
+            ? Str::camel(Str::pluralStudly(substr($name, 4)))
+            : 'rows';
     }
 
     /**
@@ -493,7 +540,7 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
     {
         if ($this->carriesCommand()) {
             $this->createFromStub(
-                'use-case-command.stub',
+                $this->carriesQuery() ? 'use-case-list-command.stub' : 'use-case-command.stub',
                 $this->qualifyClass($this->commandName()),
                 'Command',
             );
@@ -501,7 +548,7 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
 
         if ($this->carriesResult()) {
             $this->createFromStub(
-                'use-case-result.stub',
+                $this->carriesQuery() ? 'use-case-list-result.stub' : 'use-case-result.stub',
                 $this->qualifyClass($this->resultName()),
                 'Result',
             );

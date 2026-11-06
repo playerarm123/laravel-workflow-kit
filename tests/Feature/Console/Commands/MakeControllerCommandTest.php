@@ -162,9 +162,29 @@ PHP);
 function cleanControllerScratch(): void
 {
     File::deleteDirectory(app_path('Application/'.CONTROLLER_CONTEXT));
+    File::deleteDirectory(base_path('tests/Feature/Application/'.CONTROLLER_CONTEXT));
+    cleanGeneratedListScratch();
     File::deleteDirectory(base_path('tests/Feature/Http/Controllers/'.CONTROLLER_MODEL.'Controller'));
     File::deleteDirectory(app_path('Http/Requests/'.CONTROLLER_MODEL));
     File::delete([controllerGenerated(), app_path('Policies/'.CONTROLLER_MODEL.'Policy.php')]);
+}
+
+/**
+ * What the end-to-end index test writes for its own model, beside the fixtures' context.
+ */
+const GENERATED_LIST_MODEL = 'SamplingPallet';
+
+function cleanGeneratedListScratch(): void
+{
+    $model = GENERATED_LIST_MODEL;
+
+    File::deleteDirectory(app_path("Http/Requests/{$model}"));
+    File::deleteDirectory(base_path("tests/Feature/Http/Controllers/{$model}Controller"));
+    File::delete([
+        app_path("Http/Controllers/{$model}Controller.php"),
+        app_path("Infra/Persistence/Eloquent/Queries/EloquentList{$model}sQuery.php"),
+        base_path("tests/Feature/Infra/Persistence/Eloquent/Queries/EloquentList{$model}sQueryTest.php"),
+    ]);
 }
 
 beforeEach(function () {
@@ -243,6 +263,39 @@ PHP)
         ->toContain('use App\Application\SamplingRacking\UseCases\ListSamplingCrates\ListSamplingCratesCommand;')
         ->not->toContain('function rules(')
         ->not->toContain('{{');
+});
+
+it('writes an index request that hands every field of a generated list Command over raw', function () {
+    $model = GENERATED_LIST_MODEL;
+
+    test()->artisan('make:use-case', ['name' => "List{$model}s", '--domain' => CONTROLLER_CONTEXT, '--query' => true])
+        ->assertSuccessful();
+
+    test()->artisan('make:controller', ['name' => $model, '--domain' => CONTROLLER_CONTEXT, '--only' => 'index'])
+        ->doesntExpectOutputToContain('should carry its rows, sort and filters only')
+        ->assertSuccessful();
+
+    $request = app_path("Http/Requests/{$model}/Index{$model}Request.php");
+
+    expect(File::get($request))->toContain(<<<'PHP'
+    public function toCommand(): ListSamplingPalletsCommand
+    {
+        return new ListSamplingPalletsCommand(
+            sort: $this->string('sort')->toString(),
+            direction: $this->string('direction')->toString(),
+            search: $this->string('search')->toString(),
+            createdFrom: $this->string('created_from')->toString(),
+            createdTo: $this->string('created_to')->toString(),
+            perPage: $this->string('per_page')->toString(),
+        );
+    }
+PHP)
+        ->and(File::get(app_path("Http/Controllers/{$model}Controller.php")))
+        ->toContain('$result->samplingPallets');
+
+    $pint = Process::path(base_path())->run([base_path('vendor/bin/pint'), '--test', $request]);
+
+    expect($pint->successful())->toBeTrue($pint->output());
 });
 
 it('leaves an index request that already exists as it is', function () {

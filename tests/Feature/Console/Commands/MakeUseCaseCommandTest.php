@@ -1,6 +1,7 @@
 <?php
 
 use App\Application\Concerns\DateRange;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\File;
 use Illuminate\Testing\PendingCommand;
 
@@ -45,7 +46,7 @@ afterEach(function () {
     File::deleteDirectory(app_path('Application/Sampling'));
     File::deleteDirectory(base_path('tests/Feature/Application/Sampling'));
 
-    foreach (['EloquentListSamplingItemQuery', 'EloquentListSamplingItemsQuery', 'EloquentListSamplingLoadablesQuery', 'EloquentReadSamplingItemQuery'] as $adapter) {
+    foreach (['EloquentListSamplingItemQuery', 'EloquentListSamplingItemsQuery', 'EloquentListSamplingLoadablesQuery', 'EloquentListSamplingParcelsQuery', 'EloquentReadSamplingItemQuery'] as $adapter) {
         File::delete([queryAdapterPath($adapter), queryAdapterTestPath($adapter)]);
     }
 });
@@ -179,6 +180,7 @@ it('creates the result class beside the handler when asked for a command and a r
 
     expect(File::get(useCaseClassPath('ReadSamplingItem/ReadSamplingItemResult')))
         ->toContain('final class ReadSamplingItemResult extends Data')
+        ->toContain('// define the result payload here')
         ->not->toContain('{{');
 });
 
@@ -476,6 +478,107 @@ it('generates a sort and a criteria that load and settle as written', function (
 
     expect($built->toSort())->toBe(['column' => 'created_at', 'direction' => 'desc'])
         ->and($built->toFilters())->toBe(['search' => '', 'created_from' => null, 'created_to' => null]);
+});
+
+it('writes a list command whose every field is a raw string defaulting to empty', function () {
+    runMakeUseCase(['name' => 'ListSamplingItem', '--domain' => 'Sampling', '--query' => true], carries: null)
+        ->assertSuccessful();
+
+    expect(File::get(useCaseClassPath('ListSamplingItem/ListSamplingItemCommand')))
+        ->toContain('namespace App\Application\Sampling\UseCases\ListSamplingItem;')
+        ->toContain('final class ListSamplingItemCommand extends Data')
+        ->toContain("public readonly string \$sort = '',")
+        ->toContain("public readonly string \$direction = '',")
+        ->toContain("public readonly string \$search = '',")
+        ->toContain("public readonly string \$createdFrom = '',")
+        ->toContain("public readonly string \$createdTo = '',")
+        ->toContain("public readonly string \$perPage = '',")
+        ->not->toContain('EnumCast')
+        ->not->toContain('define the command payload here')
+        ->not->toContain('{{');
+});
+
+it('writes a list result carrying the rows, the sort and the filters', function () {
+    runMakeUseCase(['name' => 'ListSamplingItem', '--domain' => 'Sampling', '--query' => true], carries: null)
+        ->assertSuccessful();
+
+    expect(File::get(useCaseClassPath('ListSamplingItem/ListSamplingItemResult')))
+        ->toContain('use Illuminate\Pagination\LengthAwarePaginator;')
+        ->toContain('final class ListSamplingItemResult extends Data')
+        ->toContain('@param  LengthAwarePaginator<int, SamplingItemListRow>  $samplingItems')
+        ->toContain('public readonly LengthAwarePaginator $samplingItems,')
+        ->toContain('public readonly array $sort,')
+        ->toContain('public readonly array $filters,')
+        ->not->toContain('EnumCast')
+        ->not->toContain('define the result payload here')
+        ->not->toContain('{{');
+});
+
+it('names the rows after the plural subject of the list', function () {
+    runMakeUseCase(['name' => 'ListSamplingItems', '--domain' => 'Sampling', '--query' => true], carries: null)->run();
+
+    expect(File::get(useCaseClassPath('ListSamplingItems/ListSamplingItemsResult')))
+        ->toContain('public readonly LengthAwarePaginator $samplingItems,')
+        ->and(File::get(useCaseClassPath('ListSamplingItems/ListSamplingItemsHandler')))
+        ->toContain('samplingItems: $this->query->paginate($criteria),');
+});
+
+it('writes a list handler that settles the command into the criteria and returns the result', function () {
+    runMakeUseCase(['name' => 'ListSamplingItem', '--domain' => 'Sampling', '--query' => true], carries: null)
+        ->assertSuccessful();
+
+    expect(File::get(useCaseClassPath('ListSamplingItem/ListSamplingItemHandler')))
+        ->toContain('use App\Application\Concerns\DateRange;')
+        ->toContain('use App\Application\Concerns\PageSize;')
+        ->toContain('use App\Application\Sampling\SamplingItemListSort;')
+        ->toContain('$criteria = new ListSamplingItemCriteria(')
+        ->toContain('sort: SamplingItemListSort::fromInput($command->sort),')
+        ->toContain("direction: \$command->direction === 'asc' ? 'asc' : 'desc',")
+        ->toContain('search: trim($command->search),')
+        ->toContain('createdAt: DateRange::fromInput($command->createdFrom, $command->createdTo),')
+        ->toContain('perPage: PageSize::fromInput($command->perPage)->value,')
+        ->toContain('return new ListSamplingItemResult(')
+        ->toContain('samplingItems: $this->query->paginate($criteria),')
+        ->toContain('sort: $criteria->toSort(),')
+        ->toContain('filters: $criteria->toFilters(),')
+        ->not->toContain('implement the use case here')
+        ->not->toContain('{{');
+});
+
+it('generates a list command, handler and result that run together as written', function () {
+    runMakeUseCase(['name' => 'ListSamplingParcels', '--domain' => 'Sampling', '--query' => true], carries: null)->run();
+
+    $namespace = 'App\Application\Sampling\UseCases\ListSamplingParcels';
+    $handler = $namespace.'\ListSamplingParcelsHandler';
+    $command = $namespace.'\ListSamplingParcelsCommand';
+
+    $settled = null;
+    $query = Mockery::mock($namespace.'\ListSamplingParcelsQuery');
+    $query->shouldReceive('paginate')->once()->andReturnUsing(function ($criteria) use (&$settled) {
+        $settled = $criteria;
+
+        return new LengthAwarePaginator([], 0, $criteria->perPage);
+    });
+
+    $result = (new $handler($query))(new $command(
+        sort: 'not-a-column',
+        direction: 'sideways',
+        search: '  crate  ',
+        createdFrom: '2026-02-10',
+        createdTo: 'not-a-day',
+        perPage: '25',
+    ));
+
+    expect($settled->search)->toBe('crate')
+        ->and($settled->perPage)->toBe(25)
+        ->and($result->samplingParcels)->toBeInstanceOf(LengthAwarePaginator::class)
+        ->and($result->sort)->toBe(['column' => 'created_at', 'direction' => 'desc'])
+        ->and($result->filters)->toBe(['search' => 'crate', 'created_from' => '2026-02-10', 'created_to' => null]);
+
+    $empty = new $command;
+
+    expect([$empty->sort, $empty->direction, $empty->search, $empty->createdFrom, $empty->createdTo, $empty->perPage])
+        ->each->toBe('');
 });
 
 it('creates the eloquent adapter under the queries folder, never under repositories', function () {

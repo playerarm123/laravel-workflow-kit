@@ -20,6 +20,13 @@ class IndexProductRequest extends FormRequest
 
     public function toCommand(): ListProductsCommand
     {
-        return new ListProductsCommand;
+        return new ListProductsCommand(
+            sort: $this->string('sort')->toString(),
+            direction: $this->string('direction')->toString(),
+            search: $this->string('search')->toString(),
+            createdFrom: $this->string('created_from')->toString(),
+            createdTo: $this->string('created_to')->toString(),
+            perPage: $this->string('per_page')->toString(),
+        );
     }
 }

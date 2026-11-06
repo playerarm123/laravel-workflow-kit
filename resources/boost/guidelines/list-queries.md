@@ -22,6 +22,8 @@ Run `php artisan make:use-case List{Name} --domain={Context} --command --result 
 - the Eloquent adapter
 - a test file that already calls `listQueryContract()`
 
+The Command comes with `sort`, `direction`, `search`, `createdFrom`, `createdTo` and `perPage`, and the Result with `{rows}`, `sort` and `filters`. The Handler settles each value as the table below says and returns the Result. A filter is one line in each of the Command, the Handler, the Criteria and its `toFilters()`.
+
 Then fill them in and bind the port to the adapter in a service provider. *Checks `implementation`, `binding`.*
 
 ## Application side
