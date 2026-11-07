@@ -759,7 +759,9 @@ final class StructurePlanner
     private function binding(string $port, string $adapter, string $title, array $nodes): array
     {
         $line = sprintf('\\%s::class => \\%s::class,', $port, $adapter);
-        $done = $this->reader->boundAdapter($port) !== null || $this->markers->contains(StructureMarkers::BINDINGS, $line);
+        /** The line as written, or as Pint leaves it once it imports both classes. */
+        $written = sprintf('/(?<![\\w\\\\])\\\\?(?:[\\w\\\\]*\\\\)?%s::class\\s*=>\\s*\\\\?(?:[\\w\\\\]*\\\\)?%s::class/', preg_quote(class_basename($port), '/'), preg_quote(class_basename($adapter), '/'));
+        $done = $this->reader->boundAdapter($port) !== null || $this->markers->matches(StructureMarkers::BINDINGS, $written);
         $ready = interface_exists($port) && class_exists($adapter);
 
         return [

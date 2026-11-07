@@ -104,9 +104,9 @@ it('builds what is ready, then picks up where it stopped once the waiting code i
         ->and(File::exists(app_path('Models/'.SAMPLING_APPLY_MODEL.'.php')))->toBeTrue()
         ->and(File::exists(app_path('Policies/'.SAMPLING_APPLY_MODEL.'Policy.php')))->toBeTrue()
         ->and(File::exists(app_path('Http/Controllers/'.SAMPLING_APPLY_MODEL.'Controller.php')))->toBeTrue()
-        ->and(File::get(samplingApplyMarkersRoot().'/app/Providers/AppServiceProvider.php'))->toContain(
-            "        \\App\\Application\\SamplingApply\\UseCases\\ListSamplingPanniers\\ListSamplingPanniersQuery::class => \\App\\Infra\\Persistence\\Eloquent\\Queries\\EloquentListSamplingPanniersQuery::class,\n        // kit:bindings\n",
-        )
+        ->and(File::get(samplingApplyMarkersRoot().'/app/Providers/AppServiceProvider.php'))
+        ->toContain("use App\\Application\\SamplingApply\\UseCases\\ListSamplingPanniers\\ListSamplingPanniersQuery;\nuse App\\Infra\\Persistence\\Eloquent\\Queries\\EloquentListSamplingPanniersQuery;\n")
+        ->toContain("        ListSamplingPanniersQuery::class => EloquentListSamplingPanniersQuery::class,\n        // kit:bindings\n")
         ->and(File::exists(resource_path('js/pages/sampling-panniers/index.tsx')))->toBeFalse();
 
     File::put(samplingApplyRow(), str_replace(
@@ -122,7 +122,11 @@ it('builds what is ready, then picks up where it stopped once the waiting code i
         ->expectsOutputToContain('Routes changed.')
         ->assertSuccessful();
 
-    expect(File::exists(resource_path('js/pages/sampling-panniers/index.tsx')))->toBeTrue();
+    expect(File::exists(resource_path('js/pages/sampling-panniers/index.tsx')))->toBeTrue()
+        ->and(File::get(samplingApplyMarkersRoot().'/routes/web.php'))
+        ->toContain('use App\\Http\\Controllers\\'.SAMPLING_APPLY_MODEL.'Controller;')
+        ->toContain("Route::resource('sampling-panniers', ".SAMPLING_APPLY_MODEL."Controller::class)->only(['index']);")
+        ->and(substr_count(File::get(samplingApplyMarkersRoot().'/app/Providers/AppServiceProvider.php'), 'ListSamplingPanniersQuery::class =>'))->toBe(1);
 });
 
 /**
