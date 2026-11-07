@@ -5,10 +5,10 @@ use Illuminate\Support\Facades\Process;
 use Playerarm123\LaravelWorkflowKit\WorkflowKit;
 
 /**
- * The kit's TypeScript and CSS land in a project beside the .prettierrc kit:setup writes, and
- * [kit-files] keeps the project from reformatting them, so `prettier --check resources/` must
- * pass on them as the kit ships them. The order of the classes depends on the Tailwind
- * stylesheet, so the run reads the starter kit's own app.css.
+ * The kit's TypeScript and CSS, its features' included, land in a project beside the .prettierrc
+ * kit:setup writes, and [kit-files] keeps the project from reformatting them, so
+ * `prettier --check resources/` must pass on them as the kit ships them. The order of the classes
+ * depends on the Tailwind stylesheet, so the run reads the starter kit's own app.css.
  */
 it('ships every file under resources/ in the shape the project\'s Prettier checks for', function () {
     $workbench = dirname(__DIR__, 3).'/workbench';
@@ -23,6 +23,12 @@ it('ships every file under resources/ in the shape the project\'s Prettier check
         // A setup file is written only where the project has none, so a kit file of the same path wins.
         File::copyDirectory(WorkflowKit::kitPath().'/setup/resources', $project.'/resources');
         File::copyDirectory(WorkflowKit::kitPath().'/files/resources', $project.'/resources');
+
+        // Every feature too: a project that installs one holds its files under the same rule.
+        foreach (glob(WorkflowKit::kitPath().'/features/*/files/resources', GLOB_ONLYDIR) ?: [] as $feature) {
+            File::copyDirectory($feature, $project.'/resources');
+        }
+
         File::copy(WorkflowKit::kitPath().'/setup/.prettierrc', $project.'/.prettierrc');
         File::copy(WorkflowKit::kitPath().'/setup/.prettierignore', $project.'/.prettierignore');
         File::copyDirectory(dirname(__DIR__, 2).'/Fixtures/StarterKit/resources/css', $project.'/resources/css');
