@@ -171,6 +171,19 @@ php artisan kit:install --force   # take the kit's copy of those
 php artisan test --testsuite=Architecture
 ```
 
+### Optional features
+
+A feature the kit ships for the projects that want it. `kit:install --with={name}` writes its files, adds the words it speaks to every `lang/*.json` in English, records it in `.kit/features.json` (so every later `kit:install` keeps it up to date and its checks hold) and lists what to wire by hand once.
+
+| Feature | What it adds | Guideline |
+|---|---|---|
+| `media` | An image library: upload (resized to webp, with a thumbnail), folders, a picker for any form (`MediaPickerField`), and usages that keep an image in use from being deleted. Its quota is a port (`MediaQuota`) a project binds to its own plans. One library for the whole app: it is not split by tenant yet. | [media.md](resources/boost/guidelines/media.md) |
+
+```bash
+php artisan kit:install --with=media   # then do what it lists: intervention/image, the provider, the routes, the menu, the build
+php artisan test --testsuite=Architecture
+```
+
 ## Contributing
 
 The kit tests itself on a small Laravel app in `workbench/`, through [Orchestra Testbench](https://github.com/orchestral/testbench). You need PHP 8.4, Node 22 and a PostgreSQL database named `workflow_kit_test` on `127.0.0.1`, user `postgres`.
@@ -185,7 +198,7 @@ composer analyse                # PHPStan
 
 A change to a rule changes its guideline in `resources/boost/guidelines` and its spec in `tests/Architecture` together. A change to a kit file changes its copy in `resources/kit`; run `php vendor/bin/testbench kit:install --force` to put it into the workbench.
 
-The kit's CI also builds a project with `laravel/react-starter-kit`, installs the kit from the archive Packagist would serve, runs `kit:setup` and holds it to the starter kit's own `composer ci:check`: Prettier, ESLint, tsc, Pint, PHPStan and every suite, the Architecture and Browser ones among them (the `starter-kit` job). The Feature suite runs Prettier over the kit's own TypeScript with the `.prettierrc` `kit:setup` writes and the starter kit's stylesheet.
+The kit's CI also builds a project with `laravel/react-starter-kit`, installs the kit from the archive Packagist would serve, runs `kit:setup` and holds it to the starter kit's own `composer ci:check`: Prettier, ESLint, tsc, Pint, PHPStan and every suite, the Architecture and Browser ones among them (the `starter-kit` job), once with nothing more and once with every optional feature installed and wired. The Feature suite runs Prettier over the kit's own TypeScript, its features' included with the `.prettierrc` `kit:setup` writes and the starter kit's stylesheet.
 
 ## License
 

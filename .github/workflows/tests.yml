@@ -66,8 +66,15 @@ jobs:
         # `laravel new` offers both: PHPUnit keeps the starter kit as it ships, Pest adds its own
         # tests/Pest.php, which kit:setup has to complete rather than replace.
         tests: [phpunit, pest]
+        features: [none]
+        # One more run installs and wires every optional feature (kit:install --with=), and holds
+        # it to the same ci:check.
+        include:
+          - tests: pest
+            features: media
 
-    name: starter-kit (${{ matrix.tests }})
+    # The runs without features keep their names, which branch protection may require.
+    name: starter-kit (${{ matrix.tests }}${{ matrix.features != 'none' && format(', {0}', matrix.features) || '' }})
 
     services:
       postgres:
@@ -151,6 +158,21 @@ jobs:
           grep -q 'image: postgres' .github/workflows/tests.yml
           grep -q "create database testing" .github/workflows/tests.yml
           grep -q 'playwright install --with-deps chromium' .github/workflows/tests.yml
+
+      # What media's feature.json asks a person to do once, in that order; bin/wire-media.php makes
+      # the file edits. Its own build follows, for the library's page.
+      - name: Install and wire the media feature
+        if: matrix.features == 'media'
+        working-directory: app
+        run: |
+          composer require intervention/image:^4 --no-interaction
+          php artisan kit:install --with=media --no-interaction
+          php artisan kit:import --no-interaction
+          php ../kit/bin/wire-media.php
+          php artisan storage:link --no-interaction
+          php artisan kit:apply --resource=MediaItem --no-interaction
+          php artisan wayfinder:generate --with-form --no-interaction
+          npm run build
 
       # No build of its own: kit:setup builds the assets, and the Feature suite fails on the
       # kit's pages when it does not.
