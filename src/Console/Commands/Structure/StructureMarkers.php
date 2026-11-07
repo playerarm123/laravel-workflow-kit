@@ -227,6 +227,16 @@ final class StructureMarkers
     }
 
     /**
+     * The absolute path of the file that holds a marker, or null.
+     */
+    public function pathOf(string $marker): ?string
+    {
+        $files = $this->filesWith($marker);
+
+        return count($files) === 1 ? $files[0] : null;
+    }
+
+    /**
      * The text of the file that holds a marker, or null.
      */
     public function textOf(string $marker): ?string

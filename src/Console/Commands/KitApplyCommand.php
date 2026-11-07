@@ -17,8 +17,12 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureSwapper;
  * next ready: an adapter makes its binding ready, a controller its route.
  *
  * A swap step points code at a replacement, then runs Pint on the PHP files it changed so their
- * imports sit in order again, and prettier on the TypeScript ones a list's swap renamed types in. A swap, or a method added to an entity, changes a class this process
- * has already loaded, so the run then leaves the comparison to `kit:plan`.
+ * imports sit in order again, and prettier on the TypeScript ones a list's swap renamed types in.
+ * A swap, or a method added to an entity, changes a class this process has already loaded, so the
+ * run then leaves the comparison to `kit:plan`.
+ *
+ * A binding, route or menu line names its classes in full (`\App\…::class`), so the run ends with
+ * Pint on every file it wrote such a line into, which imports them as the project's own code does.
  *
  * A step that fails is not run again in the same call, so the steps that need it keep waiting.
  * A line with no marker to go above is printed for a person to place. The run ends with the plan
@@ -46,6 +50,8 @@ class KitApplyCommand extends Command
         $failed = false;
         $routes = false;
         $reshaped = false;
+        /** @var array<string, true> $marked the files a line went into, by absolute path */
+        $marked = [];
 
         for ($round = 0; $round < self::MAX_ROUNDS; $round++) {
             $ready = array_filter(
@@ -83,6 +89,12 @@ class KitApplyCommand extends Command
 
                 $written = $markers->insert((string) $step['marker'], (string) $step['line']);
 
+                $path = $markers->pathOf((string) $step['marker']);
+
+                if ($path !== null && in_array($written, [StructureMarkers::WRITTEN, StructureMarkers::WIDENED], true)) {
+                    $marked[$path] = true;
+                }
+
                 if ($written === StructureMarkers::WRITTEN) {
                     $routes = $routes || $step['marker'] === StructureMarkers::ROUTES;
                     $this->components->info(sprintf('Wrote [%s] above %s in [%s].', $step['line'], $step['marker'], $markers->fileOf((string) $step['marker'])));
@@ -102,6 +114,8 @@ class KitApplyCommand extends Command
             }
         }
 
+        $this->tidy(array_keys($marked));
+
         $this->printPlan($this->planSteps(), compare: ! $reshaped);
 
         if ($routes) {
@@ -112,7 +126,7 @@ class KitApplyCommand extends Command
     }
 
     /**
-     * @param  list<string>  $php  from the project root
+     * @param  list<string>  $php  from the project root, or absolute
      * @param  list<string>  $typescript  from the project root
      */
     private function tidy(array $php, array $typescript = []): void
