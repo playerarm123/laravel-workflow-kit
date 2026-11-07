@@ -31,6 +31,8 @@ beforeEach(function () {
     File::put($kit.'/features/gallery/files/app/Gallery/Picture.php', "<?php // gallery\n");
     File::put($kit.'/features/gallery/scaffold/config/gallery.php', "<?php // gallery config\n");
     File::put($kit.'/features/gallery/feature.json', json_encode(['by_hand' => ['Register GalleryServiceProvider']]));
+    File::ensureDirectoryExists($kit.'/features/gallery/lang');
+    File::put($kit.'/features/gallery/lang/en.json', json_encode(['gallery.title' => 'Gallery', 'gallery.empty' => 'No pictures']));
 });
 
 afterEach(fn () => File::deleteDirectory(dirname(kitInstallerRoots()['kit'])));
@@ -116,6 +118,7 @@ describe('KitInstaller', function () {
 
             expect($report['enabled'])->toBe(['gallery'])
                 ->and($report['written'])->toContain('app/Gallery/Picture.php', 'config/gallery.php')
+                ->and($report['feature_written'])->toBe(['app/Gallery/Picture.php', 'config/gallery.php'])
                 ->and(json_decode(File::get($project.'/.kit/features.json'), true))->toBe(['gallery']);
         });
 
@@ -176,6 +179,33 @@ describe('KitInstaller', function () {
 
             expect($installer->features())->toBe(['gallery'])
                 ->and($installer->byHandOf('gallery'))->toBe(['Register GalleryServiceProvider']);
+        });
+
+        it('adds the words of a feature a project file lacks, keeping the ones it has', function () {
+            ['kit' => $kit, 'project' => $project] = kitInstallerRoots();
+            File::ensureDirectoryExists($project.'/lang');
+            File::put($project.'/lang/th.json', json_encode(['gallery.title' => 'แกลเลอรี', 'app.name' => 'แอป']));
+            $installer = new KitInstaller($kit, $project);
+
+            $report = $installer->install(with: ['gallery']);
+
+            expect($report['translated'])->toBe(['lang/th.json' => 1])
+                ->and(json_decode(File::get($project.'/lang/th.json'), true))->toBe(['app.name' => 'แอป', 'gallery.empty' => 'No pictures', 'gallery.title' => 'แกลเลอรี'])
+                ->and($installer->install()['translated'])->toBe([]);
+        });
+
+        it('writes lang/en.json for a project with no locale file yet', function () {
+            ['kit' => $kit, 'project' => $project] = kitInstallerRoots();
+
+            expect((new KitInstaller($kit, $project))->install(with: ['gallery'])['translated'])->toBe(['lang/en.json' => 2])
+                ->and(File::exists($project.'/lang/en.json'))->toBeTrue();
+        });
+
+        it('adds no words for a feature the project did not install', function () {
+            ['kit' => $kit, 'project' => $project] = kitInstallerRoots();
+
+            expect((new KitInstaller($kit, $project))->install()['translated'])->toBe([])
+                ->and(File::exists($project.'/lang/en.json'))->toBeFalse();
         });
     });
 });

@@ -1,0 +1,12 @@
+{
+    "description": "An image library: upload, folders, a picker for other forms, and the usages that keep an image in use from being deleted (media.md).",
+    "by_hand": [
+        "composer require intervention/image:^4 (it needs PHP's gd extension)",
+        "Register App\\Infra\\Media\\MediaServiceProvider in bootstrap/providers.php",
+        "Route the library for signed-in users in routes/web.php, beside audit-entries in the auth group (not verified, so the policies alone decide who gets in): Route::resource('media-folders', MediaFolderController::class)->only(['store', 'update', 'destroy']); Route::post('media-items/move', MediaItemBulkMoveController::class)->name('media-items.bulk-move'); Route::resource('media-items', MediaItemController::class)->only(['index', 'store', 'update', 'destroy'])",
+        "php artisan storage:link, so the public disk serves the images",
+        "php artisan migrate",
+        "php artisan kit:import, so the structure manifest holds the Media context and its two resources",
+        "Decide who keeps the library: app/Policies/MediaItemPolicy.php and MediaFolderPolicy.php let every user with a verified email in until you change them, and mediaLibraryManager() / mediaLibraryOutsider() in tests/Helpers/MediaLibrary.php change with them"
+    ]
+}

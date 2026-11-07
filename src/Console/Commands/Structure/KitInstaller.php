@@ -19,7 +19,8 @@ use SplFileInfo;
  * Its `files/` and `scaffold/` mean the same as the kit's own. Once installed, the feature is
  * recorded in the project's `.kit/features.json`, so every later install keeps it up to date and
  * the checks hold its files to the kit's copy. Its `feature.json` lists what the project wires by
- * hand once (`by_hand`).
+ * hand once (`by_hand`), and its `lang/en.json` the words its pages and messages speak: every key
+ * a project's `lang/*.json` lacks is added in English, for the project to translate.
  *
  * A migration is matched by its name without the timestamp, so a project that already runs the
  * kit's table under another timestamp never gets a second migration for it.
@@ -40,7 +41,7 @@ final class KitInstaller
      * the features $with names, which are recorded as installed from then on.
      *
      * @param  list<string>  $with
-     * @return array{written: list<string>, overwritten: list<string>, unchanged: list<string>, differs: list<string>, kept: list<string>, enabled: list<string>}
+     * @return array{written: list<string>, overwritten: list<string>, unchanged: list<string>, differs: list<string>, kept: list<string>, enabled: list<string>, translated: array<string, int>, feature_written: list<string>}
      *
      * @throws InvalidArgumentException when $with names a feature the kit does not ship
      */
@@ -64,7 +65,7 @@ final class KitInstaller
             $this->recordFeatures([...$before, ...$enabled]);
         }
 
-        $report = ['written' => [], 'overwritten' => [], 'unchanged' => [], 'differs' => [], 'kept' => [], 'enabled' => $enabled];
+        $report = ['written' => [], 'overwritten' => [], 'unchanged' => [], 'differs' => [], 'kept' => [], 'enabled' => $enabled, 'translated' => [], 'feature_written' => []];
 
         foreach ($this->folders('files') as $folder) {
             $this->installFiles($folder, $force, $report);
@@ -72,6 +73,10 @@ final class KitInstaller
 
         foreach ($this->folders('scaffold') as $folder) {
             $this->installScaffold($folder, $report);
+        }
+
+        foreach ($this->enabledFeatures() as $name) {
+            $this->addWords($name, $report);
         }
 
         return $report;
@@ -143,7 +148,7 @@ final class KitInstaller
     }
 
     /**
-     * @param  array{written: list<string>, overwritten: list<string>, unchanged: list<string>, differs: list<string>, kept: list<string>, enabled: list<string>}  $report
+     * @param  array{written: list<string>, overwritten: list<string>, unchanged: list<string>, differs: list<string>, kept: list<string>, enabled: list<string>, translated: array<string, int>, feature_written: list<string>}  $report
      */
     private function installFiles(string $folder, bool $force, array &$report): void
     {
@@ -153,7 +158,7 @@ final class KitInstaller
 
             if (! is_file($target)) {
                 $this->write($source, $target);
-                $report['written'][] = $shown;
+                $this->reportWritten($folder, $shown, $report);
             } elseif (file_get_contents($target) === file_get_contents($source)) {
                 $report['unchanged'][] = $shown;
             } elseif ($force) {
@@ -166,7 +171,7 @@ final class KitInstaller
     }
 
     /**
-     * @param  array{written: list<string>, overwritten: list<string>, unchanged: list<string>, differs: list<string>, kept: list<string>, enabled: list<string>}  $report
+     * @param  array{written: list<string>, overwritten: list<string>, unchanged: list<string>, differs: list<string>, kept: list<string>, enabled: list<string>, translated: array<string, int>, feature_written: list<string>}  $report
      */
     private function installScaffold(string $folder, array &$report): void
     {
@@ -178,8 +183,66 @@ final class KitInstaller
                 $report['kept'][] = $shown;
             } else {
                 $this->write($source, $target);
-                $report['written'][] = $shown;
+                $this->reportWritten($folder, $shown, $report);
             }
+        }
+    }
+
+    /**
+     * Counts a file as written, and as written by a feature when it came from one, so the command
+     * names the kit's own wiring only when a file of the kit's own was new.
+     *
+     * @param  array{written: list<string>, overwritten: list<string>, unchanged: list<string>, differs: list<string>, kept: list<string>, enabled: list<string>, translated: array<string, int>, feature_written: list<string>}  $report
+     */
+    private function reportWritten(string $folder, string $shown, array &$report): void
+    {
+        $report['written'][] = $shown;
+
+        if (str_starts_with($folder, 'features/')) {
+            $report['feature_written'][] = $shown;
+        }
+    }
+
+    /**
+     * Adds every key of feature $name's `lang/en.json` that a project's `lang/*.json` lacks, in
+     * English, and counts them per file. A project with no locale file yet gets `lang/en.json`.
+     *
+     * @param  array{written: list<string>, overwritten: list<string>, unchanged: list<string>, differs: list<string>, kept: list<string>, enabled: list<string>, translated: array<string, int>, feature_written: list<string>}  $report
+     */
+    private function addWords(string $name, array &$report): void
+    {
+        $source = $this->kitPath.'/features/'.$name.'/lang/en.json';
+        $words = is_file($source) ? json_decode((string) file_get_contents($source), true) : null;
+
+        if (! is_array($words) || $words === []) {
+            return;
+        }
+
+        $files = glob($this->projectPath.'/lang/*.json') ?: [$this->projectPath.'/lang/en.json'];
+
+        foreach ($files as $path) {
+            $current = is_file($path) ? json_decode((string) file_get_contents($path), true) : [];
+
+            if (! is_array($current)) {
+                continue;
+            }
+
+            $merged = $current + $words;
+            $added = count($merged) - count($current);
+
+            if ($added === 0) {
+                continue;
+            }
+
+            ksort($merged);
+
+            if (! is_dir(dirname($path))) {
+                mkdir(dirname($path), 0755, true);
+            }
+
+            file_put_contents($path, json_encode($merged, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+            $shown = substr($path, strlen($this->projectPath) + 1);
+            $report['translated'][$shown] = ($report['translated'][$shown] ?? 0) + $added;
         }
     }
 

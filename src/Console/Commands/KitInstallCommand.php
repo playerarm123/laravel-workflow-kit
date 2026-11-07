@@ -67,8 +67,12 @@ class KitInstallCommand extends Command
         $this->components->twoColumnDetail('Unchanged', (string) count($report['unchanged']));
         $this->components->twoColumnDetail('Owned by the project, kept', (string) count($report['kept']));
 
-        if ($report['written'] !== []) {
+        if (count($report['written']) > count($report['feature_written'])) {
             $this->components->bulletList(self::BY_HAND);
+        }
+
+        foreach ($report['translated'] as $file => $count) {
+            $this->components->info(sprintf('Added %d keys to [%s] in English; translate them where it is not an English file.', $count, $file));
         }
 
         foreach ($report['enabled'] as $feature) {
