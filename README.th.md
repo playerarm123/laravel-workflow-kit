@@ -171,6 +171,19 @@ php artisan kit:install --force   # เอาต้นฉบับของ kit 
 php artisan test --testsuite=Architecture
 ```
 
+### ฟีเจอร์เสริม
+
+ฟีเจอร์ที่ kit มีให้เฉพาะโปรเจกต์ที่ต้องการ `kit:install --with={name}` จะวางไฟล์ของฟีเจอร์ เติมคำแปลของฟีเจอร์เป็นภาษาอังกฤษลงทุก `lang/*.json` แล้วบันทึกชื่อไว้ใน `.kit/features.json` (เพื่อให้ `kit:install` ครั้งต่อไปอัปเดตให้ และ check ของฟีเจอร์ทำงาน) พร้อมแสดงสิ่งที่ต้องต่อเองครั้งเดียว
+
+| ฟีเจอร์ | สิ่งที่ได้ | Guideline |
+|---|---|---|
+| `media` | คลังรูป: อัปโหลด (ย่อเป็น webp พร้อม thumbnail), โฟลเดอร์, ช่องเลือกรูปสำหรับทุกฟอร์ม (`MediaPickerField`) และการบันทึกการใช้งานที่กันรูปที่ยังใช้อยู่ไม่ให้ถูกลบ โควตาเป็น port (`MediaQuota`) ที่โปรเจกต์ผูกกับแพ็กเกจของตัวเองได้ ทั้งแอปมีคลังเดียว ยังไม่แยกตาม tenant | [media.md](resources/boost/guidelines/media.md) |
+
+```bash
+php artisan kit:install --with=media   # แล้วทำตามรายการที่แสดง: intervention/image, provider, routes, เมนู, build
+php artisan test --testsuite=Architecture
+```
+
 ## ร่วมพัฒนา
 
 kit ทดสอบตัวเองบนแอป Laravel เล็ก ๆ ใน `workbench/` ผ่าน [Orchestra Testbench](https://github.com/orchestral/testbench) ต้องมี PHP 8.4, Node 22 และฐานข้อมูล PostgreSQL ชื่อ `workflow_kit_test` บน `127.0.0.1` user `postgres`
@@ -185,7 +198,7 @@ composer analyse                # PHPStan
 
 เปลี่ยนกฎข้อไหน ให้แก้ guideline ใน `resources/boost/guidelines` กับ spec ใน `tests/Architecture` ไปพร้อมกัน เปลี่ยนไฟล์ของ kit ให้แก้สำเนาใน `resources/kit` แล้วรัน `php vendor/bin/testbench kit:install --force` เพื่อวางลง workbench
 
-CI ของ kit ยังสร้างโปรเจกต์ใหม่จาก `laravel/react-starter-kit` ติดตั้ง kit จากไฟล์ชุดเดียวกับที่ Packagist แจก แล้วรัน `kit:setup` ตามด้วย `composer ci:check` ของ starter kit เอง ได้แก่ Prettier, ESLint, tsc, Pint, PHPStan และทุก suite รวม Architecture และ Browser (job `starter-kit`) ส่วน Feature suite รัน Prettier กับไฟล์ TypeScript ของ kit ด้วย `.prettierrc` ที่ `kit:setup` เขียนและ stylesheet ของ starter kit
+CI ของ kit ยังสร้างโปรเจกต์ใหม่จาก `laravel/react-starter-kit` ติดตั้ง kit จากไฟล์ชุดเดียวกับที่ Packagist แจก แล้วรัน `kit:setup` ตามด้วย `composer ci:check` ของ starter kit เอง ได้แก่ Prettier, ESLint, tsc, Pint, PHPStan และทุก suite รวม Architecture และ Browser (job `starter-kit`) ทั้งแบบไม่มีอะไรเพิ่ม และแบบติดตั้งและต่อฟีเจอร์เสริมทุกตัว ส่วน Feature suite รัน Prettier กับไฟล์ TypeScript ของ kit รวมของฟีเจอร์เสริม ด้วย `.prettierrc` ที่ `kit:setup` เขียนและ stylesheet ของ starter kit
 
 ## License
 
