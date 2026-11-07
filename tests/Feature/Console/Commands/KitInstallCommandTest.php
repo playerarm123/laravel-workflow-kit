@@ -12,4 +12,10 @@ describe('kit:install', function () {
             ->doesntExpectOutputToContain('differs')
             ->assertSuccessful();
     });
+
+    it('refuses a feature the kit does not ship', function () {
+        $this->artisan('kit:install', ['--with' => ['no-such-feature']])
+            ->expectsOutputToContain('The kit has no feature [no-such-feature]')
+            ->assertFailed();
+    });
 });
