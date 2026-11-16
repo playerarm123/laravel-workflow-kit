@@ -118,6 +118,9 @@ final class ProjectSetup
 
     /**
      * composer.json declares what the stack requires and drops PHPUnit, which Pest replaces.
+     * `packages` names what `composer update` must bring: each package this run declared or
+     * dropped, and each the stack requires that composer.json declares but vendor/ lacks, so a
+     * run that stopped before its install installs on the next one.
      *
      * @return array{changed: list<string>, manual: list<string>, packages: list<string>}
      */
@@ -154,12 +157,17 @@ final class ProjectSetup
             $this->writeJson('composer.json', $composer);
         }
 
-        return [...$this->finish(), 'packages' => $touched];
+        $missing = $this->notInstalled([...array_keys(self::COMPOSER_REQUIRE), ...array_keys(self::COMPOSER_REQUIRE_DEV)], 'vendor', 'composer.json');
+
+        return [...$this->finish(), 'packages' => array_values(array_unique([...$touched, ...$missing]))];
     }
 
     /**
      * package.json declares the lint, format and UI packages the stack requires, swaps the
-     * `@radix-ui/*` packages for `radix-ui`, and every import of them follows.
+     * `@radix-ui/*` packages for `radix-ui`, and every import of them follows. `packages` names
+     * what the install must bring: each package this run declared, swapped or dropped, and each
+     * the stack requires that package.json declares but node_modules/ lacks, so a run that stopped
+     * before its install installs on the next one.
      *
      * @return array{changed: list<string>, manual: list<string>, packages: list<string>}
      */
@@ -248,7 +256,21 @@ final class ProjectSetup
             );
         }
 
-        return [...$this->finish(), 'packages' => $touched];
+        $missing = $this->notInstalled([...array_keys(self::NPM_DEPENDENCIES), ...array_keys(self::NPM_DEV_DEPENDENCIES)], 'node_modules', 'package.json');
+
+        return [...$this->finish(), 'packages' => array_values(array_unique([...$touched, ...$missing]))];
+    }
+
+    /**
+     * The packages of $names that $directory (vendor or node_modules) does not hold, read from
+     * the manifest every installed package has there.
+     *
+     * @param  list<string>  $names
+     * @return list<string>
+     */
+    private function notInstalled(array $names, string $directory, string $manifest): array
+    {
+        return array_values(array_filter($names, fn (string $name): bool => ! is_file($this->path("{$directory}/{$name}/{$manifest}"))));
     }
 
     /**

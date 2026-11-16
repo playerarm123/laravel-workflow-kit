@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Process;
 
 /**
  * kit:setup edits the project it runs on, so the suite proves its steps on a copy of the starter
@@ -25,6 +26,26 @@ describe('kit:setup', function () {
                 ->assertFailed();
 
             expect(File::allFiles($project))->toHaveCount(1);
+        } finally {
+            File::deleteDirectory($project);
+        }
+    });
+
+    it('installs on a run after one that stopped before its install, though package.json already declares everything', function () {
+        $project = storage_path('framework/testing/kit-setup-rerun-'.bin2hex(random_bytes(4)));
+        File::copyDirectory(dirname(__DIR__, 3).'/Fixtures/StarterKit', $project);
+        touch($project.'/package-lock.json');
+        $this->app->setBasePath($project);
+        Process::fake();
+
+        try {
+            $this->artisan('kit:setup', ['--database' => 'pgsql', '--skip-dependencies' => true])->assertSuccessful();
+            Process::assertDidntRun(['npm', 'install']);
+
+            $this->artisan('kit:setup', ['--database' => 'pgsql'])->assertSuccessful();
+
+            Process::assertRan(['npm', 'install']);
+            Process::assertRan(fn ($process): bool => is_array($process->command) && array_slice($process->command, 0, 2) === ['composer', 'update'] && in_array('spatie/laravel-data', $process->command, true));
         } finally {
             File::deleteDirectory($project);
         }
