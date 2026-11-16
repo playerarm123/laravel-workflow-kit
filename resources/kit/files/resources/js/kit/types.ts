@@ -39,6 +39,8 @@ export type StructureNodeData = {
     variant: string | null;
     /** The aggregate node a card belongs to, which the screen frames together */
     group: string | null;
+    /** What the piece is for, in the team's own words, as its manifest says */
+    description: string | null;
 };
 
 export type StructureEdgeData = {
@@ -72,14 +74,20 @@ export type StructureSection =
 
 export type EnumBacking = 'string' | 'int' | null;
 
-export type EnumEntry = {
+/**
+ * What every manifest entry may say beside its own keys: what it is for, in the team's own words.
+ * Only the manifest holds it, so the comparison with the code skips it.
+ */
+export type Described = { description?: string | null };
+
+export type EnumEntry = Described & {
     aggregate: string | null;
     backing: EnumBacking;
     cases: Record<string, string | number | null>;
     transitions: Record<string, string[]> | null;
 };
 
-export type ValueObjectEntry = {
+export type ValueObjectEntry = Described & {
     aggregate: string | null;
     fields: Record<string, string>;
 };
@@ -90,7 +98,7 @@ export type ValueObjectEntry = {
  */
 export type ExceptionKind = 'refusal' | 'value' | 'application';
 
-export type ExceptionEntry = {
+export type ExceptionEntry = Described & {
     kind: ExceptionKind;
     aggregate: string | null;
     useCase: string | null;
@@ -105,7 +113,7 @@ export type EntityMethod = { params: Record<string, string>; throws: string[] };
  * An entity's state is each property its constructor promotes, but for its id, to its type, in
  * the constructor's order. Each one has a getter of the same name.
  */
-export type EntityEntry = {
+export type EntityEntry = Described & {
     aggregate: string;
     state: Record<string, string>;
     behaviours: Partial<Record<string, EntityMethod>>;
@@ -119,13 +127,15 @@ export type EntityEntry = {
  */
 export type ContextManifest = {
     context: string;
+    /** What the context as a whole is for */
+    description?: string;
     aggregates: Partial<
-        Record<string, { children: string[]; repository: boolean }>
+        Record<string, Described & { children: string[]; repository: boolean }>
     >;
     services: Partial<
         Record<
             string,
-            {
+            Described & {
                 shape: 'creates' | 'data' | 'plain';
                 creates: string | null;
                 repositories: string[];
@@ -137,7 +147,7 @@ export type ContextManifest = {
     applicationServices: Partial<
         Record<
             string,
-            {
+            Described & {
                 shape: 'data' | 'plain';
                 repositories: string[];
                 actor: boolean;
@@ -149,7 +159,7 @@ export type ContextManifest = {
     ports: Partial<
         Record<
             string,
-            {
+            Described & {
                 layer: 'domain' | 'application';
                 adapter: string | null;
                 replaces?: string | null;
@@ -159,7 +169,7 @@ export type ContextManifest = {
     useCases: Partial<
         Record<
             string,
-            {
+            Described & {
                 shape: 'command-result' | 'command' | 'plain';
                 returns: string;
                 creates: boolean;
@@ -190,6 +200,8 @@ export type PageKind = 'table' | 'grid' | 'form' | 'dialog' | 'page';
  */
 export type ResourceManifest = {
     resource: string;
+    /** What the resource is for */
+    description?: string;
     model: string | null;
     controller: Partial<Record<string, string[]>>;
     actions: Partial<
@@ -248,12 +260,14 @@ export type StructureEndpoints = {
     addChild: string;
     removeChild: string;
     syncPiece: string;
+    saveDescription: string;
     createResource: string;
     saveResource: string;
     saveMenu: string;
     saveResourcePiece: string;
     removeResourcePiece: string;
     syncResourcePiece: string;
+    saveResourceDescription: string;
     graph: string;
     runCommand: string;
     docs: string;

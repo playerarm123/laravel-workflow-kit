@@ -452,7 +452,7 @@ JSON);
                 'Crate' => ['aggregate' => 'Crate', 'behaviours' => ['seal' => ['params' => [], 'throws' => []]], 'assertions' => []],
             ]];
 
-            expect($this->files->problems('Shipping', $document))->toBe(['entities.Pallet: lists no state, no behaviour and no assertion, so leave it out'])
+            expect($this->files->problems('Shipping', $document))->toBe(['entities.Pallet: lists no state, no behaviour, no assertion and no description, so leave it out'])
                 ->and($this->files->problems('Shared', $shared))->toBe(['entities.Crate: the shared kernel has no entities']);
         });
 
@@ -593,6 +593,54 @@ JSON)
                 'pages.Crates/Index: must be one of table, grid, form, dialog, page',
                 'pages.crates/show: a dialog is the create or the edit form, kept at the path its page would have: crates/create or crates/edit',
             ]);
+        });
+    });
+
+    describe('descriptions', function () {
+        it('writes a description first in its entry and after the context, and leaves out one that is null', function () {
+            $manifest = samplingStructureManifest();
+            $manifest['description'] = 'Where crates leave the warehouse.';
+            $manifest['aggregates']['Crate']['description'] = "A box that ships.\nIt is sealed first.";
+            $manifest['aggregates']['Pallet']['description'] = null;
+            $manifest['entities']['Lid']['description'] = 'What closes a crate.';
+            $decoded = json_decode($this->files->encode($manifest), true);
+
+            expect(array_slice(array_keys($decoded), 0, 2))->toBe(['context', 'description'])
+                ->and($decoded['description'])->toBe('Where crates leave the warehouse.')
+                ->and($decoded['aggregates']['Crate'])->toBe(['description' => "A box that ships.\nIt is sealed first.", 'children' => ['Lid'], 'repository' => true])
+                ->and($decoded['aggregates']['Pallet'])->toBe(['children' => [], 'repository' => false])
+                ->and(array_key_first($decoded['entities']['Lid']))->toBe('description')
+                ->and($this->files->problems('Shipping', $decoded))->toBe([]);
+        });
+
+        it('keeps an entity that says what it is for, though it lists nothing yet', function () {
+            $manifest = samplingStructureManifest();
+            $manifest['entities']['Lid'] = ['description' => 'What closes a crate.', 'aggregate' => 'Crate', 'state' => [], 'behaviours' => [], 'assertions' => []];
+
+            expect($this->files->problems('Shipping', $manifest))->toBe([]);
+        });
+
+        it('refuses a description that is blank, too long or not text', function () {
+            $manifest = samplingStructureManifest();
+            $manifest['description'] = '   ';
+            $manifest['aggregates']['Crate']['description'] = str_repeat('a', StructureFiles::DESCRIPTION_LENGTH + 1);
+            $manifest['useCases']['ShipCrate']['description'] = ['Ships'];
+
+            expect($this->files->problems('Shipping', $manifest))->toBe([
+                '"description" must be text of at most 1000 characters, or left out',
+                'aggregates.Crate: "description" must be text of at most 1000 characters, or null',
+                'useCases.ShipCrate: "description" must be text of at most 1000 characters, or null',
+            ]);
+        });
+
+        it('writes a resource\'s description after its name, and refuses one that is not text', function () {
+            $resource = ['resource' => 'Crate', 'model' => 'Crate', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => []];
+            $decoded = json_decode($this->files->encodeResource([...$resource, 'description' => 'The crates desk.']), true);
+
+            expect(array_slice(array_keys($decoded), 0, 2))->toBe(['resource', 'description'])
+                ->and($this->files->resourceProblems('Crate', $decoded))->toBe([])
+                ->and(array_key_exists('description', json_decode($this->files->encodeResource($resource), true)))->toBeFalse()
+                ->and($this->files->resourceProblems('Crate', [...$resource, 'description' => 42]))->toBe(['"description" must be text of at most 1000 characters, or left out']);
         });
     });
 });

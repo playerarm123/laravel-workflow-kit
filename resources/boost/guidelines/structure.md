@@ -117,6 +117,7 @@ Each value is read off the code:
   - Each method keeps its `params` in order, each type written as a value object's field is, with `...` before a variadic one.
   - `throws` lists every exception the method's body throws (`throw X::…()` or `throw new X`), and every one thrown by a method of the same class it calls through `$this->`, `self::` or `static::`, however deep. A rethrow (`throw $e`) adds nothing. An exception is named as a type is: by its name in its own aggregate, `Shared/{Name}`, or `{Context}/{Aggregate}/{Name}`.
 - `replaces`, on a port or a use case and only while a replacement is under way: the adapter it is moving away from, or the use case it stands in for. The code never says it, so the reader leaves it out and the comparison skips it.
+- `description`, on any entry and at the top of the manifest beside `context`: what the piece, or the context as a whole, is for, in the team's own words, at most 1000 characters. Like `replaces`, only the manifest holds it: the reader leaves it out, the comparison skips it, a sync keeps it, and a file leaves it out while it is empty. An entity whose entry holds a description and nothing else keeps its entry. The structure screen draws it on the card.
 
 ## The HTTP layer
 
@@ -157,6 +158,7 @@ It has a file of its own, because an entry point calls into more than one contex
   - `form` when it imports a form from `@/components/*/form`;
   - `dialog` for a create or edit form that opens in a dialog instead (form-pages.md, "Form dialogs"), kept at the path its page would have (`crates/edit`): its `create` or `edit` returns `JsonResponse`, and `resources/js/components/{model}/form-dialog.tsx` exports `Create{Model}Dialog` or `Edit{Model}Dialog`. `kit:plan` waits on a controller whose `create` or `edit` still renders a page, since `make:controller` leaves it as it is;
   - `page` for anything else.
+- `description`, beside `resource`: what the resource is for, in the team's own words, kept as a context's is. It is not the menu entry's `description`, which is a translation key the app shows.
 - `menu`: the entry in the main menu of the resource's page at `{folder}/index` (its table or grid, else its plain page, such as a board), its title's translation key and its lucide icon, and when it has them the key of the `group` it sits in, the translation key of its `description` and the policy's `ability` it asks in place of `viewAny`, read from `app/Http/Navigation.php`; `null` keeps the list page out of the menu on purpose; left out, the manifest says nothing yet (list-pages.md, "Menu"). For example `"menu": { "title": "invoices.title", "icon": "wallet", "group": "finance" }`.
 
 The starter kit's controllers (`App\Http\Controllers\Settings`) and the kit's own audit log page (`AuditEntry`) have no resource manifest.
@@ -271,6 +273,7 @@ The structure screen changes the manifests too. From the overview, create a cont
 A refused change comes back under the field that holds it, and nothing is written.
 
 **Do**
+- Describe any card, built or not, from its panel's **Description**: a piece, an entity, a context or a resource. Only the manifest holds a description, so writing one never turns a check red. *Review only.*
 - Change through the screen only what the code does not have yet. A piece the code already has is locked there, because changing it in the manifest alone would turn `matches` or `in-code` red at once. Changing what is built is a change to the code, which `kit:import --sync` or the card's **Sync from code** then takes into the manifest, or a replacement. *Review only.*
 - Change an entity one property or one method at a time. A built entity takes new state and new methods, but a property or a method the code already has is locked, and the entity's entry goes once it lists neither. A new property goes after the others, where `make:entity-state` adds it. The editor keeps an aggregate, and a child, while the manifest lists state or methods for it. *Review only.*
 - Change a built aggregate's children one at a time, the same way: it keeps its name and its repository, but takes a new child, which `kit:apply` builds with `make:entity --child`, and gives up a child the code does not have yet. The child's table, its model and the repository's `syncChildren()` stay yours to write (repositories.md). *Review only.*
@@ -330,7 +333,7 @@ An application service (layers.md) is replaced the same way, by one `make:applic
 
 ## Scaffold, never hand-write
 
-Run `php artisan kit:import` to write the manifest of every context and HTTP resource that has none, or name them with `--context={Context}` and `--resource={Resource}`. An existing manifest is kept, because it may hold design that is not built yet. Once the code has changed (a method's parameters, an enum's cases, a use case's repositories), bring the manifest back in step with `--sync`: every piece the code has takes the code's shape, and what only the manifest lists stays and is listed, because it may be designed and not built, or the old name of something renamed in the code. `--sync --prune` takes that out too, `--sync --dry-run` prints the changes and writes nothing, and a piece in the middle of a replacement is left as the design says. `--force` reads the whole file back from the code, and anything designed but not built is lost.
+Run `php artisan kit:import` to write the manifest of every context and HTTP resource that has none, or name them with `--context={Context}` and `--resource={Resource}`. An existing manifest is kept, because it may hold design that is not built yet. Once the code has changed (a method's parameters, an enum's cases, a use case's repositories), bring the manifest back in step with `--sync`: every piece the code has takes the code's shape, and what only the manifest lists stays and is listed, because it may be designed and not built, or the old name of something renamed in the code. `--sync --prune` takes that out too, `--sync --dry-run` prints the changes and writes nothing, and a piece in the middle of a replacement is left as the design says. `--force` reads the whole file back from the code, and anything designed but not built is lost, every `description` with it.
 
 **Why:** a built piece is locked on the screen, so the code is where it changes. Merging the code into the manifest keeps both the change and the design still to build, where reading the whole file back would lose the second.
 

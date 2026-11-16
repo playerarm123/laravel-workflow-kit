@@ -86,6 +86,9 @@ final class StructureEditor
             $entry['replaces'] = $previous === null ? null : ($manifest[$section][$previous]['replaces'] ?? null);
         }
 
+        // A piece's description changes on its own (saveDescription), so its form keeps it.
+        $entry['description'] = $previous === null ? null : ($manifest[$section][$previous]['description'] ?? null);
+
         $errors = $this->merge($errors, $this->shapeErrors($context, $section, $name, $entry));
 
         if (! isset($errors['name']) && $previous !== null && $previous !== $name && $this->usersOf($context, $section, $previous) !== []) {
@@ -304,6 +307,63 @@ final class StructureEditor
     }
 
     /**
+     * Says what a piece is for, or what the context as a whole is for when `$section` is null, in
+     * the team's own words; an empty description takes it out. Only the manifest holds it, so a
+     * piece the code already has takes one as well, and an entity of an aggregate takes one before
+     * it lists any state or method.
+     *
+     * @return array<string, list<string>> what is wrong, by field; empty when it was written
+     */
+    public function saveDescription(string $context, string $version, ?string $section, ?string $name, string $description): array
+    {
+        $manifest = $this->manifest($context);
+        // The context as a whole has no section, so only the manifest and its version are checked.
+        $refused = $this->refusal($context, $manifest, $version, $section ?? 'aggregates', byMethod: true);
+
+        if ($refused !== null || $manifest === null) {
+            return $refused ?? [];
+        }
+
+        $description = trim(str_replace("\r\n", "\n", $description));
+
+        if (mb_strlen($description) > StructureFiles::DESCRIPTION_LENGTH) {
+            return ['description' => [sprintf('A description is at most %d characters.', StructureFiles::DESCRIPTION_LENGTH)]];
+        }
+
+        $description = $description === '' ? null : $description;
+
+        if ($section === null) {
+            $manifest['description'] = $description;
+
+            return $this->writeChecked($context, $manifest);
+        }
+
+        $name = (string) $name;
+
+        if ($section === 'entities') {
+            $refused = $this->entityRefusal($context, $manifest, $name);
+
+            if ($refused !== null) {
+                return ['name' => $refused['entity']];
+            }
+
+            /** @var array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>, description?: string|null} $entry */
+            $entry = $manifest['entities'][$name] ?? self::emptyEntity((string) $this->holderOf($manifest, $name));
+            $entry['description'] = $description;
+
+            return $this->writeChecked($context, self::withEntity($manifest, $name, $entry));
+        }
+
+        if (! is_array($manifest[$section][$name] ?? null)) {
+            return ['name' => ["The manifest has no {$name}."]];
+        }
+
+        $manifest[$section][$name]['description'] = $description;
+
+        return $this->writeChecked($context, $manifest);
+    }
+
+    /**
      * An entity's entry before it lists anything.
      *
      * @return array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>}
@@ -317,7 +377,7 @@ final class StructureEditor
      * The manifest with the entity's entry as given, or without it once it lists nothing.
      *
      * @param  array<string, mixed>  $manifest
-     * @param  array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>}  $entry
+     * @param  array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>, description?: string|null}  $entry
      * @return array<string, mixed>
      */
     private static function withEntity(array $manifest, string $entity, array $entry): array
@@ -325,7 +385,7 @@ final class StructureEditor
         /** @var array<string, mixed> $entities */
         $entities = $manifest['entities'];
 
-        if ($entry['state'] === [] && $entry['behaviours'] === [] && $entry['assertions'] === []) {
+        if (StructureFiles::listsNothing($entry)) {
             unset($entities[$entity]);
         } else {
             $entities[$entity] = $entry;

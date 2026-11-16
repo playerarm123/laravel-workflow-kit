@@ -396,7 +396,7 @@ final class StructureSync
             $state = $this->syncState($entity, is_array($current['state'] ?? null) ? $current['state'] : [], $entry['state'], $prune);
             $changes = [...$changes, ...$state['changes']];
             $kept = [...$kept, ...$state['kept']];
-            $merged = ['aggregate' => $entry['aggregate'], 'state' => $state['state'], 'behaviours' => [], 'assertions' => []];
+            $merged = $this->withIntent(['aggregate' => $entry['aggregate'], 'state' => $state['state'], 'behaviours' => [], 'assertions' => []], $current);
 
             foreach (['behaviours', 'assertions'] as $group) {
                 /** @var array<string, mixed> $methods */
@@ -449,9 +449,9 @@ final class StructureSync
             }
         }
 
-        // An entity with no state and no method left has no entry (structure.md).
+        // An entity with no state, no method and no description left has no entry (structure.md).
         return [
-            'entities' => array_filter($designed, fn (mixed $entry): bool => is_array($entry) && (($entry['state'] ?? []) !== [] || $entry['behaviours'] !== [] || $entry['assertions'] !== [])),
+            'entities' => array_filter($designed, fn (mixed $entry): bool => is_array($entry) && ! StructureFiles::listsNothing($entry)),
             'changes' => $changes,
             'kept' => $kept,
         ];

@@ -19,7 +19,7 @@ final class StructureFiles
     /**
      * The keys of a resource manifest, in the order the canonical form writes them.
      */
-    public const array RESOURCE_KEYS = ['resource', 'model', 'controller', 'actions', 'policy', 'pages', 'menu'];
+    public const array RESOURCE_KEYS = ['resource', 'description', 'model', 'controller', 'actions', 'policy', 'pages', 'menu'];
 
     /** The key of a main menu group, as `$this->group('{key}', …)` declares it. */
     public const string MENU_GROUP = '/^[a-z][a-z0-9_-]*$/';
@@ -32,20 +32,21 @@ final class StructureFiles
      * constructor means something; `map` holds scalars or null, `map:string` type names.
      * `methods` holds an entity's methods by name, each with its `params` (a `map:string`, in
      * order) and the exceptions it `throws` (a list). `transitions` is null for an enum that is no
-     * status, or each case with the cases it may become (states.md).
+     * status, or each case with the cases it may become (states.md). `description` is what the
+     * piece is for, in the team's own words: only the manifest holds it (INTENT_KEYS).
      *
      * @var array<string, array<string, list<string|null>|string>>
      */
     public const array SECTIONS = [
-        'aggregates' => ['children' => 'list', 'repository' => 'bool'],
-        'services' => ['shape' => ['creates', 'data', 'plain'], 'creates' => 'string|null', 'repositories' => 'list', 'exception' => 'bool', 'replaces' => 'string|null'],
-        'applicationServices' => ['shape' => ['data', 'plain'], 'repositories' => 'list', 'actor' => 'bool', 'exception' => 'bool', 'replaces' => 'string|null'],
-        'ports' => ['layer' => ['domain', 'application'], 'adapter' => 'string|null', 'replaces' => 'string|null'],
-        'useCases' => ['shape' => ['command-result', 'command', 'plain'], 'returns' => 'string', 'creates' => 'bool', 'query' => 'bool', 'repositories' => 'list', 'replaces' => 'string|null'],
-        'enums' => ['aggregate' => 'string|null', 'backing' => ['string', 'int', null], 'cases' => 'map', 'transitions' => 'transitions'],
-        'valueObjects' => ['aggregate' => 'string|null', 'fields' => 'map:string'],
-        'exceptions' => ['kind' => ['refusal', 'value', 'application'], 'aggregate' => 'string|null', 'useCase' => 'string|null'],
-        'entities' => ['aggregate' => 'string', 'state' => 'map:string', 'behaviours' => 'methods', 'assertions' => 'methods'],
+        'aggregates' => ['description' => 'string|null', 'children' => 'list', 'repository' => 'bool'],
+        'services' => ['description' => 'string|null', 'shape' => ['creates', 'data', 'plain'], 'creates' => 'string|null', 'repositories' => 'list', 'exception' => 'bool', 'replaces' => 'string|null'],
+        'applicationServices' => ['description' => 'string|null', 'shape' => ['data', 'plain'], 'repositories' => 'list', 'actor' => 'bool', 'exception' => 'bool', 'replaces' => 'string|null'],
+        'ports' => ['description' => 'string|null', 'layer' => ['domain', 'application'], 'adapter' => 'string|null', 'replaces' => 'string|null'],
+        'useCases' => ['description' => 'string|null', 'shape' => ['command-result', 'command', 'plain'], 'returns' => 'string', 'creates' => 'bool', 'query' => 'bool', 'repositories' => 'list', 'replaces' => 'string|null'],
+        'enums' => ['description' => 'string|null', 'aggregate' => 'string|null', 'backing' => ['string', 'int', null], 'cases' => 'map', 'transitions' => 'transitions'],
+        'valueObjects' => ['description' => 'string|null', 'aggregate' => 'string|null', 'fields' => 'map:string'],
+        'exceptions' => ['description' => 'string|null', 'kind' => ['refusal', 'value', 'application'], 'aggregate' => 'string|null', 'useCase' => 'string|null'],
+        'entities' => ['description' => 'string|null', 'aggregate' => 'string', 'state' => 'map:string', 'behaviours' => 'methods', 'assertions' => 'methods'],
     ];
 
     /**
@@ -64,10 +65,17 @@ final class StructureFiles
     public const array DEFAULTS = ['exceptions' => [], 'services.exception' => false, 'applicationServices' => [], 'entities.state' => []];
 
     /**
-     * Keys only a manifest holds: what the design intends while the code catches up. The reader
-     * never reports them, the comparison skips them, and a file leaves them out while they are null.
+     * Keys only a manifest holds: what the design intends while the code catches up, and what a
+     * piece is for. The reader never reports them, the comparison skips them, and a file leaves
+     * them out while they are null.
      */
-    public const array INTENT_KEYS = ['replaces'];
+    public const array INTENT_KEYS = ['replaces', 'description'];
+
+    /**
+     * The longest description a piece, a context or a resource takes: a few sentences for the
+     * team, not documentation of its own.
+     */
+    public const int DESCRIPTION_LENGTH = 1000;
 
     /**
      * The property every entity has from `make:entity`, which a base class answers for, so an
@@ -231,6 +239,10 @@ final class StructureFiles
         $manifest = self::withDefaults($manifest);
         $document = ['context' => $manifest['context']];
 
+        if (is_string($manifest['description'] ?? null)) {
+            $document['description'] = $manifest['description'];
+        }
+
         foreach (array_keys(self::SECTIONS) as $section) {
             /** @var array<string, array<string, mixed>> $entries */
             $entries = is_array($manifest[$section] ?? null) ? $manifest[$section] : [];
@@ -329,8 +341,12 @@ final class StructureFiles
             $problems[] = sprintf('says "context": %s, but the file is named %s.json', json_encode($document['context'] ?? null), $context);
         }
 
-        foreach (array_diff(array_keys($document), ['context', ...array_keys(self::SECTIONS)]) as $key) {
+        foreach (array_diff(array_keys($document), ['context', 'description', ...array_keys(self::SECTIONS)]) as $key) {
             $problems[] = sprintf('has an unknown key "%s"', $key);
+        }
+
+        if (! self::isDescription($document['description'] ?? null)) {
+            $problems[] = sprintf('"description" must be text of at most %d characters, or left out', self::DESCRIPTION_LENGTH);
         }
 
         foreach (self::SECTIONS as $section => $keys) {
@@ -371,6 +387,24 @@ final class StructureFiles
     public static function isMap(array|string $kind): bool
     {
         return is_string($kind) && str_starts_with($kind, 'map');
+    }
+
+    /**
+     * Whether a value fits a `description`: none, or text that is not blank and not too long.
+     */
+    public static function isDescription(mixed $value): bool
+    {
+        return $value === null || (is_string($value) && trim($value) !== '' && mb_strlen($value) <= self::DESCRIPTION_LENGTH);
+    }
+
+    /**
+     * Whether an entity's entry says nothing at all, so the manifest leaves it out (structure.md).
+     *
+     * @param  array<array-key, mixed>  $entry
+     */
+    public static function listsNothing(array $entry): bool
+    {
+        return ($entry['state'] ?? []) === [] && ($entry['behaviours'] ?? []) === [] && ($entry['assertions'] ?? []) === [] && ($entry['description'] ?? null) === null;
     }
 
     /**
@@ -536,8 +570,8 @@ final class StructureFiles
             $problems[] = sprintf('entities.%s: "aggregate" must name the aggregate whose root or child it is', $name);
         }
 
-        if ($entry['state'] === [] && $entry['behaviours'] === [] && $entry['assertions'] === []) {
-            $problems[] = sprintf('entities.%s: lists no state, no behaviour and no assertion, so leave it out', $name);
+        if (self::listsNothing($entry)) {
+            $problems[] = sprintf('entities.%s: lists no state, no behaviour, no assertion and no description, so leave it out', $name);
         }
 
         foreach (array_keys($entry['state']) as $property) {
@@ -586,6 +620,14 @@ final class StructureFiles
 
         foreach ($keys as $key => $kind) {
             $value = $entry[$key] ?? null;
+
+            if ($key === 'description') {
+                if (! self::isDescription($value)) {
+                    $problems[] = sprintf('%s.%s: "description" must be text of at most %d characters, or null', $section, $name, self::DESCRIPTION_LENGTH);
+                }
+
+                continue;
+            }
 
             $fits = match (true) {
                 is_array($kind) => in_array($value, $kind, true),
@@ -719,6 +761,7 @@ final class StructureFiles
 
         $document = [
             'resource' => $manifest['resource'],
+            ...(is_string($manifest['description'] ?? null) ? ['description' => $manifest['description']] : []),
             'model' => $manifest['model'] ?? null,
             'controller' => (object) $controller,
             'actions' => (object) $actions,
@@ -781,6 +824,10 @@ final class StructureFiles
 
         foreach (array_diff(array_keys($document), self::RESOURCE_KEYS) as $key) {
             $problems[] = sprintf('has an unknown key "%s"', $key);
+        }
+
+        if (! self::isDescription($document['description'] ?? null)) {
+            $problems[] = sprintf('"description" must be text of at most %d characters, or left out', self::DESCRIPTION_LENGTH);
         }
 
         $model = $document['model'] ?? null;

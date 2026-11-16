@@ -495,4 +495,27 @@ describe('StructureGraph', function () {
             expect($subjects)->toContain('App\\Application\\'.SAMPLING_GRAPH_CONTEXT.'\\UseCases\\TidyBoxesHandler');
         });
     });
+
+    describe('descriptions', function () {
+        it('gives each card the description its manifest entry, its context or its resource gives, and every other card none', function () {
+            $files = new StructureFiles(base_path());
+            $manifest = $files->read(SAMPLING_GRAPH_CONTEXT);
+            $manifest['description'] = 'Boxes, from packing to shipping.';
+            $manifest['useCases']['ShipBox']['description'] = 'Sends a box on its way.';
+            $manifest['entities']['Lid'] = ['description' => 'What closes a box.', 'aggregate' => 'Lid', 'state' => [], 'behaviours' => [], 'assertions' => []];
+            $files->write($manifest);
+            $files->writeResource([...$files->readResource(SAMPLING_GRAPH_RESOURCE), 'description' => 'The boxes desk.']);
+
+            $graph = samplingGraph();
+            $context = $graph['contexts'][SAMPLING_GRAPH_CONTEXT];
+
+            expect(samplingGraphNode($context, 'useCase:'.SAMPLING_GRAPH_CONTEXT.'/ShipBox')['description'])->toBe('Sends a box on its way.')
+                ->and(samplingGraphNode($context, 'entity:'.SAMPLING_GRAPH_CONTEXT.'/Lid')['description'])->toBe('What closes a box.')
+                ->and(samplingGraphNode($context, 'aggregate:'.SAMPLING_GRAPH_CONTEXT.'/Box')['description'])->toBeNull()
+                ->and(samplingGraphNode($graph['overview'], 'context:'.SAMPLING_GRAPH_CONTEXT)['description'])->toBe('Boxes, from packing to shipping.')
+                ->and(samplingGraphNode($graph['overview'], 'resource:'.SAMPLING_GRAPH_RESOURCE)['description'])->toBe('The boxes desk.')
+                ->and(samplingGraphNode($graph['resources'][SAMPLING_GRAPH_RESOURCE], 'controller:'.SAMPLING_GRAPH_RESOURCE)['description'])->toBeNull()
+                ->and(array_filter($graph['byHand'], fn (array $difference): bool => str_contains($difference['message'], 'description')))->toBe([]);
+        });
+    });
 });

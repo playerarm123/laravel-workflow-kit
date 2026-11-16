@@ -301,7 +301,7 @@ Each kind has its own shape, colour and icon. The **Legend** at the top left nam
 | Page | folded sheet, icon by kind (table, grid, form, dialog, page) | zinc |
 | Elsewhere | dashed | grey |
 
-A card lists up to six lines, then `… N more`. A status lists its moves (`Open → Sealed`, `Sealed · final`) in place of its values. An enum lists its cases, a value object its fields, and an entity its state (`status: CrateStatus`) then its methods.
+A card's description, when it has one, sits under its name in italics, cut at two lines; hover it for the rest. A card lists up to six lines, then `… N more`. A status lists its moves (`Open → Sealed`, `Sealed · final`) in place of its values. An enum lists its cases, a value object its fields, and an entity its state (`status: CrateStatus`) then its methods.
 
 Click a card to select it. Click empty canvas to clear the selection. Double-click a card that opens something (a context, a resource, or an Elsewhere card) to go there. The panel offers the same as an **Open …** button.
 
@@ -323,6 +323,8 @@ Elsewhere cards carry no status; their own context shows it.
 For the selected card the panel shows its kind and name, the status and its reason or command (with a copy button), then its contents as small tables: an enum's cases and moves, a value object's fields, an entity's state and methods, an aggregate's children, a controller's methods, the methods that throw an exception.
 
 What applies to the card sits as icons under its name, each named in a tooltip: **Open** (↗), **Edit** (pencil), **Remove** (bin), **Sync from code** (circling arrows), **Replace**, **Cancel replacement**. A table row carries the same icons for its own row, and a table's **+** adds a row. A built row shows a green tick instead; hover it for what is built (a property's getter, for one).
+
+Under the status sits **Description**: what the card is for, written for the rest of the team. Its pencil opens a box in place (up to 1000 characters); **Save** writes it into the manifest, and saving it empty takes it out. A piece, an entity, a context and an HTTP resource each take one, and a built card does too, since only the manifest holds it and no check compares it with the code. A page, an action and an Elsewhere card have none of their own.
 
 A change applies where you stand: the cards keep their places, the selected card stays selected with its panel open, and a short message at the bottom says what happened. A card a form from the **Add** menu adds is selected and brought into view.
 
@@ -378,7 +380,7 @@ Select a card, then its **Edit** (pencil) or **Remove** (bin) icon. Remove asks 
 
 Only what the code does not have yet can change:
 
-- A built card shows *The code already has it. Change the code and sync it, or replace it.* in place of Edit and Remove.
+- A built card shows *The code already has it. Change the code and sync it, or replace it.* in place of Edit and Remove. Its **Description** still changes: it lives in the manifest alone.
 - An entity and a controller lock one method at a time: a built method shows a green tick, and the others keep their Edit and Remove icons. An entity's state locks the same way, one property at a time: a built property's tick reads *Built: read by status()*.
 - A child entity has a card of its own while the legend shows **Entity**, as the root does. Its panel takes state and methods the same way (the **+** beside **State** and **Methods**), and offers **Remove** while the code does not have the child and it lists nothing. A child's name in the aggregate's panel opens its card.
 - A built aggregate locks its name and repository, but its panel still takes new child entities. `kit:apply` builds each one with `make:entity --child`. A built child shows a green tick. The child's table, model and the repository's `syncChildren()` are still yours to write.

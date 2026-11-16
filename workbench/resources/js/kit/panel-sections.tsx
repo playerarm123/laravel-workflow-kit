@@ -807,3 +807,159 @@ export function ByHand({ graph }: { graph: StructureGraph }) {
         </PanelSection>
     );
 }
+
+/**
+ * Where a description is kept: a piece of a context (`section` and `name`), a context as a whole
+ * (neither), or an HTTP resource.
+ */
+export type DescriptionOwner =
+    | {
+          kind: 'context';
+          context: string;
+          section: StructureSection | 'entities' | null;
+          name: string | null;
+      }
+    | { kind: 'resource'; resource: string };
+
+/**
+ * The longest description the manifest takes (StructureFiles::DESCRIPTION_LENGTH).
+ */
+const DESCRIPTION_LENGTH = 1000;
+
+/**
+ * What a card is for, in the team's own words, and a pencil that changes it in place. Only the
+ * manifest holds it, so a piece the code already has takes one as well; saving it empty takes it
+ * out. The manifest's version is read when it posts, so a panel left open never sends a stale one.
+ */
+export function DescriptionSection({
+    graph,
+    endpoints,
+    owner,
+    description,
+    onChanged,
+}: {
+    graph: StructureGraph;
+    endpoints: StructureEndpoints;
+    owner: DescriptionOwner;
+    description: string | null;
+    onChanged: Changed;
+}) {
+    const [editing, setEditing] = useState(false);
+    const form = useHttp<
+        {
+            version: string;
+            section: string;
+            name: string;
+            description: string;
+        },
+        { graph: StructureGraph }
+    >({ version: '', section: '', name: '', description: description ?? '' });
+    const url =
+        owner.kind === 'context'
+            ? endpointFor(endpoints.saveDescription, owner.context)
+            : endpointFor(endpoints.saveResourceDescription, owner.resource);
+    const version =
+        owner.kind === 'context'
+            ? (graph.versions[owner.context] ?? '')
+            : (graph.resourceVersions[owner.resource] ?? '');
+
+    const start = () => {
+        form.clearErrors();
+        form.setData('description', description ?? '');
+        setEditing(true);
+    };
+
+    const submit = (event: FormEvent) => {
+        event.preventDefault();
+        form.transform((data) => ({
+            ...data,
+            version,
+            section: owner.kind === 'context' ? (owner.section ?? '') : '',
+            name: owner.kind === 'context' ? (owner.name ?? '') : '',
+        }));
+        form.post(url, {
+            onSuccess: (response) => {
+                setEditing(false);
+                onChanged(
+                    response.graph,
+                    form.data.description.trim() === ''
+                        ? 'Removed the description'
+                        : 'Saved the description',
+                );
+            },
+        });
+    };
+
+    return (
+        <PanelSection
+            title="Description"
+            actions={
+                editing ? undefined : (
+                    <IconAction
+                        icon={Pencil}
+                        label={
+                            description === null
+                                ? 'Add a description'
+                                : 'Edit the description'
+                        }
+                        onClick={start}
+                    />
+                )
+            }
+        >
+            {editing ? (
+                <form onSubmit={submit} className="space-y-2">
+                    <textarea
+                        aria-label="Description"
+                        value={form.data.description}
+                        onChange={(event) =>
+                            form.setData('description', event.target.value)
+                        }
+                        onKeyDown={(event) => {
+                            if (event.key === 'Escape') {
+                                setEditing(false);
+                            }
+                        }}
+                        maxLength={DESCRIPTION_LENGTH}
+                        rows={4}
+                        autoFocus
+                        placeholder="What it is for, for the rest of the team"
+                        className="flex w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive dark:bg-input/30"
+                        aria-invalid={firstError(form.errors) !== ''}
+                    />
+                    <InputError
+                        message={firstError(form.errors) || undefined}
+                    />
+                    <div className="flex items-center gap-2">
+                        <Button
+                            type="submit"
+                            size="sm"
+                            disabled={form.processing}
+                        >
+                            Save
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditing(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <span className="ml-auto text-xs text-muted-foreground">
+                            {form.data.description.length}/{DESCRIPTION_LENGTH}
+                        </span>
+                    </div>
+                </form>
+            ) : description === null ? (
+                <p className="text-xs text-muted-foreground">
+                    No description yet.
+                </p>
+            ) : (
+                <p className="text-sm break-words whitespace-pre-wrap">
+                    {description}
+                </p>
+            )}
+        </PanelSection>
+    );
+}
