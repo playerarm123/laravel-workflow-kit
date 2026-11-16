@@ -48,13 +48,14 @@ import {
     ByHand,
     ChildOf,
     ControllerMethods,
+    DescriptionSection,
     endpointFor,
     EntityMethods,
     EntityState,
     RemoveButton,
     SyncButton,
 } from '@/kit/panel-sections';
-import type { Changed, Editing } from '@/kit/panel-sections';
+import type { Changed, DescriptionOwner, Editing } from '@/kit/panel-sections';
 import {
     IconAction,
     PanelRow,
@@ -181,6 +182,36 @@ function open(target: StructureTarget): void {
  */
 function nameOf(node: StructureNodeData): string {
     return node.id.slice(node.id.indexOf('/') + 1);
+}
+
+/**
+ * Where the description of a card is kept: a context or a resource on the overview, or a piece or
+ * an entity of the context open now. Any other card (a page, an action, a card of elsewhere) has
+ * none of its own.
+ */
+function descriptionOwnerOf(
+    node: StructureNodeData,
+    context: string | null,
+): DescriptionOwner | null {
+    if (node.kind === 'context') {
+        return {
+            kind: 'context',
+            context: node.label,
+            section: null,
+            name: null,
+        };
+    }
+
+    if (node.kind === 'resource') {
+        return { kind: 'resource', resource: node.label };
+    }
+
+    const section =
+        node.kind === 'entity' ? 'entities' : CONTEXT_SECTIONS[node.kind];
+
+    return context === null || section === undefined
+        ? null
+        : { kind: 'context', context, section, name: nameOf(node) };
 }
 
 /**
@@ -1278,6 +1309,7 @@ function Details({
     }
 
     const command = node.command;
+    const describedBy = descriptionOwnerOf(node, context);
 
     return (
         <section className="space-y-5">
@@ -1332,6 +1364,16 @@ function Details({
                         </p>
                     )}
             </div>
+            {describedBy !== null && (
+                <DescriptionSection
+                    key={`${node.id}:${node.description ?? ''}`}
+                    graph={graph}
+                    endpoints={endpoints}
+                    owner={describedBy}
+                    description={node.description}
+                    onChanged={onChanged}
+                />
+            )}
             <CardContents graph={graph} context={context} node={node} />
             {node.kind === 'aggregate' && context !== null && (
                 <AggregateChildren

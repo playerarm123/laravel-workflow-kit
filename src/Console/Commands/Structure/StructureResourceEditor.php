@@ -196,6 +196,36 @@ final class StructureResourceEditor
     }
 
     /**
+     * Says what the resource is for, in the team's own words; an empty description takes it out.
+     * Only the manifest holds it, so a resource the code already has takes one as well.
+     *
+     * @return array<string, list<string>> what is wrong, by field; empty when it was written
+     */
+    public function saveDescription(string $resource, string $version, string $description): array
+    {
+        $manifest = $this->manifest($resource);
+        $refused = $this->refusal($resource, $manifest, $version);
+
+        if ($refused !== null || $manifest === null) {
+            return $refused ?? [];
+        }
+
+        $description = trim(str_replace("\r\n", "\n", $description));
+
+        if (mb_strlen($description) > StructureFiles::DESCRIPTION_LENGTH) {
+            return ['description' => [sprintf('A description is at most %d characters.', StructureFiles::DESCRIPTION_LENGTH)]];
+        }
+
+        if ($description === '') {
+            unset($manifest['description']);
+        } else {
+            $manifest['description'] = $description;
+        }
+
+        return $this->write($resource, $manifest);
+    }
+
+    /**
      * Adds a controller method, an action or a page, or changes or renames the one named
      * `$previous`.
      *

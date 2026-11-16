@@ -301,7 +301,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | Page | แผ่นกระดาษพับมุม ไอคอนตามชนิด (table, grid, form, dialog, page) | เทา |
 | Elsewhere | เส้นประ | เทาจาง |
 
-การ์ดแสดงได้สูงสุดหกบรรทัด เกินนั้นขึ้นว่า `… N more` status แสดงการเปลี่ยนสถานะ (`Open → Sealed`, `Sealed · final`) แทนค่า enum แสดง case, value object แสดง field และ entity แสดง state (`status: CrateStatus`) แล้วตามด้วย method
+ถ้าการ์ดมี description จะแสดงเป็นตัวเอียงใต้ชื่อ ยาวสุดสองบรรทัด เอาเมาส์ชี้เพื่ออ่านทั้งหมด การ์ดแสดงได้สูงสุดหกบรรทัด เกินนั้นขึ้นว่า `… N more` status แสดงการเปลี่ยนสถานะ (`Open → Sealed`, `Sealed · final`) แทนค่า enum แสดง case, value object แสดง field และ entity แสดง state (`status: CrateStatus`) แล้วตามด้วย method
 
 คลิกการ์ดเพื่อเลือก คลิกพื้นที่ว่างเพื่อยกเลิก ดับเบิลคลิกการ์ดที่เปิดต่อได้ (context, resource หรือการ์ด Elsewhere) เพื่อไปยังมุมมองนั้น หรือกดปุ่ม **Open …** ใน panel ก็ได้
 
@@ -323,6 +323,8 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 สำหรับการ์ดที่เลือก panel แสดงชนิดและชื่อ สถานะพร้อมเหตุผลหรือคำสั่ง (มีปุ่มคัดลอก) แล้วตามด้วยรายละเอียดเป็นตารางขนาดเล็ก ได้แก่ case และการเปลี่ยนสถานะของ enum, field ของ value object, state และ method ของ entity, child ของ aggregate, method ของ controller และ method ที่ throw exception นั้น
 
 action ที่ใช้กับการ์ดได้จะเป็นไอคอนอยู่ใต้ชื่อ เอาเมาส์ชี้เพื่อดูชื่อได้ ได้แก่ **Open** (↗), **Edit** (ดินสอ), **Remove** (ถังขยะ), **Sync from code** (ลูกศรวน), **Replace** และ **Cancel replacement** แต่ละแถวในตารางมีไอคอนแบบเดียวกันสำหรับแถวนั้น และปุ่ม **+** ของตารางใช้เพิ่มแถว แถวที่สร้างแล้วจะเป็นเครื่องหมายถูกสีเขียว ชี้ดูได้ว่าสร้างอะไรไว้ (เช่น getter ของ property)
+
+ใต้สถานะมีหัวข้อ **Description** ไว้อธิบายว่าการ์ดนี้มีไว้ทำอะไร สำหรับคนอื่นในทีม กดดินสอเพื่อพิมพ์ตรงนั้นได้เลย (ไม่เกิน 1000 ตัวอักษร) **Save** จะเขียนลง manifest และถ้าบันทึกเป็นค่าว่างจะเป็นการลบออก ใส่ได้ทั้งชิ้นใน context, entity, context และ HTTP resource รวมถึงการ์ดที่สร้างแล้ว เพราะมีอยู่แค่ใน manifest และไม่มี check ไหนเอาไปเทียบกับโค้ด ส่วน page, action และการ์ด Elsewhere ไม่มี description ของตัวเอง
 
 การเปลี่ยนแปลงทุกครั้งเกิดตรงที่ทำงานอยู่ การ์ดไม่ย้ายที่ การ์ดที่เลือกยังถูกเลือกและ panel ยังเปิดอยู่ และมีข้อความสั้น ๆ ด้านล่างบอกว่าเกิดอะไรขึ้น การ์ดที่เพิ่มจากฟอร์มในเมนู **Add** จะถูกเลือกและเลื่อนมาให้เห็นทันที
 
@@ -378,7 +380,7 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 
 แก้ได้เฉพาะสิ่งที่โค้ดยังไม่มี:
 
-- การ์ดที่สร้างแล้วจะขึ้นข้อความ *The code already has it. Change the code and sync it, or replace it.* แทนไอคอน Edit และ Remove
+- การ์ดที่สร้างแล้วจะขึ้นข้อความ *The code already has it. Change the code and sync it, or replace it.* แทนไอคอน Edit และ Remove แต่ยังแก้ **Description** ได้ เพราะมันอยู่แค่ใน manifest
 - entity กับ controller ล็อกทีละ method: method ที่สร้างแล้วจะมีเครื่องหมายถูกสีเขียว ส่วนที่เหลือยังมีไอคอน Edit และ Remove state ของ entity ก็ล็อกทีละ property แบบเดียวกัน เครื่องหมายถูกของ property ที่สร้างแล้วจะบอกว่า *Built: read by status()*
 - child entity มีการ์ดของตัวเองเมื่อ Legend แสดง **Entity** เหมือน root ใน panel เพิ่ม state และ method ได้แบบเดียวกัน (ปุ่ม **+** ข้างหัวข้อ **State** และ **Methods**) และมีไอคอน **Remove** ตราบที่โค้ดยังไม่มี child นั้นและยังไม่ได้ออกแบบอะไรไว้ กดชื่อ child ใน panel ของ aggregate เพื่อเปิดการ์ดของมันได้
 - aggregate ที่สร้างแล้วล็อกชื่อและ repository แต่ใน panel ยังเพิ่ม child entity ใหม่ได้ `kit:apply` จะสร้างให้ด้วย `make:entity --child` child ที่สร้างแล้วจะมีเครื่องหมายถูกสีเขียว ส่วนตารางของ child, model และ `syncChildren()` ใน repository ยังต้องเขียนเอง

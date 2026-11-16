@@ -248,7 +248,7 @@ function CardButton({
 
 /**
  * One piece of the structure as a card: shaped, coloured and marked by an icon for its kind, with
- * its name, what it holds and its status. The chevron folds it to its header; selected, it can be
+ * its name, its description cut at two lines, what it holds and its status. The chevron folds it to its header; selected, it can be
  * resized, and a card that leads to cards nothing else does can tuck them away (the button shows
  * while the card is pointed at or selected, and always once they are tucked).
  */
@@ -271,7 +271,7 @@ export function StructureNode({
                     look.accent,
                 )}
             >
-                {data.items.length > 0 && (
+                {(data.items.length > 0 || data.description !== null) && (
                     <CardButton
                         label={data.folded ? 'Unfold' : 'Fold'}
                         className="-ml-1 rounded-sm opacity-60 hover:bg-foreground/10 hover:opacity-100"
@@ -294,6 +294,14 @@ export function StructureNode({
             >
                 {data.label}
             </div>
+            {!data.folded && data.description !== null && (
+                <p
+                    className="mt-0.5 line-clamp-2 shrink-0 text-xs leading-4 break-words text-muted-foreground italic"
+                    title={data.description}
+                >
+                    {data.description}
+                </p>
+            )}
             {!data.folded && data.items.length > 0 && (
                 <ul
                     className={cn(

@@ -69,12 +69,25 @@ export type CanvasNode = StructureFlowNode | FrameFlowNode;
 export type CanvasEdge = StructureEdgeData & { tucked: boolean };
 
 /**
- * The height a node card takes: its header, one line per item unless it is folded, and the room
- * its shape needs.
+ * The characters of a description that fit on one line of a card as wide as NODE_WIDTH.
+ */
+const DESCRIPTION_LINE = 34;
+
+/**
+ * The height a node card takes: its header, its description (two lines at most) and one line per
+ * item unless it is folded, and the room its shape needs.
  */
 export function nodeHeight(data: StructureNodeData, folded = false): number {
+    const description =
+        folded || data.description === null
+            ? 0
+            : data.description.length > DESCRIPTION_LINE
+              ? 36
+              : 20;
+
     return (
         60 +
+        description +
         (folded ? 0 : data.items.length * 18) +
         SHAPE_EXTRA_HEIGHT[styleOf(data).shape]
     );

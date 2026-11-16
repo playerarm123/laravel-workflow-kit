@@ -327,4 +327,17 @@ describe('StructureResourceEditor', function () {
                 ->and(samplingRouteManifest(SAMPLING_ROUTE_BUILT)['controller'])->toBe(['index' => [], 'show' => []]);
         });
     });
+
+    describe('saveDescription', function () {
+        it('says what a resource is for, built or not, takes it out again when empty, and refuses a stale page', function () {
+            $editor = samplingRouteEditor();
+
+            expect($editor->saveDescription(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), " Where the team works through cases.\r\n"))->toBe([])
+                ->and(samplingRouteManifest(SAMPLING_ROUTE_BUILT)['description'])->toBe('Where the team works through cases.')
+                ->and($editor->saveDescription(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), ''))->toBe([])
+                ->and(samplingRouteManifest(SAMPLING_ROUTE_BUILT))->not->toHaveKey('description')
+                ->and($editor->saveDescription(SAMPLING_ROUTE_BUILT, 'stale', 'Cases.'))->toBe(['version' => ['The manifest changed since this page loaded. Reload it, then make the change again.']])
+                ->and($editor->saveDescription(SAMPLING_ROUTE_BUILT, samplingRouteVersion(SAMPLING_ROUTE_BUILT), str_repeat('a', 1001)))->toBe(['description' => ['A description is at most 1000 characters.']]);
+        });
+    });
 });

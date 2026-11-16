@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\File;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureEditor;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureFiles;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureReader;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureSync;
 
 /**
  * The scratch contexts of this file. They carry `Sampling`, so no Architecture check reads them,
@@ -773,6 +774,77 @@ describe('StructureEditor', function () {
                 ->and($editor->removeChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'Lid'))->toBe(['name' => ['Lid lists its methods under entities, so it stays a child.']])
                 ->and($editor->removeChild(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Crate', 'Strap'))->toBe(['name' => ['Crate has no child Strap.']])
                 ->and(samplingEditManifest()['aggregates']['Crate']['children'])->toBe(['Hinge', 'Lid']);
+        });
+    });
+
+    describe('saveDescription', function () {
+        it('says what a piece is for, built or not, and takes it out again when it is empty', function () {
+            $editor = samplingEditor();
+
+            expect($editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'useCases', 'ShipCrate', "  Sends a crate on its way.\r\nOnly a sealed one.  "))->toBe([])
+                ->and(samplingEditManifest()['useCases']['ShipCrate']['description'])->toBe("Sends a crate on its way.\nOnly a sealed one.")
+                ->and($editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'useCases', 'LoadPallet', 'Puts a pallet on a lorry.'))->toBe([])
+                ->and(samplingEditManifest()['useCases']['LoadPallet']['description'])->toBe('Puts a pallet on a lorry.')
+                ->and($editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'useCases', 'ShipCrate', ''))->toBe([])
+                ->and(samplingEditManifest()['useCases']['ShipCrate'])->not->toHaveKey('description');
+        });
+
+        it('says what the context as a whole is for', function () {
+            $editor = samplingEditor();
+
+            expect($editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), null, null, 'Crates, from packing to shipping.'))->toBe([])
+                ->and(samplingEditManifest()['description'])->toBe('Crates, from packing to shipping.')
+                ->and($editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), null, null, ' '))->toBe([])
+                ->and(samplingEditManifest())->not->toHaveKey('description');
+        });
+
+        it('describes an entity before it lists anything, and drops its entry with the description', function () {
+            $editor = samplingEditor();
+
+            expect($editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'entities', 'Pallet', 'What a lorry carries.'))->toBe([])
+                ->and(samplingEditManifest()['entities']['Pallet'])->toBe(['description' => 'What a lorry carries.', 'aggregate' => 'Pallet', 'state' => [], 'behaviours' => [], 'assertions' => []])
+                ->and($editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'entities', 'Pallet', ''))->toBe([])
+                ->and(samplingEditManifest()['entities'])->toBe([]);
+        });
+
+        it('keeps the description when the piece\'s form saves it again, renamed or not, and when an entity\'s last method goes', function () {
+            $editor = samplingEditor();
+            $editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'useCases', 'LoadPallet', 'Puts a pallet on a lorry.');
+            $editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'entities', 'Pallet', 'What a lorry carries.');
+            $editor->saveMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Pallet', null, 'stack', [], []);
+
+            expect($editor->savePiece(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'useCases', 'LoadPallet', 'LoadPallets', ['shape' => 'command', 'returns' => 'void', 'repositories' => ['Pallet'], 'description' => 'Posted by a form']))->toBe([])
+                ->and(samplingEditManifest()['useCases']['LoadPallets']['description'])->toBe('Puts a pallet on a lorry.')
+                ->and($editor->removeMethod(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'Pallet', 'stack'))->toBe([])
+                ->and(samplingEditManifest()['entities']['Pallet']['description'])->toBe('What a lorry carries.');
+        });
+
+        it('keeps the description of a built piece and entity through a sync, and never counts it as out of step', function () {
+            $editor = samplingEditor();
+            $sync = new StructureSync(new StructureFiles(base_path()), new StructureReader(base_path()));
+            $outOfStep = $sync->contextOutOfStep(SAMPLING_EDIT_CONTEXT);
+
+            $editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'useCases', 'ShipCrate', 'Sends a crate on its way.');
+            $editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'entities', 'Crate', 'A box that ships.');
+            $synced = $sync->syncContext(SAMPLING_EDIT_CONTEXT)['manifest'];
+
+            expect($sync->contextOutOfStep(SAMPLING_EDIT_CONTEXT))->toBe($outOfStep)
+                ->and($synced['useCases']['ShipCrate']['description'])->toBe('Sends a crate on its way.')
+                ->and($synced['entities']['Crate']['description'])->toBe('A box that ships.')
+                ->and($synced['entities']['Crate']['behaviours'])->toHaveKey('seal')
+                ->and($editor->sync(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'useCases', 'ShipCrate'))->toBe([])
+                ->and(samplingEditManifest()['useCases']['ShipCrate']['description'])->toBe('Sends a crate on its way.');
+        });
+
+        it('refuses what it cannot describe', function () {
+            $editor = samplingEditor();
+
+            expect($editor->saveDescription(SAMPLING_EDIT_CONTEXT, 'stale', 'useCases', 'ShipCrate', 'Ships.'))->toBe(['version' => ['The manifest changed since this page loaded. Reload it, then make the change again.']])
+                ->and($editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'useCases', 'PackCrate', 'Packs.'))->toBe(['name' => ['The manifest has no PackCrate.']])
+                ->and($editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'routes', 'ShipCrate', 'Ships.'))->toBe(['section' => ['routes is not a section of a manifest.']])
+                ->and($editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'entities', 'Wheel', 'Turns.'))->toBe(['name' => [SAMPLING_EDIT_CONTEXT.' has no aggregate whose root or child is Wheel.']])
+                ->and($editor->saveDescription(SAMPLING_EDIT_CONTEXT, samplingEditVersion(), 'useCases', 'ShipCrate', str_repeat('a', 1001)))->toBe(['description' => ['A description is at most 1000 characters.']])
+                ->and(samplingEditManifest()['useCases']['ShipCrate'])->not->toHaveKey('description');
         });
     });
 });

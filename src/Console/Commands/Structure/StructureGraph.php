@@ -15,7 +15,7 @@ namespace Playerarm123\LaravelWorkflowKit\Console\Commands\Structure;
  *
  * @phpstan-import-type Step from StructurePlanner
  *
- * @phpstan-type Node array{id: string, kind: string, label: string, items: list<string>, status: string|null, reason: string|null, command: string|null, target: array{view: string, name: string}|null, editable: bool, variant: string|null, group: string|null}
+ * @phpstan-type Node array{id: string, kind: string, label: string, items: list<string>, status: string|null, reason: string|null, command: string|null, target: array{view: string, name: string}|null, editable: bool, variant: string|null, group: string|null, description: string|null}
  * @phpstan-type Edge array{id: string, source: string, target: string, label: string|null}
  * @phpstan-type View array{nodes: list<Node>, edges: list<Edge>}
  * @phpstan-type Difference array{check: string, subject: string, message: string, node: string|null}
@@ -113,7 +113,7 @@ final class StructureGraph
         }
 
         return [
-            'overview' => $this->overview($contexts, $resources, $manifests),
+            'overview' => $this->overview($contexts, $contextManifests, $resources, $manifests),
             'contexts' => $contexts,
             'resources' => $resources,
             'byHand' => array_values(array_filter($differences, fn (array $difference): bool => $difference['node'] === null)),
@@ -193,17 +193,18 @@ final class StructureGraph
 
     /**
      * @param  array<string, View>  $contexts
+     * @param  array<string, array<string, mixed>>  $contextManifests
      * @param  array<string, View>  $resources
      * @param  array<string, array<string, mixed>>  $manifests
      * @return View
      */
-    private function overview(array $contexts, array $resources, array $manifests): array
+    private function overview(array $contexts, array $contextManifests, array $resources, array $manifests): array
     {
         $nodes = [];
         $edges = [];
 
         foreach ($contexts as $context => $view) {
-            $nodes[] = $this->summary("context:{$context}", 'context', $context, $view, ['view' => 'context', 'name' => $context]);
+            $nodes[] = $this->summary("context:{$context}", 'context', $context, $view, ['view' => 'context', 'name' => $context], self::descriptionOf($contextManifests[$context]));
 
             foreach ($view['nodes'] as $node) {
                 if ($node['kind'] === 'external' && $node['target'] !== null && isset($contexts[$node['target']['name']])) {
@@ -213,7 +214,7 @@ final class StructureGraph
         }
 
         foreach ($resources as $resource => $view) {
-            $nodes[] = $this->summary("resource:{$resource}", 'resource', $resource, $view, ['view' => 'resource', 'name' => $resource]);
+            $nodes[] = $this->summary("resource:{$resource}", 'resource', $resource, $view, ['view' => 'resource', 'name' => $resource], self::descriptionOf($manifests[$resource]));
             $calls = [];
 
             foreach ($this->useCasesOf($manifests[$resource]) as $useCase) {
@@ -344,9 +345,44 @@ final class StructureGraph
         [$entityNodes, $entityEdges, $entityExternal] = $this->entities($context, $manifest);
 
         return [
-            'nodes' => [...$nodes, ...$vocabularyNodes, ...$exceptionNodes, ...$entityNodes, ...array_values([...$external, ...$vocabularyExternal, ...$entityExternal])],
+            'nodes' => $this->described($context, $manifest, [...$nodes, ...$vocabularyNodes, ...$exceptionNodes, ...$entityNodes, ...array_values([...$external, ...$vocabularyExternal, ...$entityExternal])]),
             'edges' => $this->unique([...$edges, ...$vocabularyEdges, ...$exceptionEdges, ...$entityEdges]),
         ];
+    }
+
+    /**
+     * The cards of a context, each with the description its manifest entry gives it. A card of
+     * elsewhere has none here: it opens the context that describes it.
+     *
+     * @param  array<string, mixed>  $manifest
+     * @param  list<Node>  $nodes
+     * @return list<Node>
+     */
+    private function described(string $context, array $manifest, array $nodes): array
+    {
+        $descriptions = [];
+
+        foreach (array_keys(StructureFiles::SECTIONS) as $section) {
+            foreach (is_array($manifest[$section] ?? null) ? $manifest[$section] : [] as $name => $entry) {
+                $description = is_array($entry) ? self::descriptionOf($entry) : null;
+
+                if ($description !== null) {
+                    $descriptions[StructureComparer::contextNode($context, $section, (string) $name)] = $description;
+                }
+            }
+        }
+
+        return array_map(fn (array $node): array => [...$node, 'description' => $descriptions[$node['id']] ?? null], $nodes);
+    }
+
+    /**
+     * The description a manifest or one of its entries gives, or null.
+     *
+     * @param  array<array-key, mixed>  $entry
+     */
+    private static function descriptionOf(array $entry): ?string
+    {
+        return is_string($entry['description'] ?? null) ? $entry['description'] : null;
     }
 
     /**
@@ -815,7 +851,7 @@ final class StructureGraph
      * @param  array{view: string, name: string}  $target
      * @return Node
      */
-    private function summary(string $id, string $kind, string $label, array $view, array $target): array
+    private function summary(string $id, string $kind, string $label, array $view, array $target, ?string $description): array
     {
         $counts = [];
         $worst = null;
@@ -848,6 +884,7 @@ final class StructureGraph
             'editable' => false,
             'variant' => null,
             'group' => null,
+            'description' => $description,
         ];
     }
 
@@ -875,6 +912,7 @@ final class StructureGraph
             'editable' => $editable,
             'variant' => $variant,
             'group' => $group,
+            'description' => null,
         ];
     }
 

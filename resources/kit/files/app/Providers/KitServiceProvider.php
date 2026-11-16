@@ -104,12 +104,14 @@ class KitServiceProvider extends ServiceProvider
                     'addChild' => route('kit.structure.children.store', ['context' => '__CONTEXT__']),
                     'removeChild' => route('kit.structure.children.remove', ['context' => '__CONTEXT__']),
                     'syncPiece' => route('kit.structure.pieces.sync', ['context' => '__CONTEXT__']),
+                    'saveDescription' => route('kit.structure.descriptions.store', ['context' => '__CONTEXT__']),
                     'createResource' => route('kit.structure.resources.store'),
                     'saveResource' => route('kit.structure.resources.update', ['resource' => '__RESOURCE__']),
                     'saveMenu' => route('kit.structure.resources.menu', ['resource' => '__RESOURCE__']),
                     'saveResourcePiece' => route('kit.structure.resource-pieces.store', ['resource' => '__RESOURCE__']),
                     'removeResourcePiece' => route('kit.structure.resource-pieces.remove', ['resource' => '__RESOURCE__']),
                     'syncResourcePiece' => route('kit.structure.resource-pieces.sync', ['resource' => '__RESOURCE__']),
+                    'saveResourceDescription' => route('kit.structure.resources.description', ['resource' => '__RESOURCE__']),
                     'graph' => route('kit.structure.graph'),
                     'runCommand' => route('kit.structure.commands.run', ['command' => '__COMMAND__']),
                     'docs' => route('kit.docs'),
@@ -246,6 +248,16 @@ class KitServiceProvider extends ServiceProvider
                 ),
             ))->name('.pieces.sync');
 
+            Route::post('contexts/{context}/description', fn (Request $request, string $context): JsonResponse => $this->answer(
+                $this->structureEditor()->saveDescription(
+                    $context,
+                    $request->string('version')->toString(),
+                    $request->filled('section') ? $request->string('section')->toString() : null,
+                    $request->filled('name') ? $request->string('name')->toString() : null,
+                    $request->string('description')->toString(),
+                ),
+            ))->name('.descriptions.store');
+
             Route::post('resources', fn (Request $request): JsonResponse => $this->answer(
                 $this->resourceEditor()->createResource(
                     $request->string('name')->toString(),
@@ -274,6 +286,14 @@ class KitServiceProvider extends ServiceProvider
                     $request->filled('ability') ? $request->string('ability')->toString() : null,
                 ),
             ))->name('.resources.menu');
+
+            Route::post('resources/{resource}/description', fn (Request $request, string $resource): JsonResponse => $this->answer(
+                $this->resourceEditor()->saveDescription(
+                    $resource,
+                    $request->string('version')->toString(),
+                    $request->string('description')->toString(),
+                ),
+            ))->name('.resources.description');
 
             Route::post('resources/{resource}/pieces', fn (Request $request, string $resource): JsonResponse => $this->answer(
                 $this->resourceEditor()->savePiece(
