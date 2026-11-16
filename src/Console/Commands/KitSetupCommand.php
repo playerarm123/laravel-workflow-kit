@@ -77,7 +77,10 @@ class KitSetupCommand extends Command
 
         if (! $this->option('skip-dependencies')) {
             $this->runProcess([PHP_BINARY, 'artisan', 'wayfinder:generate', '--with-form', '--no-interaction']);
-            $this->runProcess([$setup->packageManager(), 'run', 'lint']);
+
+            if (! $this->runProcess([$setup->packageManager(), 'run', 'lint'])) {
+                $manual[] = sprintf('`%s run lint` failed: fix what it reports, then run it again', $setup->packageManager());
+            }
 
             // The kit's pages are new entries of the Vite manifest: a Feature test that renders
             // one fails with a 500 until the assets are built again.

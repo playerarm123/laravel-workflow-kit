@@ -34,6 +34,31 @@ function runProjectSetup(ProjectSetup $setup): array
     ];
 }
 
+/**
+ * Puts every package composer.json and package.json declare into vendor/ and node_modules/, as an
+ * install that finished would, but for the ones named in $except.
+ *
+ * @param  list<string>  $except
+ */
+function installDeclaredPackages(string $project, array $except = []): void
+{
+    $composer = json_decode((string) file_get_contents($project.'/composer.json'), true);
+    $package = json_decode((string) file_get_contents($project.'/package.json'), true);
+    $installed = [
+        'vendor' => ['composer.json', array_keys([...$composer['require'], ...$composer['require-dev'] ?? []])],
+        'node_modules' => ['package.json', array_keys([...$package['dependencies'] ?? [], ...$package['devDependencies'] ?? []])],
+    ];
+
+    foreach ($installed as $directory => [$manifest, $names]) {
+        foreach (array_diff($names, $except) as $name) {
+            if ($name !== 'php' && ! str_starts_with($name, 'ext-')) {
+                File::ensureDirectoryExists("{$project}/{$directory}/{$name}");
+                file_put_contents("{$project}/{$directory}/{$name}/{$manifest}", '{}');
+            }
+        }
+    }
+}
+
 beforeEach(function () {
     $this->project = setupProjectCopy();
     $this->setup = new ProjectSetup(WorkflowKit::kitPath(), $this->project, 'pgsql');
@@ -103,6 +128,30 @@ describe('npmDependencies', function () {
 
         expect($manual)->toBe(['package.json: the "check" script runs `vp lint`, which formats and lints a second time with rules of its own; run the kit\'s checks there instead (`prettier --check resources/ && eslint .`, stack.md)'])
             ->and(json_decode(($this->read)('package.json'), true)['scripts']['check'])->toBe('vp lint && tsc --noEmit');
+    });
+});
+
+describe('what the installs must bring', function () {
+    it('names nothing once every package the stack requires is declared and installed', function () {
+        runProjectSetup($this->setup);
+        installDeclaredPackages($this->project);
+        $again = new ProjectSetup(WorkflowKit::kitPath(), $this->project, 'pgsql');
+
+        expect($again->composerDependencies()['packages'])->toBe([])
+            ->and($again->npmDependencies()['packages'])->toBe([]);
+    });
+
+    it('names a package an earlier run declared but never installed, so the next run installs it', function () {
+        runProjectSetup($this->setup);
+        installDeclaredPackages($this->project, except: ['@xyflow/react', 'eslint', 'spatie/laravel-data']);
+        $again = new ProjectSetup(WorkflowKit::kitPath(), $this->project, 'pgsql');
+        $composer = $again->composerDependencies();
+        $npm = $again->npmDependencies();
+
+        expect($composer['changed'])->toBe([])
+            ->and($composer['packages'])->toBe(['spatie/laravel-data'])
+            ->and($npm['changed'])->toBe([])
+            ->and($npm['packages'])->toBe(['@xyflow/react', 'eslint']);
     });
 });
 
