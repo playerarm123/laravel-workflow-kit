@@ -147,7 +147,7 @@ Choose **Add ▸ Use case** for `CreateCrate`:
 | `Create`, `Change`, `Delete` | the aggregate (one saved through a repository), the name (`Create…`, `Update…`, `Delete…`), the other repositories | `command` → `string` with IdGenerator; `command` → `void`; `plain` → `void`. Each injects the aggregate's repository |
 | `Bulk action` | the aggregate, a verb (`Ship` makes `ShipCrates`), the name, the other repositories | `command` → `int` with the aggregate's repository |
 | `List` | the aggregate, the name (`ListCrates`) | `command-result` with a query port and no repository |
-| `Show` | the aggregate, the name (`ShowCrate`), the read class it returns (`CrateDetails`) | `plain` with no repository. You write the read class and its port by hand |
+| `Show` | the aggregate, the name (`ShowCrate`), the read class it returns (`CrateDetails`) | `plain` with no repository. `kit:apply` writes the read class with only its `id` (`make:use-case --reads`). You add what the page shows to it, and its port, by hand |
 
 A name or a return type you typed yourself is kept when you change the kind or the aggregate. `Custom` shows every field, starting from what the last kind filled in, so pick it to change what a kind fixes. This guide sets the fields by hand. Changing a use case later always opens the full form.
 

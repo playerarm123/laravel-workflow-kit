@@ -1,0 +1,34 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Contracts\Support\Arrayable;
+
+/**
+ * What one page shows, such as a detail or a profile, in the shape the page renders it.
+ *
+ * A plain class rather than a spatie/laravel-data object, like a list's row. The application
+ * port that reads it hands it back, and the handler passes it on unchanged.
+ *
+ * toArray() is what puts the keys on the wire, so it — not the property names — is the
+ * contract the page's TypeScript type mirrors.
+ *
+ * @implements Arrayable<string, mixed>
+ */
+final class {{ class }} implements Arrayable
+{
+    public function __construct(
+        public readonly string $id,
+        // describe the rest of what the page shows here
+    ) {}
+
+    /**
+     * @return array{id: string}
+     */
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+        ];
+    }
+}

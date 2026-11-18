@@ -147,7 +147,7 @@ property ใหม่จะต่อท้ายตัวที่ entity มี
 | `Create`, `Change`, `Delete` | aggregate (ต้องมี repository), ชื่อ (`Create…`, `Update…`, `Delete…`), repository อื่นที่ใช้ | `command` → `string` พร้อม IdGenerator, `command` → `void`, `plain` → `void` ทุกตัว inject repository ของ aggregate |
 | `Bulk action` | aggregate, คำกริยา (`Ship` ได้ `ShipCrates`), ชื่อ, repository อื่นที่ใช้ | `command` → `int` พร้อม repository ของ aggregate |
 | `List` | aggregate, ชื่อ (`ListCrates`) | `command-result` อ่านผ่าน query port ไม่มี repository |
-| `Show` | aggregate, ชื่อ (`ShowCrate`), คลาสที่คืน (`CrateDetails`) | `plain` ไม่มี repository ส่วนคลาสที่คืนและ port ที่อ่านข้อมูลต้องเขียนเอง |
+| `Show` | aggregate, ชื่อ (`ShowCrate`), คลาสที่คืน (`CrateDetails`) | `plain` ไม่มี repository `kit:apply` สร้างคลาสที่คืนให้โดยมีแค่ `id` (`make:use-case --reads`) ส่วนข้อมูลที่หน้าแสดงและ port ที่อ่านข้อมูลต้องเขียนเพิ่มเอง |
 
 ชื่อหรือค่าที่คืนที่พิมพ์เองจะไม่ถูกเขียนทับเมื่อเปลี่ยน kind หรือ aggregate ส่วน `Custom` จะแสดงทุกช่อง โดยเริ่มจากค่าที่ kind ล่าสุดเติมไว้ ถ้าต้องการแก้สิ่งที่ kind กำหนดไว้ให้เลือก `Custom` คู่มือนี้เลือกทุกช่องเอง และการแก้ use case ที่มีอยู่แล้วจะเปิดฟอร์มเต็มเสมอ
 

@@ -312,6 +312,10 @@ final class StructurePlanner
                 $arguments['--query'] = true;
             } elseif ($entry['shape'] === 'plain') {
                 $arguments['--plain'] = true;
+
+                if ($this->readsClass($manifest, $entry['returns'])) {
+                    $arguments['--reads'] = $entry['returns'];
+                }
             } else {
                 $arguments['--command'] = true;
 
@@ -1024,6 +1028,33 @@ final class StructurePlanner
         }
 
         return array_values(array_unique($missing));
+    }
+
+    /**
+     * Whether a plain use case hands back a read class of its own, such as `UserDetails`, which
+     * make:use-case writes beside the context's ports. A builtin, a nullable or union type, a
+     * name from another context and a piece this manifest already declares (an enum, a value
+     * object, an entity) or the shared kernel already has are not one.
+     *
+     * @param  array<string, mixed>  $manifest
+     */
+    private function readsClass(array $manifest, string $returns): bool
+    {
+        if (preg_match('/^[A-Z][A-Za-z0-9]*$/', $returns) !== 1) {
+            return false;
+        }
+
+        foreach (['aggregates', 'enums', 'valueObjects', 'entities', 'exceptions', 'ports', 'services', 'applicationServices'] as $section) {
+            if (is_array($manifest[$section] ?? null) && array_key_exists($returns, $manifest[$section])) {
+                return false;
+            }
+        }
+
+        if (array_key_exists((string) preg_replace('/Entity$/', '', $returns), $manifest['aggregates'] ?? [])) {
+            return false;
+        }
+
+        return $this->reader->vocabularyClass(StructureFiles::SHARED.'/'.$returns, StructureFiles::SHARED, null) === null;
     }
 
     /**

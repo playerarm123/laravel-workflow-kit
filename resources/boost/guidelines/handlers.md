@@ -16,7 +16,7 @@ These live at fixed paths. `php artisan kit:install` writes them from the kit, a
 
 ## Scaffold, never hand-write
 
-Run `php artisan make:use-case {Name} --domain={Context}` with one of `--command`, `--command --result` or `--plain`, plus `--repo={Aggregate}` when the handler writes one and `--creates` when it creates a root (it injects `IdGenerator` and returns the new id). List use cases add `--query` (list-queries.md).
+Run `php artisan make:use-case {Name} --domain={Context}` with one of `--command`, `--command --result` or `--plain`, plus `--repo={Aggregate}` when the handler writes one and `--creates` when it creates a root (it injects `IdGenerator` and returns the new id). List use cases add `--query` (list-queries.md). A plain handler that reads what one page shows adds `--reads={Name}Details`: it writes that read class at the root of the context, `final`, `implements Arrayable`, with only its `id`, and the handler returns it. Add the rest of what the page shows, its `toArray()` keys and the application port that fills it by hand.
 
 ## The three shapes
 
