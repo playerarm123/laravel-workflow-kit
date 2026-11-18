@@ -162,7 +162,8 @@ function plural(word: string): string {
 /**
  * What `kit:apply` builds for a use case as the form stands: the handler's signature, what its
  * constructor injects and the classes `make:use-case` writes beside it. A list's Row and Sort are
- * named after what it lists, known here only while the name is the one its kind wrote.
+ * named after what it lists, known here only while the name is the one its kind wrote. A plain
+ * handler that returns a class name gets that read class too (`--reads`).
  */
 function useCaseOutline(
     data: PieceFormData,
@@ -190,6 +191,10 @@ function useCaseOutline(
             ...(repositories.length > 0 ? ['AuditLog'] : []),
         ],
         beside: [
+            ...(data.shape === 'plain' &&
+            /^[A-Z][A-Za-z0-9]*$/.test(data.returns)
+                ? [data.returns]
+                : []),
             ...(data.shape === 'plain' ? [] : [`${name}Command`]),
             ...(data.shape === 'command-result' ? [`${name}Result`] : []),
             ...(data.query
@@ -557,10 +562,7 @@ export function PieceForm({
             </Field>
 
             {tailored && kind === 'show' && (
-                <Field
-                    label="Read class it returns, written by hand"
-                    error={errors.returns}
-                >
+                <Field label="Read class it returns" error={errors.returns}>
                     <Input
                         value={data.returns}
                         onChange={(event) =>
@@ -631,9 +633,10 @@ export function PieceForm({
                     )}
                     {kind === 'show' && (
                         <div className="text-muted-foreground">
-                            Write {data.returns || 'the read class'} and the
-                            port it reads through by hand: add the port with Add
-                            ▸ Port, layer application.
+                            kit:apply writes {data.returns || 'the read class'}{' '}
+                            with only its id. Add what the page shows to it and
+                            its toArray() by hand, and the port that fills it
+                            with Add ▸ Port, layer application.
                         </div>
                     )}
                     {kind === 'bulk' && (

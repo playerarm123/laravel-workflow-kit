@@ -15,7 +15,7 @@ use Playerarm123\LaravelWorkflowKit\WorkflowKit;
 
 use function Laravel\Prompts\select;
 
-#[Signature('make:use-case {name : The use case name, without the Handler suffix} {--domain= : Domain that owns the use case, e.g. LotteryDefinition} {--repo= : Domain repository injected into the handler} {--c|command : Also create the command class} {--r|result : Also create the result class; needs --command} {--query : Also create the read query port and its Eloquent adapter; implies --command --result} {--plain : Create the handler without a command or a result} {--creates : Inject the IdGenerator; the handler mints the id of the root it creates} {--force : Overwrite the handler if it already exists}')]
+#[Signature('make:use-case {name : The use case name, without the Handler suffix} {--domain= : Domain that owns the use case, e.g. LotteryDefinition} {--repo= : Domain repository injected into the handler} {--c|command : Also create the command class} {--r|result : Also create the result class; needs --command} {--query : Also create the read query port and its Eloquent adapter; implies --command --result} {--plain : Create the handler without a command or a result} {--reads= : Also create the read class a plain handler hands back, at the root of its context, such as UserDetails} {--creates : Inject the IdGenerator; the handler mints the id of the root it creates} {--force : Overwrite the handler if it already exists}')]
 #[Description('Create a new application use case handler')]
 class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingInput
 {
@@ -61,11 +61,19 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
             return self::FAILURE;
         }
 
+        if ($this->readName() !== null && ($this->carriesCommand() || $this->carriesResult())) {
+            $this->components->error('Only a plain handler hands back a read class. A use case with a Command returns its Result, an id or nothing (handlers.md). Drop --reads or pass --plain.');
+
+            return self::FAILURE;
+        }
+
         if (parent::handle() === false) {
             return self::FAILURE;
         }
 
         $this->createPayloads();
+
+        $this->createRead();
 
         $this->createQuery();
 
@@ -140,6 +148,7 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
     {
         return match (true) {
             $this->carriesResult() => $this->resultName(),
+            $this->readName() !== null => $this->readName(),
             $this->creates() => 'string',
             default => 'void',
         };
@@ -153,6 +162,10 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
 
         if ($this->writes()) {
             return $this->writingHandlerBody();
+        }
+
+        if ($this->readName() !== null) {
+            return "        // read it through an application port of the context and hand back a {$this->readName()}";
         }
 
         if (! $this->creates()) {
@@ -237,6 +250,7 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
         $imports = array_filter([
             $this->creates() ? $this->namespacedIdGenerator() : null,
             $this->namespacedRepository(),
+            $this->namespacedRead(),
             $this->writes() ? $this->rootNamespace().'Application\\Audit\\AuditLog' : null,
             $this->writes() ? 'Illuminate\\Support\\Facades\\DB' : null,
             ...($this->carriesQuery() ? [
@@ -318,6 +332,32 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
             ->afterLast('\\')
             ->studly()
             ->chopEnd('Handler');
+    }
+
+    /**
+     * The read class a plain handler hands back, such as `UserDetails`, or null when it hands
+     * back nothing of its own.
+     */
+    protected function readName(): ?string
+    {
+        $read = $this->option('reads');
+
+        if (blank($read)) {
+            return null;
+        }
+
+        return (string) Str::of($read)->trim()->replace('/', '\\')->afterLast('\\')->studly();
+    }
+
+    /**
+     * The read class sits at the root of its context, beside the application port that fills
+     * it, the way the media feature keeps MediaFolderOption beside MediaFolderDirectory.
+     */
+    protected function namespacedRead(): ?string
+    {
+        $read = $this->readName();
+
+        return $read === null ? null : $this->rootNamespace().'Application\\'.$this->resolveDomain().'\\'.$read;
     }
 
     protected function commandName(): string
@@ -599,6 +639,19 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
                 $this->qualifyClass($this->resultName()),
                 'Result',
             );
+        }
+    }
+
+    /**
+     * Create the read class with only its id: what the page shows, and the keys toArray() puts
+     * on the wire, are written by hand.
+     */
+    protected function createRead(): void
+    {
+        $read = $this->namespacedRead();
+
+        if ($read !== null) {
+            $this->createFromStub('use-case-read.stub', $read, 'Read class');
         }
     }
 

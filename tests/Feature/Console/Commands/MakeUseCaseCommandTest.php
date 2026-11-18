@@ -393,6 +393,43 @@ it('skips the payload prompt when told the use case is plain', function () {
         ->and(File::exists(useCaseClassPath('ArchiveSamplingItemResult')))->toBeFalse();
 });
 
+it('creates the read class a plain handler hands back, at the root of its context', function () {
+    $this->artisan('make:use-case', ['name' => 'ShowSamplingItem', '--domain' => 'Sampling', '--plain' => true, '--reads' => 'SamplingItemDetails'])
+        ->assertSuccessful();
+
+    $handler = File::get(useCaseClassPath('ShowSamplingItemHandler'));
+    $read = File::get(app_path('Application/Sampling/SamplingItemDetails.php'));
+
+    expect($handler)->toContain('use App\\Application\\Sampling\\SamplingItemDetails;')
+        ->toContain('public function __invoke(): SamplingItemDetails')
+        ->toContain('hand back a SamplingItemDetails')
+        ->and($read)->toContain('namespace App\\Application\\Sampling;')
+        ->toContain('final class SamplingItemDetails implements Arrayable')
+        ->toContain('public readonly string $id,')
+        ->toContain("'id' => \$this->id,");
+});
+
+it('keeps a read class someone already wrote', function () {
+    File::ensureDirectoryExists(app_path('Application/Sampling'));
+    File::put(app_path('Application/Sampling/SamplingItemDetails.php'), '<?php // written by hand');
+
+    $this->artisan('make:use-case', ['name' => 'ShowSamplingItem', '--domain' => 'Sampling', '--plain' => true, '--reads' => 'SamplingItemDetails'])
+        ->expectsOutputToContain('already exists')
+        ->assertSuccessful();
+
+    expect(File::get(app_path('Application/Sampling/SamplingItemDetails.php')))->toBe('<?php // written by hand')
+        ->and(File::get(useCaseClassPath('ShowSamplingItemHandler')))->toContain('__invoke(): SamplingItemDetails');
+});
+
+it('refuses a read class on a use case that takes a Command', function () {
+    $this->artisan('make:use-case', ['name' => 'ShowSamplingItem', '--domain' => 'Sampling', '--command' => true, '--reads' => 'SamplingItemDetails'])
+        ->expectsOutputToContain('Only a plain handler hands back a read class.')
+        ->assertFailed();
+
+    expect(File::exists(app_path('Application/Sampling/SamplingItemDetails.php')))->toBeFalse()
+        ->and(File::exists(useCaseClassPath('ShowSamplingItem/ShowSamplingItemHandler')))->toBeFalse();
+});
+
 it('fails instead of guessing the payload when it cannot ask', function () {
     $this->artisan('make:use-case', [
         'name' => 'ArchiveSamplingItem',

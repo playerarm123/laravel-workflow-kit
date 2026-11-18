@@ -68,6 +68,8 @@ function writeSamplingPlanFixtures(): void
             'ShipSack' => ['shape' => 'command-result', 'returns' => 'result', 'creates' => true, 'query' => false, 'repositories' => ['Credit/Wallet', 'Sack']],
             'StitchSack' => ['shape' => 'command', 'returns' => 'void', 'creates' => false, 'query' => false, 'repositories' => []],
             'TidySacks' => ['shape' => 'plain', 'returns' => 'void', 'creates' => false, 'query' => false, 'repositories' => []],
+            'ShowSack' => ['shape' => 'plain', 'returns' => 'SackDetails', 'creates' => false, 'query' => false, 'repositories' => []],
+            'GradeSack' => ['shape' => 'plain', 'returns' => 'SackGrade', 'creates' => false, 'query' => false, 'repositories' => []],
         ],
         'enums' => [
             'SackColour' => ['aggregate' => 'Sack', 'backing' => 'string', 'cases' => ['Red' => 'red']],
@@ -261,6 +263,8 @@ describe('StructurePlanner', function () {
                 ->and($steps["application service {$domain}/CountSacks"][1])->toBe("php artisan make:application-service CountSacks --domain={$domain} --plain --repo=Credit/Wallet")
                 ->and($steps["use case {$domain}/ShipSack"][1])->toBe("php artisan make:use-case ShipSack --domain={$domain} --command --result --creates --repo=Sack")
                 ->and($steps["use case {$domain}/TidySacks"][1])->toBe("php artisan make:use-case TidySacks --domain={$domain} --plain")
+                ->and($steps["use case {$domain}/ShowSack"][1])->toBe("php artisan make:use-case ShowSack --domain={$domain} --plain --reads=SackDetails")
+                ->and($steps["use case {$domain}/GradeSack"][1])->toBe("php artisan make:use-case GradeSack --domain={$domain} --plain")
                 ->and($steps["use case {$domain}/ListSamplingSacks"][0])->toBe(StructurePlanner::DONE)
                 ->and($steps["use case {$domain}/StitchSack"][0])->toBe(StructurePlanner::DONE);
         });
