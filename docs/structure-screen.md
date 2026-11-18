@@ -140,6 +140,17 @@ Choose **Add ▸ Use case** for `CreateCrate`:
 
 ![Adding a use case](images/structure-add-use-case.png)
 
+**Kind**, at the top of the form, gives each kind of use case a form of its own. The kind fixes the shape, the return type and the options, and the form asks only for what is left. A box shows what `kit:apply` will build: the handler's signature, what it injects and the classes beside it. Pick `Create` and **For the aggregate** `Crate`, and the form names it `CreateCrate`, a `command` returning `string` that injects IdGenerator, `CrateRepository` and `AuditLog`.
+
+| Kind | It asks for | It fixes |
+|---|---|---|
+| `Create`, `Change`, `Delete` | the aggregate (one saved through a repository), the name (`Create…`, `Update…`, `Delete…`), the other repositories | `command` → `string` with IdGenerator; `command` → `void`; `plain` → `void`. Each injects the aggregate's repository |
+| `Bulk action` | the aggregate, a verb (`Ship` makes `ShipCrates`), the name, the other repositories | `command` → `int` with the aggregate's repository |
+| `List` | the aggregate, the name (`ListCrates`) | `command-result` with a query port and no repository |
+| `Show` | the aggregate, the name (`ShowCrate`), the read class it returns (`CrateDetails`) | `plain` with no repository. You write the read class and its port by hand |
+
+A name or a return type you typed yourself is kept when you change the kind or the aggregate. `Custom` shows every field, starting from what the last kind filled in, so pick it to change what a kind fixes. This guide sets the fields by hand. Changing a use case later always opens the full form.
+
 Then add `ListCrates`, the use case the list page reads. Tick **Reads a list through a query port** but leave the shape on `command`. The screen refuses the save and shows the reason under the field it concerns:
 
 ![A refused save](images/structure-refused.png)
@@ -353,7 +364,7 @@ The header's menus offer the forms of the current view:
 | Domain service | Name; Shape of handle(): `creates`, `data` or `plain`; Builds the aggregate (for `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | A repository, or the aggregate it builds, is in another context ([layers.md](../resources/boost/guidelines/layers.md)). When to design one, and the code it becomes: [domain-services.md](domain-services.md). |
 | Application service | Name; Shape of handle(): `data` or `plain`; Options: Reads who is acting through UserContext, It has its own exception, `{Name}Exception`; Repositories it injects (from any context) | A repository does not exist. When to design one, and the code it becomes: [application-services.md](application-services.md). |
 | Port | Name; Layer: `domain` or `application`; Adapter, as `Infra/{Folder}/{Prefix}{Port}` (optional) | The adapter is not in that form. |
-| Use case | Name; Shape of __invoke(): `command-result`, `command` or `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (from any context) | A Command shape returns something other than `void`, `string`, `int` or `result` ([handlers.md](../resources/boost/guidelines/handlers.md)). A list is not `List{Name}` with `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)). A repository does not exist. |
+| Use case | Kind (when adding: Custom shows every field below; Create, Change, Delete, Bulk action, List and Show ask only for the aggregate, the name and what the kind leaves open); Name; Shape of __invoke(): `command-result`, `command` or `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (from any context) | A Command shape returns something other than `void`, `string`, `int` or `result` ([handlers.md](../resources/boost/guidelines/handlers.md)). A list is not `List{Name}` with `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)). A repository does not exist. |
 | Enum | Name; Aggregate; Backing: `string`, `int` or `pure`; A status: each case lists the cases it may become; Cases, in order | Cases are not TitleCase, or two share a value. A status is not named `*Status`, or no case may become another ([states.md](../resources/boost/guidelines/states.md)). |
 | Value object | Name; Aggregate; Fields, in constructor order (name and type) | A field is not camelCase. A type is neither a builtin, nor a class a manifest designs, nor a class the code has. |
 | Exception | Name; Kind: Refusal of an aggregate, Invalid value or Refusal of a use case (the shared kernel takes invalid values only); Aggregate (for a refusal or an invalid value); Use case, or None (for a use case's refusal) | The name does not end with `Exception`. The aggregate or the use case is not in this context ([exceptions.md](../resources/boost/guidelines/exceptions.md)). |

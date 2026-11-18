@@ -1,4 +1,5 @@
 import { useHttp } from '@inertiajs/react';
+import { useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,158 @@ type PieceFormData = {
     actor: boolean;
     exception: boolean;
 };
+
+type UseCaseKind =
+    'custom' | 'create' | 'change' | 'delete' | 'bulk' | 'list' | 'show';
+
+type UseCaseKindPreset = {
+    label: string;
+    hint: string;
+    /** What the name starts with, before the aggregate; `null` asks the user for a verb. */
+    prefix: string | null;
+    /** Whether the aggregate goes into the name in the plural, as a list's does. */
+    plural: boolean;
+    shape: string;
+    returns: string;
+    creates: boolean;
+    query: boolean;
+    /** Whether it injects the aggregate's repository: a list and a read inject none. */
+    writes: boolean;
+};
+
+/**
+ * The kinds of use case most pages call, each one fixing the fields the guidelines ask of it
+ * (handlers.md, list-queries.md, actions.md), so its form asks only for what is left. Custom
+ * keeps every field, and starts from what the last kind filled in.
+ */
+const USE_CASE_KINDS: Record<
+    Exclude<UseCaseKind, 'custom'>,
+    UseCaseKindPreset
+> = {
+    create: {
+        label: 'Create',
+        hint: 'Builds a new root from a form and returns its id, for a store method.',
+        prefix: 'Create',
+        plural: false,
+        shape: 'command',
+        returns: 'string',
+        creates: true,
+        query: false,
+        writes: true,
+    },
+    change: {
+        label: 'Change',
+        hint: 'Changes one root from a form, for an update method.',
+        prefix: 'Update',
+        plural: false,
+        shape: 'command',
+        returns: 'void',
+        creates: false,
+        query: false,
+        writes: true,
+    },
+    delete: {
+        label: 'Delete',
+        hint: 'Removes one root by its id, for a destroy method.',
+        prefix: 'Delete',
+        plural: false,
+        shape: 'plain',
+        returns: 'void',
+        creates: false,
+        query: false,
+        writes: true,
+    },
+    bulk: {
+        label: 'Bulk action',
+        hint: 'Acts on the ids of a selection and returns how many rows it changed, for a bulk action.',
+        prefix: null,
+        plural: true,
+        shape: 'command',
+        returns: 'int',
+        creates: false,
+        query: false,
+        writes: true,
+    },
+    list: {
+        label: 'List',
+        hint: 'Reads a page of rows through a query port, for an index method.',
+        prefix: 'List',
+        plural: true,
+        shape: 'command-result',
+        returns: 'result',
+        creates: false,
+        query: true,
+        writes: false,
+    },
+    show: {
+        label: 'Show',
+        hint: 'Reads what one page shows, such as a detail or a profile, into a read class of its own. A plain show page reads its model in the controller and needs no use case.',
+        prefix: 'Show',
+        plural: false,
+        shape: 'plain',
+        returns: 'Details',
+        creates: false,
+        query: false,
+        writes: false,
+    },
+};
+
+/**
+ * An aggregate's name in the plural, the way a list names it: good enough for a first draft of
+ * the name, which the field still lets the user correct.
+ */
+function plural(word: string): string {
+    if (/[^aeiou]y$/i.test(word)) {
+        return `${word.slice(0, -1)}ies`;
+    }
+
+    return /(s|x|z|ch|sh)$/i.test(word) ? `${word}es` : `${word}s`;
+}
+
+/**
+ * What `kit:apply` builds for a use case as the form stands: the handler's signature, what its
+ * constructor injects and the classes `make:use-case` writes beside it. A list's Row and Sort are
+ * named after what it lists, known here only while the name is the one its kind wrote.
+ */
+function useCaseOutline(
+    data: PieceFormData,
+    listed: string | null,
+): { signature: string; injects: string[]; beside: string[] } {
+    const name = data.name.trim() || '{Name}';
+    const repositories = data.repositories.map(
+        (repository) => `${repository.split('/').pop()}Repository`,
+    );
+    const item = listed === null ? '{Item}' : listed;
+
+    return {
+        signature:
+            data.shape === 'plain'
+                ? `${name}Handler::__invoke(…): ${data.returns || 'void'}`
+                : `${name}Handler::__invoke(${name}Command $command): ${
+                      data.shape === 'command-result'
+                          ? `${name}Result`
+                          : data.returns
+                  }`,
+        injects: [
+            ...(data.creates === true ? ['IdGenerator'] : []),
+            ...(data.query ? [`${name}Query`] : []),
+            ...repositories,
+            ...(repositories.length > 0 ? ['AuditLog'] : []),
+        ],
+        beside: [
+            ...(data.shape === 'plain' ? [] : [`${name}Command`]),
+            ...(data.shape === 'command-result' ? [`${name}Result`] : []),
+            ...(data.query
+                ? [
+                      `${name}Criteria`,
+                      `${item}ListRow`,
+                      `${item}ListSort`,
+                      `Eloquent${name}Query`,
+                  ]
+                : []),
+        ],
+    };
+}
 
 function startingValues(
     graph: StructureGraph,
@@ -232,6 +385,97 @@ export function PieceForm({
     );
     const label = SECTION_LABELS[section];
 
+    const ownAggregates = graph.manifests[context]?.aggregates ?? {};
+    const aggregateNames = Object.keys(ownAggregates);
+    const savedAggregates = aggregateNames.filter(
+        (aggregate) => ownAggregates[aggregate]?.repository === true,
+    );
+    const [kind, setKind] = useState<UseCaseKind>('custom');
+    const [subject, setSubject] = useState(aggregateNames[0] ?? '');
+    const [verb, setVerb] = useState('');
+    // What the last kind wrote, so a name or a return type the user typed is never written over.
+    const [suggestedName, setSuggestedName] = useState('');
+    const [suggestedReturns, setSuggestedReturns] = useState('');
+
+    const preset = kind === 'custom' ? null : USE_CASE_KINDS[kind];
+    // Adding a use case of a kind: its form asks only for what the kind leaves open.
+    const tailored =
+        section === 'useCases' && previous === null && preset !== null;
+    const subjectChoices = preset?.writes ? savedAggregates : aggregateNames;
+
+    const applyKind = (
+        nextKind: UseCaseKind,
+        wantedSubject: string,
+        nextVerb: string,
+    ) => {
+        setKind(nextKind);
+        setVerb(nextVerb);
+
+        if (nextKind === 'custom') {
+            return;
+        }
+
+        const next = USE_CASE_KINDS[nextKind];
+        const choices = next.writes ? savedAggregates : aggregateNames;
+        // A kind that writes needs an aggregate it can save through.
+        const nextSubject = choices.includes(wantedSubject)
+            ? wantedSubject
+            : (choices[0] ?? '');
+        setSubject(nextSubject);
+
+        const draft =
+            next.prefix === null && nextVerb.trim() === ''
+                ? ''
+                : (next.prefix ?? nextVerb.trim()) +
+                  (next.plural ? plural(nextSubject) : nextSubject);
+        const typedName =
+            data.name.trim() !== '' && data.name !== suggestedName;
+
+        if (!typedName) {
+            setSuggestedName(draft);
+        }
+
+        const draftReturns =
+            nextKind === 'show'
+                ? nextSubject === ''
+                    ? 'array'
+                    : `${nextSubject}${next.returns}`
+                : next.returns;
+        const typedReturns =
+            kind === 'show' &&
+            nextKind === 'show' &&
+            data.returns !== suggestedReturns;
+
+        if (!typedReturns) {
+            setSuggestedReturns(draftReturns);
+        }
+
+        // The aggregate's own repository first, the one kit:apply injects; the others stay.
+        const others = data.repositories.filter(
+            (repository) =>
+                repository !== subject && repository !== nextSubject,
+        );
+
+        setData({
+            ...data,
+            name: typedName ? data.name : draft,
+            shape: next.shape,
+            returns: typedReturns ? data.returns : draftReturns,
+            creates: next.creates,
+            query: next.query,
+            repositories: next.writes
+                ? [...(nextSubject === '' ? [] : [nextSubject]), ...others]
+                : [],
+        });
+    };
+
+    const outline = useCaseOutline(
+        data,
+        kind === 'list' && data.name === suggestedName && subject !== ''
+            ? subject
+            : null,
+    );
+
     return (
         <form onSubmit={submit} className="space-y-4">
             <h2 className="font-medium">
@@ -243,6 +487,67 @@ export function PieceForm({
                 message={errors.version ?? errors.context ?? errors.section}
             />
 
+            {section === 'useCases' && previous === null && (
+                <>
+                    <Field label="Kind">
+                        <Select
+                            value={kind}
+                            onValueChange={(value) =>
+                                applyKind(value as UseCaseKind, subject, verb)
+                            }
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="custom">Custom</SelectItem>
+                                {Object.entries(USE_CASE_KINDS).map(
+                                    ([value, preset]) => (
+                                        <SelectItem key={value} value={value}>
+                                            {preset.label}
+                                        </SelectItem>
+                                    ),
+                                )}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            {preset === null
+                                ? 'Set every field yourself, or pick a kind for a form that asks only what it leaves open.'
+                                : `${preset.hint} Pick Custom to change what the kind fixes.`}
+                        </p>
+                    </Field>
+                    {preset !== null && (
+                        <Field label="For the aggregate">
+                            {subjectChoices.length > 0 ? (
+                                <Choice
+                                    value={subject}
+                                    onChange={(value) =>
+                                        applyKind(kind, value, verb)
+                                    }
+                                    options={subjectChoices}
+                                />
+                            ) : (
+                                <p className="text-xs text-muted-foreground">
+                                    {preset.writes
+                                        ? `No aggregate of ${context} is saved through a repository yet. Add one first, or name the use case yourself.`
+                                        : `${context} has no aggregate yet. Name the use case yourself.`}
+                                </p>
+                            )}
+                        </Field>
+                    )}
+                    {preset !== null && preset.prefix === null && (
+                        <Field label="Verb, such as Ship">
+                            <Input
+                                value={verb}
+                                onChange={(event) =>
+                                    applyKind(kind, subject, event.target.value)
+                                }
+                            />
+                        </Field>
+                    )}
+                </>
+            )}
+
             <Field label="Name" error={errors.name}>
                 <Input
                     value={data.name}
@@ -250,6 +555,111 @@ export function PieceForm({
                     autoFocus
                 />
             </Field>
+
+            {tailored && kind === 'show' && (
+                <Field
+                    label="Read class it returns, written by hand"
+                    error={errors.returns}
+                >
+                    <Input
+                        value={data.returns}
+                        onChange={(event) =>
+                            setData('returns', event.target.value)
+                        }
+                    />
+                </Field>
+            )}
+
+            {tailored && preset?.writes === true && (
+                <Field
+                    label="Other repositories it injects, added to the constructor by hand"
+                    error={errors.repositories}
+                >
+                    {repositoryChoices.every((choice) =>
+                        choice.values.every((value) => value === subject),
+                    ) ? (
+                        <p className="text-xs text-muted-foreground">
+                            No other aggregate has a repository yet.
+                        </p>
+                    ) : (
+                        repositoryChoices.map((choice) => (
+                            <div key={choice.group} className="space-y-1">
+                                <div className="text-xs text-muted-foreground">
+                                    {choice.group}
+                                </div>
+                                {choice.values
+                                    .filter((value) => value !== subject)
+                                    .map((value) => (
+                                        <Label
+                                            key={value}
+                                            className="flex items-center gap-2 font-normal"
+                                        >
+                                            <Checkbox
+                                                checked={data.repositories.includes(
+                                                    value,
+                                                )}
+                                                onCheckedChange={(checked) =>
+                                                    toggle(
+                                                        value,
+                                                        checked === true,
+                                                    )
+                                                }
+                                            />
+                                            {value}
+                                        </Label>
+                                    ))}
+                            </div>
+                        ))
+                    )}
+                </Field>
+            )}
+
+            {tailored && (
+                <div className="space-y-1 rounded-md border p-3 text-xs">
+                    <div className="font-medium">What kit:apply builds</div>
+                    <code className="block break-all">{outline.signature}</code>
+                    <div className="text-muted-foreground">
+                        Injects:{' '}
+                        {outline.injects.length > 0
+                            ? outline.injects.join(', ')
+                            : 'nothing'}
+                    </div>
+                    {outline.beside.length > 0 && (
+                        <div className="text-muted-foreground">
+                            Beside it: {outline.beside.join(', ')}
+                        </div>
+                    )}
+                    {kind === 'show' && (
+                        <div className="text-muted-foreground">
+                            Write {data.returns || 'the read class'} and the
+                            port it reads through by hand: add the port with Add
+                            ▸ Port, layer application.
+                        </div>
+                    )}
+                    {kind === 'bulk' && (
+                        <div className="text-muted-foreground">
+                            Its Command carries the ids of the selection.
+                        </div>
+                    )}
+                    {kind === 'list' && (
+                        <div className="text-muted-foreground">
+                            It reads through its query port, never a repository.
+                        </div>
+                    )}
+                    {/* The fields the kind fixes are hidden, so their errors land here. */}
+                    <InputError
+                        message={
+                            errors.shape ??
+                            errors.creates ??
+                            errors.query ??
+                            (kind === 'show' ? undefined : errors.returns) ??
+                            (preset?.writes === true
+                                ? undefined
+                                : errors.repositories)
+                        }
+                    />
+                </div>
+            )}
 
             {section === 'aggregates' && (
                 <>
@@ -387,7 +797,7 @@ export function PieceForm({
                 </>
             )}
 
-            {section === 'useCases' && (
+            {section === 'useCases' && !tailored && (
                 <>
                     <Field label="Shape of __invoke()" error={errors.shape}>
                         <Choice
@@ -460,41 +870,42 @@ export function PieceForm({
 
             {(section === 'services' ||
                 section === 'applicationServices' ||
-                section === 'useCases') && (
-                <Field
-                    label="Repositories it injects"
-                    error={errors.repositories}
-                >
-                    {repositoryChoices.length === 0 && (
-                        <p className="text-xs text-muted-foreground">
-                            No aggregate has a repository yet.
-                        </p>
-                    )}
-                    {repositoryChoices.map((choice) => (
-                        <div key={choice.group} className="space-y-1">
-                            <div className="text-xs text-muted-foreground">
-                                {choice.group}
+                section === 'useCases') &&
+                !tailored && (
+                    <Field
+                        label="Repositories it injects"
+                        error={errors.repositories}
+                    >
+                        {repositoryChoices.length === 0 && (
+                            <p className="text-xs text-muted-foreground">
+                                No aggregate has a repository yet.
+                            </p>
+                        )}
+                        {repositoryChoices.map((choice) => (
+                            <div key={choice.group} className="space-y-1">
+                                <div className="text-xs text-muted-foreground">
+                                    {choice.group}
+                                </div>
+                                {choice.values.map((value) => (
+                                    <Label
+                                        key={value}
+                                        className="flex items-center gap-2 font-normal"
+                                    >
+                                        <Checkbox
+                                            checked={data.repositories.includes(
+                                                value,
+                                            )}
+                                            onCheckedChange={(checked) =>
+                                                toggle(value, checked === true)
+                                            }
+                                        />
+                                        {value}
+                                    </Label>
+                                ))}
                             </div>
-                            {choice.values.map((value) => (
-                                <Label
-                                    key={value}
-                                    className="flex items-center gap-2 font-normal"
-                                >
-                                    <Checkbox
-                                        checked={data.repositories.includes(
-                                            value,
-                                        )}
-                                        onCheckedChange={(checked) =>
-                                            toggle(value, checked === true)
-                                        }
-                                    />
-                                    {value}
-                                </Label>
-                            ))}
-                        </div>
-                    ))}
-                </Field>
-            )}
+                        ))}
+                    </Field>
+                )}
 
             <div className="flex gap-2">
                 <Button type="submit" size="sm" disabled={processing}>

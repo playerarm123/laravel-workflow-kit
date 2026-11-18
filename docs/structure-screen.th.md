@@ -140,6 +140,17 @@ property ใหม่จะต่อท้ายตัวที่ entity มี
 
 ![การเพิ่ม use case](images/structure-add-use-case.png)
 
+ช่อง **Kind** ที่หัวฟอร์มทำให้ use case แต่ละชนิดมีฟอร์มของตัวเอง ชนิดที่เลือกจะกำหนด shape, ค่าที่คืน และ options ไว้ให้ ฟอร์มจึงถามเฉพาะส่วนที่เหลือ กล่องด้านล่างแสดงสิ่งที่ `kit:apply` จะสร้าง ได้แก่ signature ของ handler, สิ่งที่ inject และคลาสที่สร้างไว้ข้างกัน เช่น เลือก `Create` และ **For the aggregate** เป็น `Crate` ฟอร์มจะตั้งชื่อ `CreateCrate` เป็น `command` คืน `string` และ inject IdGenerator, `CrateRepository` กับ `AuditLog`
+
+| Kind | ถาม | กำหนดไว้ให้ |
+|---|---|---|
+| `Create`, `Change`, `Delete` | aggregate (ต้องมี repository), ชื่อ (`Create…`, `Update…`, `Delete…`), repository อื่นที่ใช้ | `command` → `string` พร้อม IdGenerator, `command` → `void`, `plain` → `void` ทุกตัว inject repository ของ aggregate |
+| `Bulk action` | aggregate, คำกริยา (`Ship` ได้ `ShipCrates`), ชื่อ, repository อื่นที่ใช้ | `command` → `int` พร้อม repository ของ aggregate |
+| `List` | aggregate, ชื่อ (`ListCrates`) | `command-result` อ่านผ่าน query port ไม่มี repository |
+| `Show` | aggregate, ชื่อ (`ShowCrate`), คลาสที่คืน (`CrateDetails`) | `plain` ไม่มี repository ส่วนคลาสที่คืนและ port ที่อ่านข้อมูลต้องเขียนเอง |
+
+ชื่อหรือค่าที่คืนที่พิมพ์เองจะไม่ถูกเขียนทับเมื่อเปลี่ยน kind หรือ aggregate ส่วน `Custom` จะแสดงทุกช่อง โดยเริ่มจากค่าที่ kind ล่าสุดเติมไว้ ถ้าต้องการแก้สิ่งที่ kind กำหนดไว้ให้เลือก `Custom` คู่มือนี้เลือกทุกช่องเอง และการแก้ use case ที่มีอยู่แล้วจะเปิดฟอร์มเต็มเสมอ
+
 จากนั้นเพิ่ม `ListCrates` ซึ่งเป็น use case ที่หน้ารายการอ่านข้อมูล ติ๊ก **Reads a list through a query port** แต่ปล่อย shape ไว้เป็น `command` หน้าจอจะไม่ยอมบันทึก และแสดงเหตุผลไว้ใต้ช่องที่เกี่ยวข้อง:
 
 ![การบันทึกที่ถูกปฏิเสธ](images/structure-refused.png)
@@ -353,7 +364,7 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 | Domain service | Name; Shape of handle(): `creates`, `data` หรือ `plain`; Builds the aggregate (สำหรับ `creates`); Exception: It has its own exception, `{Name}Exception`; Repositories it injects | repository หรือ aggregate ที่มันสร้างอยู่คนละ context ([layers.md](../resources/boost/guidelines/layers.md)) ควรออกแบบเมื่อไหร่และกลายเป็นโค้ดแบบไหน ดู [domain-services.th.md](domain-services.th.md) |
 | Application service | Name; Shape of handle(): `data` หรือ `plain`; Options: Reads who is acting through UserContext, It has its own exception, `{Name}Exception`; Repositories it injects (จาก context ไหนก็ได้) | repository ไม่มีอยู่จริง ควรออกแบบเมื่อไหร่และกลายเป็นโค้ดแบบไหน ดู [application-services.th.md](application-services.th.md) |
 | Port | Name; Layer: `domain` หรือ `application`; Adapter ในรูป `Infra/{Folder}/{Prefix}{Port}` (ไม่ใส่ก็ได้) | adapter ไม่อยู่ในรูปนั้น |
-| Use case | Name; Shape of __invoke(): `command-result`, `command` หรือ `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (เลือกจาก context ไหนก็ได้) | shape ที่รับ Command คืนค่าอื่นที่ไม่ใช่ `void`, `string`, `int` หรือ `result` ([handlers.md](../resources/boost/guidelines/handlers.md)), use case แบบรายการไม่ได้ชื่อ `List{Name}` คู่กับ `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)), repository ไม่มีอยู่จริง |
+| Use case | Kind (ตอนเพิ่ม: Custom แสดงทุกช่องด้านล่าง ส่วน Create, Change, Delete, Bulk action, List และ Show ถามเฉพาะ aggregate, ชื่อ และส่วนที่ kind ไม่ได้กำหนด); Name; Shape of __invoke(): `command-result`, `command` หรือ `plain`; Returns; Options: Mints ids through IdGenerator, Reads a list through a query port; Repositories it injects (เลือกจาก context ไหนก็ได้) | shape ที่รับ Command คืนค่าอื่นที่ไม่ใช่ `void`, `string`, `int` หรือ `result` ([handlers.md](../resources/boost/guidelines/handlers.md)), use case แบบรายการไม่ได้ชื่อ `List{Name}` คู่กับ `command-result` ([list-queries.md](../resources/boost/guidelines/list-queries.md)), repository ไม่มีอยู่จริง |
 | Enum | Name; Aggregate; Backing: `string`, `int` หรือ `pure`; A status: each case lists the cases it may become; Cases, in order | case ไม่เป็น TitleCase หรือมีค่าซ้ำกัน, status ไม่ได้ชื่อ `*Status` หรือไม่มี case ไหนเปลี่ยนไปเป็น case อื่นได้เลย ([states.md](../resources/boost/guidelines/states.md)) |
 | Value object | Name; Aggregate; Fields, in constructor order (ชื่อและชนิด) | field ไม่เป็น camelCase, ชนิดไม่ใช่ทั้งชนิดพื้นฐาน คลาสที่ manifest ออกแบบไว้ หรือคลาสที่มีในโค้ด |
 | Exception | Name; Kind: Refusal of an aggregate, Invalid value หรือ Refusal of a use case (shared kernel รับเฉพาะ invalid value); Aggregate (สำหรับ refusal และ invalid value); Use case หรือ None (สำหรับ refusal ของ use case) | ชื่อไม่ลงท้ายด้วย `Exception`, aggregate หรือ use case ไม่ได้อยู่ใน context นี้ ([exceptions.md](../resources/boost/guidelines/exceptions.md)) |
