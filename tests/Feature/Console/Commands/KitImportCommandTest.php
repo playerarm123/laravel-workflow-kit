@@ -66,6 +66,7 @@ it('writes the manifest of a context from its code', function () {
         'valueObjects' => [],
         'exceptions' => [],
         'entities' => [],
+        'tables' => [],
     ])->and(File::get(samplingImportManifest()))->toEndWith("}\n");
 });
 

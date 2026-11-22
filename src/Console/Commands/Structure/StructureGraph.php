@@ -523,7 +523,7 @@ final class StructureGraph
         $enums = $manifest['enums'];
         /** @var array<string, mixed> $valueObjects */
         $valueObjects = $manifest['valueObjects'];
-        /** @var array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}> $entities */
+        /** @var array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>, table?: array<string, mixed>|null}> $entities */
         $entities = $manifest['entities'];
 
         $drawn = [];
@@ -594,6 +594,11 @@ final class StructureGraph
                         $edges[] = $this->edge($id, $target, (string) $method);
                     }
                 }
+            }
+
+            // The table it is stored in, until the screen draws a page of its own for it.
+            if (is_string($entry['table']['name'] ?? null)) {
+                $lines[] = 'table '.$entry['table']['name'];
             }
 
             $child = $entity !== $entry['aggregate'] && in_array($entity, $aggregates[$entry['aggregate']]['children'] ?? [], true);

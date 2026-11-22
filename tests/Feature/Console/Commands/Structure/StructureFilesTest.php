@@ -198,7 +198,8 @@ describe('StructureFiles', function () {
             },
             "assertions": {}
         }
-    }
+    },
+    "tables": {}
 }
 
 JSON);
@@ -452,7 +453,7 @@ JSON);
                 'Crate' => ['aggregate' => 'Crate', 'behaviours' => ['seal' => ['params' => [], 'throws' => []]], 'assertions' => []],
             ]];
 
-            expect($this->files->problems('Shipping', $document))->toBe(['entities.Pallet: lists no state, no behaviour, no assertion and no description, so leave it out'])
+            expect($this->files->problems('Shipping', $document))->toBe(['entities.Pallet: lists no state, no behaviour, no assertion, no description and no table, so leave it out'])
                 ->and($this->files->problems('Shared', $shared))->toBe(['entities.Crate: the shared kernel has no entities']);
         });
 

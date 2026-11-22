@@ -12,14 +12,14 @@ The structure of the project is written down in `.kit/structure/`, one manifest 
   ⇄ /kit/structure                     draws it and changes it, on a local environment only
 ```
 
-The manifest is the source of truth for **structure**: which contexts there are, with each one's aggregates, domain services, ports and use cases, the enums and value objects their aggregates speak in with where each status may go next, the exceptions that refuse or reject with where each one lives, the state of each entity with the behaviours and assertions that change it and what each one throws, and which HTTP resources there are, with each one's controller, actions, policy and pages. It is not the truth for behaviour. The body of an entity's method, the rules inside a value object, the methods of an enum other than `transitions()`, the body of a handler and the fields of a form are still written in PHP and TypeScript.
+The manifest is the source of truth for **structure**: which contexts there are, with each one's aggregates, domain services, ports and use cases, the enums and value objects their aggregates speak in with where each status may go next, the exceptions that refuse or reject with where each one lives, the state of each entity with the behaviours and assertions that change it and what each one throws, the table each entity is stored in and the tables no entity maps to, and which HTTP resources there are, with each one's controller, actions, policy and pages. It is not the truth for behaviour. The body of an entity's method, the rules inside a value object, the methods of an enum other than `transitions()`, the body of a handler and the fields of a form are still written in PHP and TypeScript.
 
 Enforced by the package's `tests/Architecture/StructureManifestTest.php` (`php artisan test --testsuite=Architecture`). The spec in `structureManifestSpec()` is the machine-checked copy of this file: change the two together. The reader and the files are proven in the package's `tests/Feature/Console/Commands/Structure/`, which the project runs as its `Kit` testsuite.
 
 ## Kit files
 
 These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship in the workflow kit package (`vendor/playerarm123/laravel-workflow-kit/`), and a stub there is replaced by a file of the same name in the project's `stubs/`. `php artisan kit:install` writes the rest from the kit, and the check fails when one is missing or differs from the kit's copy.
-- *package:* `src/Console/Commands/Structure/StructureReader.php`, which reads the code without booting the app
+- *package:* `src/Console/Commands/Structure/StructureReader.php`, which reads the code without booting the app, with `Structure/StructureTables.php`, which reads the tables the migrations build from their source, with no database
 - *package:* `src/Console/Commands/Structure/StructureFiles.php`, which reads, writes and validates the manifests
 - *package:* `src/Console/Commands/Structure/StructureComparer.php`, the one comparison the check and `kit:plan` report
 - *package:* `src/Console/Commands/Structure/StructurePlanner.php`, `StructureMarkers.php` and `PlansStructure.php`, which plan and apply
@@ -80,7 +80,31 @@ These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship i
             },
             "assertions": {
                 "assertIsOpen": { "params": {}, "throws": ["CrateSealedException"] }
+            },
+            "table": {
+                "name": "crates",
+                "model": "Crate",
+                "columns": {
+                    "status": { "type": "string", "length": 20, "enum": "CrateStatus" },
+                    "label": { "type": "jsonb", "nullable": true, "comment": "null means not labelled yet" }
+                },
+                "foreignKeys": {
+                    "shipper_id": { "table": "shippers", "onDelete": "restrict", "index": true }
+                },
+                "indexes": [],
+                "timestamps": true,
+                "softDeletes": false
             }
+        }
+    },
+    "tables": {
+        "crate_tags": {
+            "model": null,
+            "columns": { "tag": { "type": "string", "length": 30 } },
+            "foreignKeys": { "crate_id": { "table": "crates", "onDelete": "cascade" } },
+            "indexes": [{ "columns": ["crate_id", "tag"], "unique": true }],
+            "timestamps": false,
+            "softDeletes": false
         }
     }
 }
@@ -109,13 +133,22 @@ Each value is read off the code:
   - `application`: a use case's refusal, a class in `Application/{Context}/` that extends `ApplicationException`. `useCase` names the use case whose folder holds it, or is `null` for one at the context's root.
 
   `useCase` is `null` for the other kinds. Left out: a repository's `{Aggregate}NotFoundException` and `{Aggregate}RepositoryException`, which `repository` owns, the context's base `{Context}DomainException`, a domain or application service's exception, which its `exception` key owns, and the kit's own exceptions in the shared kernel.
-- `entities`: an aggregate's root or one of its children, by its name without `Entity`, with its state and the public methods it declares itself. `aggregate` names the aggregate that holds it. An entity that holds no state and declares neither kind of method is left out.
+- `entities`: an aggregate's root or one of its children, by its name without `Entity`, with its state and the public methods it declares itself. `aggregate` names the aggregate that holds it. An entity that holds no state, declares neither kind of method and maps to no table is left out.
   - `state`: each parameter of its constructor but `id`, which every entity has, with its type written as a value object's field is, in the constructor's order. Each one is a property the constructor promotes, and the entity answers it with a getter of the same name that takes nothing and returns its type (`status(): CrateStatus`). `matches` names a property with no such getter.
   - `behaviours`: the methods that change the entity: not static, returning `void`, and not named `assert…`.
   - `assertions`: the methods named `assert…`.
   - Getters and every other method that returns something, `create()`/`reconstitute()` and what a base class or an interface declares are left out.
   - Each method keeps its `params` in order, each type written as a value object's field is, with `...` before a variadic one.
   - `throws` lists every exception the method's body throws (`throw X::…()` or `throw new X`), and every one thrown by a method of the same class it calls through `$this->`, `self::` or `static::`, however deep. A rethrow (`throw $e`) adds nothing. An exception is named as a type is: by its name in its own aggregate, `Shared/{Name}`, or `{Context}/{Aggregate}/{Name}`.
+  - `table`: the table the entity is stored in, left out while it has none. See `tables` below for its keys; an entity's table also carries its `name`, and its `model` is never null.
+- `tables`: the tables no entity maps to, such as a join table or a projection a list reads, keyed by table name. The tables are read from the source of `database/migrations` (`StructureTables`), replayed in the order the files run, so the check needs no database; Laravel's own migrations (`0001_01_01_*` and the ones its packages publish) and the kit's `audit_entries` are left out. A table is placed under the entity whose model maps to it: the model a root's repository reads through (`newQuery()`, or its `@extends`), otherwise the model of the entity's own name. Any other table goes in the `tables` of the context its first foreign key leads to, through as many such tables as it takes, or of the only context there is; `in-json` names one that leads to none while there are more. A table's name is unique across every manifest, in either place (*check `files`*). Each table has:
+  - `model`: the class of `app/Models` that maps to it, or `null` in `tables` for one no model maps to;
+  - `columns`: every column but the uuid key, `timestamps()` and `softDeletes()`, in the order the migrations build them. `type` is the Blueprint method that builds it (`string`, `unsignedBigInteger`, `jsonb`), with its `length` (or `precision` and `scale`), and `enum` names the enum the model casts it to, written as a state's type is. `nullable`, `unique` and `index` are there only when true, `default` when the migration sets one, and `comment` holds the comment written above the column (or its `->comment()`);
+  - `foreignKeys`: each `foreignUuid('{x}_id')->constrained('{table}')`, with the parent `table`, the stem of its delete behaviour (`cascade`, `restrict`, `null` or `noAction`, left out while none is chosen), and the flags and comment a column has;
+  - `indexes`: the indexes that span more than one column, or one the table does not list (`created_at`), each with its `columns` in order, whether it is `unique`, and its `comment`. An index on one listed column is that column's `index` or `unique`, whichever way the migration writes it;
+  - `timestamps` and `softDeletes`.
+
+  A polymorphic reference (a `{x}_id` uuid beside a `{x}_type` string, with no foreign key) is written by hand (migrations.md), so neither column is listed. A manifest written before tables were designed reads the tables the code builds, as one written before exceptions reads its exceptions. Only the shape of a table is checked here; whether a foreign key has the right delete behaviour and an index it leads, or a nullable column says why, is migrations.md's.
 - `replaces`, on a port or a use case and only while a replacement is under way: the adapter it is moving away from, or the use case it stands in for. The code never says it, so the reader leaves it out and the comparison skips it.
 - `description`, on any entry and at the top of the manifest beside `context`: what the piece, or the context as a whole, is for, in the team's own words, at most 1000 characters. Like `replaces`, only the manifest holds it: the reader leaves it out, the comparison skips it, a sync keeps it, and a file leaves it out while it is empty. An entity whose entry holds a description and nothing else keeps its entry. The structure screen draws it on the card.
 
@@ -170,7 +203,7 @@ The starter kit's controllers (`App\Http\Controllers\Settings`) and the kit's ow
 **Do**
 - Keep one manifest for every context under `app/Domain` or `app/Application`, and one for the shared kernel. The kit's other folders (`Audit`, `Auth`, `Concerns`) have none. *Check `in-json`.*
 - Keep one manifest for every HTTP resource. *Check `in-json`.*
-- List every aggregate, enum, value object, domain service, port and use case, and every controller method, action, policy ability and page, the code holds. *Check `in-json`.*
+- List every aggregate, enum, value object, domain service, port and use case, every table the migrations build, and every controller method, action, policy ability and page, the code holds. *Check `in-json`.*
 - Give each enum and each value object a name no other one of its kind has in the same context. A section is keyed by name, so a second one would hide the first. *Check `matches`.*
 - Build everything the manifest lists. A piece written into the manifest before its code is a piece still to build, so the check stays red until it exists. *Check `in-code`.*
 - Describe each piece the way the code is built: a use case's shape, what it returns and the repositories it injects, an enum's cases and a value object's fields in their order, where each case of a status may go, and the use cases a controller method or an action calls and the kind of a page. *Check `matches`.*
@@ -213,7 +246,7 @@ Each step is a `make:*` generator or one line written into a project file. They 
 
 An exception step builds each exception `exceptions` designs, of its own kind and in its own home, and a domain or application service's step passes `--exception` when its `exception` is true. An application service's step passes the first repository of its own context as `--repo`, or the first of another when it has none of its own, and `--actor` when `actor` is true; `matches` names any other repository the manifest lists and the constructor lacks until it is added by hand. A name a method throws that no manifest designs is built as a refusal of the method's own aggregate when it is named bare. One of the shared kernel or of another aggregate is built from the manifest that designs it, and the method waits for it; one no manifest designs is built by hand. `make:entity-method` writes the method with `@throws` and an empty body, and gives the entity's Unit test a `describe()` for it with a todo for the case that passes and one per exception. The `throw` lines are written by hand, and `matches` names each one the body still lacks.
 
-`make:entity-state` adds one property per step, in the order `state` lists them: a private property the constructor promotes, a parameter of `reconstitute()` passed on to `new self(…)`, and a getter at the end of the Getter Section. It leaves `create()` alone, because what a new entity starts with is a rule a person decides, and says so: until `create()` passes the property, PHPStan and the entity's test name the gap. The repository's `toModel()` and `toEntity()`, the model and the migration are written by hand too (repositories.md, models.md). The entity's Unit test gets a todo per property in its `reconstitute()` cases.
+`make:entity-state` adds one property per step, in the order `state` lists them: a private property the constructor promotes, a parameter of `reconstitute()` passed on to `new self(…)`, and a getter at the end of the Getter Section. It leaves `create()` alone, because what a new entity starts with is a rule a person decides, and says so: until `create()` passes the property, PHPStan and the entity's test name the gap. The repository's `toModel()` and `toEntity()`, the model and the migration are written by hand too (repositories.md, models.md): `kit:apply` builds no table yet, but the check holds the migrations and the model to the entity's `table`. The entity's Unit test gets a todo per property in its `reconstitute()` cases.
 
 A step that waits for code a person writes (a Command's fields, a Row's keys) is named with its reason. Fill that code in and run `kit:apply` again: a plan is read from the code as it stands, so it picks up where the last run stopped. A step that fails is not run again in the same call.
 
@@ -270,7 +303,7 @@ The structure screen changes the manifests too. From the overview, create a cont
   - an exception a method throws ends with `Exception`. One of the entity's own aggregate is named bare, and `kit:apply` builds it when it is missing; one of the shared kernel or of another aggregate is one a manifest designs or the code already has;
 - that the manifest did not change on disk since the page loaded.
 
-A refused change comes back under the field that holds it, and nothing is written.
+A refused change comes back under the field that holds it, and nothing is written. The screen does not design tables yet: write a table into the manifest by hand, or let `kit:import --sync` read it from the migrations.
 
 **Do**
 - Describe any card, built or not, from its panel's **Description**: a piece, an entity, a context or a resource. Only the manifest holds a description, so writing one never turns a check red. *Review only.*

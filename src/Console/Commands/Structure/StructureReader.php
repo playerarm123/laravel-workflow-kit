@@ -89,9 +89,28 @@ final class StructureReader
      */
     private ?array $bindings = null;
 
+    private ?StructureTables $tables = null;
+
+    /**
+     * @var array<string, array{context: string, entity: string|null}|null>|null table → where the code places it, null for one it cannot place
+     */
+    private ?array $placements = null;
+
+    /**
+     * @param  string|null  $migrations  the folder the migrations live in, `database/migrations` when null
+     */
     public function __construct(
         private readonly string $root,
+        private readonly ?string $migrations = null,
     ) {}
+
+    /**
+     * What the project's migrations build, read from their source (StructureTables).
+     */
+    public function tables(): StructureTables
+    {
+        return $this->tables ??= new StructureTables($this->root, $this->migrations);
+    }
 
     /**
      * The groups the main menu declares (list-pages.md, "Menu"), which a resource's menu entry may
@@ -129,7 +148,7 @@ final class StructureReader
      * The shared kernel holds the kit's base classes and ports, so only its enums and value objects
      * are read.
      *
-     * @return array{context: string, aggregates: array<string, array{children: list<string>, repository: bool}>, services: array<string, array{shape: string, creates: string|null, repositories: list<string>, exception: bool}>, applicationServices: array<string, array{shape: string, repositories: list<string>, actor: bool, exception: bool}>, ports: array<string, array{layer: string, adapter: string|null}>, useCases: array<string, array{shape: string, returns: string, creates: bool, query: bool, repositories: list<string>}>, enums: array<string, array{aggregate: string|null, backing: string|null, cases: array<string, string|int|null>, transitions: array<string, list<string>>|null}>, valueObjects: array<string, array{aggregate: string|null, fields: array<string, string>}>, exceptions: array<string, array{kind: string, aggregate: string|null, useCase: string|null}>, entities: array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>}
+     * @return array{context: string, aggregates: array<string, array{children: list<string>, repository: bool}>, services: array<string, array{shape: string, creates: string|null, repositories: list<string>, exception: bool}>, applicationServices: array<string, array{shape: string, repositories: list<string>, actor: bool, exception: bool}>, ports: array<string, array{layer: string, adapter: string|null}>, useCases: array<string, array{shape: string, returns: string, creates: bool, query: bool, repositories: list<string>}>, enums: array<string, array{aggregate: string|null, backing: string|null, cases: array<string, string|int|null>, transitions: array<string, list<string>>|null}>, valueObjects: array<string, array{aggregate: string|null, fields: array<string, string>}>, exceptions: array<string, array{kind: string, aggregate: string|null, useCase: string|null}>, entities: array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>, table?: array<string, mixed>}>, tables: array<string, array<string, mixed>>}
      */
     public function read(string $context): array
     {
@@ -146,7 +165,146 @@ final class StructureReader
             'valueObjects' => $this->valueObjects($context),
             'exceptions' => $this->exceptions($context),
             'entities' => $shared ? [] : $this->entities($context),
+            StructureFiles::TABLES => $shared ? [] : $this->contextTables($context),
         ];
+    }
+
+    /**
+     * Where the code places each table its migrations build (structure.md, "Tables"): under the
+     * entity whose model maps to it, the model a root's repository reads through or, for a child or
+     * a root without one, the model of the entity's own name; otherwise in the `tables` of the
+     * context its first foreign key leads to, through as many such tables as it takes. A table
+     * that leads to none is placed in the only context there is, and left unplaced (`null`) when
+     * there are more.
+     *
+     * @return array<string, array{context: string, entity: string|null}|null>
+     */
+    public function tablePlacements(): array
+    {
+        if ($this->placements !== null) {
+            return $this->placements;
+        }
+
+        $schema = $this->tables()->schema();
+        $models = $this->tables()->models();
+        $placed = [];
+        $contexts = array_values(array_diff($this->contexts(), [StructureFiles::SHARED]));
+
+        foreach ($contexts as $context) {
+            foreach ($this->entityClasses($context) as $aggregate => $classes) {
+                foreach (array_keys($classes) as $entity) {
+                    $model = $this->entityModel($context, $aggregate, (string) $entity);
+                    $table = $model === null ? null : $models[$model]['table'];
+
+                    if ($table !== null && isset($schema[$table]) && ! isset($placed[$table])) {
+                        $placed[$table] = ['context' => $context, 'entity' => (string) $entity];
+                    }
+                }
+            }
+        }
+
+        do {
+            $more = false;
+
+            foreach ($schema as $table => $definition) {
+                if (isset($placed[$table])) {
+                    continue;
+                }
+
+                foreach ($definition['foreignKeys'] as $key) {
+                    if (isset($placed[$key['table']]) && $key['table'] !== $table) {
+                        $placed[$table] = ['context' => $placed[$key['table']]['context'], 'entity' => null];
+                        $more = true;
+
+                        break;
+                    }
+                }
+            }
+        } while ($more);
+
+        foreach (array_keys($schema) as $table) {
+            $placed[$table] ??= count($contexts) === 1 ? ['context' => $contexts[0], 'entity' => null] : null;
+        }
+
+        return $this->placements = $placed;
+    }
+
+    /**
+     * A table as a manifest writes it: what its migrations build, the model that maps to it, and
+     * the enum that model casts each column to, named as a state's type is from where the table
+     * sits. An entity's table carries its name too.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function tableEntry(string $table, string $context, ?string $aggregate, bool $entity): ?array
+    {
+        $definition = $this->tables()->schema()[$table] ?? null;
+
+        if ($definition === null) {
+            return null;
+        }
+
+        $model = $this->tables()->modelOf($table);
+        $casts = $model === null ? [] : $this->tables()->models()[$model]['casts'];
+
+        foreach ($definition['columns'] as $column => $settings) {
+            $cast = explode(':', $casts[$column] ?? '', 2)[0];
+
+            if ($cast !== '' && enum_exists($cast)) {
+                $definition['columns'][$column] = StructureFiles::orderedKeys([...$settings, 'enum' => $this->typeLabel($cast, $context, $aggregate)], StructureFiles::COLUMN_KEYS);
+            }
+        }
+
+        return $entity ? ['name' => $table, 'model' => $model, ...$definition] : ['model' => $model, ...$definition];
+    }
+
+    /**
+     * The tables no entity maps to that the code places in a context.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function contextTables(string $context): array
+    {
+        $tables = [];
+
+        foreach ($this->tablePlacements() as $table => $placement) {
+            if ($placement !== null && $placement['context'] === $context && $placement['entity'] === null) {
+                $tables[$table] = (array) $this->tableEntry($table, $context, null, false);
+            }
+        }
+
+        ksort($tables);
+
+        return $tables;
+    }
+
+    /**
+     * The model an entity maps to, when app/Models has it: the one a root's repository reads
+     * through (`newQuery()`, or its `@extends EloquentRepository<Model, Entity>`), otherwise the
+     * model of the entity's own name.
+     */
+    private function entityModel(string $context, string $aggregate, string $entity): ?string
+    {
+        $models = $this->tables()->models();
+
+        if ($entity === $aggregate) {
+            $repository = "App\\Infra\\Persistence\\Eloquent\\Repositories\\Eloquent{$aggregate}Repository";
+            $file = class_exists($repository) ? (new ReflectionClass($repository))->getFileName() : false;
+            $code = is_string($file) ? StructureFiles::text($file) : '';
+
+            if (preg_match('/function\s+newQuery\s*\([^)]*\)[^{]*\{[^}]*?(?<![\\\\\w])([\\\\\w]+)::query\(/s', $code, $match) === 1
+                || preg_match('/@extends\s+EloquentRepository<\s*([\\\\\w]+)\s*,/', $code, $match) === 1) {
+                $class = $this->resolveName($match[1], (string) $file, 'App\\Infra\\Persistence\\Eloquent\\Repositories');
+
+                foreach ($models as $name => $model) {
+                    if ($model['class'] === $class) {
+                        return $name;
+                    }
+                }
+            }
+        }
+
+        return isset($models[$entity]) ? $entity : null;
     }
 
     /**
@@ -469,23 +627,32 @@ final class StructureReader
     }
 
     /**
-     * Each entity that holds state or declares a behaviour or an assertion, with the aggregate that
-     * holds it. An entity that has none of them is left out, so a manifest lists only what it has to
-     * say.
+     * Each entity that holds state, declares a behaviour or an assertion, or maps to a table, with the
+     * aggregate that holds it. An entity that has none of them is left out, so a manifest lists only
+     * what it has to say.
      *
-     * @return array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>}>
+     * @return array<string, array{aggregate: string, state: array<string, string>, behaviours: array<string, array{params: array<string, string>, throws: list<string>}>, assertions: array<string, array{params: array<string, string>, throws: list<string>}>, table?: array<string, mixed>}>
      */
     private function entities(string $context): array
     {
         $entities = [];
 
+        $tables = [];
+
+        foreach ($this->tablePlacements() as $table => $placement) {
+            if ($placement !== null && $placement['context'] === $context && $placement['entity'] !== null) {
+                $tables[$placement['entity']] = $table;
+            }
+        }
+
         foreach ($this->entityClasses($context) as $aggregate => $classes) {
             foreach ($classes as $name => $class) {
                 $state = $this->entityState($class, $context, $aggregate);
                 $methods = $this->entityMethods($class, $context, $aggregate);
+                $table = isset($tables[$name]) ? $this->tableEntry($tables[$name], $context, $aggregate, true) : null;
 
-                if ($state !== [] || $methods['behaviours'] !== [] || $methods['assertions'] !== []) {
-                    $entities[$name] ??= ['aggregate' => $aggregate, 'state' => $state, ...$methods];
+                if ($state !== [] || $methods['behaviours'] !== [] || $methods['assertions'] !== [] || $table !== null) {
+                    $entities[$name] ??= ['aggregate' => $aggregate, 'state' => $state, ...$methods, ...($table === null ? [] : ['table' => $table])];
                 }
             }
         }

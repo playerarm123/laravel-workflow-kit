@@ -10,7 +10,7 @@ use Closure;
  * "fix by hand" list are the same lines.
  *
  * Each difference names its check:
- * - `files`: a manifest of the wrong shape;
+ * - `files`: a manifest of the wrong shape, or a table designed in two places;
  * - `in-json`: the code holds a piece the manifest does not list;
  * - `in-code`: the manifest lists a piece the code does not have yet;
  * - `matches`: a piece the two describe differently.
@@ -21,6 +21,11 @@ use Closure;
 final class StructureComparer
 {
     public const string IMPORT = 'php artisan kit:import';
+
+    /**
+     * @var array<string, list<array{0: string, 1: string|null}>> table → each context (and entity) whose manifest designs it
+     */
+    private array $designedTables = [];
 
     /**
      * @param  Closure(string): bool  $skip  contexts and pieces left out on both sides, such as the generator tests' scratch ones
@@ -62,6 +67,8 @@ final class StructureComparer
                 $valid[$context] = $document;
             }
         }
+
+        $this->designedTables = $this->designedTables($valid);
 
         foreach ($code as $context) {
             if (! $this->files->exists($context)) {
@@ -144,7 +151,217 @@ final class StructureComparer
             }
         }
 
+        return [...$differences, ...$this->tableDifferences($valid, $code)];
+    }
+
+    /**
+     * Each table the valid manifests design, with every place that designs it.
+     *
+     * @param  array<string, array<string, mixed>>  $valid
+     * @return array<string, list<array{0: string, 1: string|null}>>
+     */
+    private function designedTables(array $valid): array
+    {
+        $designed = [];
+
+        foreach ($valid as $context => $document) {
+            foreach ($document['entities'] as $entity => $entry) {
+                if (is_array($entry) && is_string($entry['table']['name'] ?? null)) {
+                    $designed[$entry['table']['name']][] = [(string) $context, (string) $entity];
+                }
+            }
+
+            foreach (array_keys($document[StructureFiles::TABLES]) as $table) {
+                $designed[(string) $table][] = [(string) $context, null];
+            }
+        }
+
+        return $designed;
+    }
+
+    /**
+     * What tells the tables apart project-wide (structure.md, "Tables"): a table designed in two
+     * places, a table the migrations build that no manifest lists and no entity maps to, and each
+     * entry of a context's `tables` against what the migrations build.
+     *
+     * @param  array<string, array<string, mixed>>  $valid
+     * @param  list<string>  $code
+     * @return list<array{check: string, subject: string, message: string, node: string|null}>
+     */
+    private function tableDifferences(array $valid, array $code): array
+    {
+        $differences = [];
+        $place = fn (string $table, array $where): string => $where[1] === null ? "{$where[0]} tables.{$table}" : "{$where[0]} entities.{$where[1]}.table";
+
+        foreach ($this->designedTables as $table => $places) {
+            if (count($places) > 1) {
+                $differences[] = $this->difference('files', $this->files->relativePath($places[0][0]), sprintf(
+                    'designs the table %s in %s — a table belongs to one place, so keep one',
+                    $table,
+                    implode(' and ', array_map(fn (array $where): string => $place((string) $table, $where), $places)),
+                ), $places[0][1] === null ? self::tableNode($places[0][0], (string) $table) : self::contextNode($places[0][0], 'entities', $places[0][1]));
+            }
+        }
+
+        $placements = $this->reader->tablePlacements();
+        $schema = $this->reader->tables()->schema();
+
+        foreach ($placements as $table => $placement) {
+            if (isset($this->designedTables[$table]) || ($placement !== null && ($placement['entity'] !== null || ! isset($valid[$placement['context']]))) || ($this->skip)(self::studly((string) $table))) {
+                continue;
+            }
+
+            $differences[] = $placement === null
+                ? $this->difference('in-json', StructureTables::MIGRATIONS, sprintf('build the table %s, which no manifest lists — add it under "tables" of the context it belongs to', $table))
+                : $this->difference('in-json', $this->files->relativePath($placement['context']), sprintf(
+                    'does not list the table %s, which the migrations build — add it under "tables" (`%s --context=%s --sync` adds it, keeping what is not built yet)',
+                    $table,
+                    self::IMPORT,
+                    $placement['context'],
+                ));
+        }
+
+        foreach ($valid as $context => $document) {
+            if (! in_array($context, $code, true)) {
+                continue;
+            }
+
+            foreach ($document[StructureFiles::TABLES] as $table => $entry) {
+                $table = (string) $table;
+                $node = self::tableNode($context, $table);
+                $file = $this->files->relativePath($context);
+                $placement = $placements[$table] ?? null;
+
+                if (! isset($schema[$table])) {
+                    $differences[] = $this->difference('in-code', $file, sprintf('lists tables.%s, which no migration builds yet — build it, or take it out of the manifest', $table), $node);
+                } elseif ($placement !== null && $placement['entity'] !== null) {
+                    $differences[] = $this->difference('matches', $file, sprintf('lists tables.%s, but in the code it is the table of %s entities.%s — move it under entities.%s.table', $table, $placement['context'], $placement['entity'], $placement['entity']), $node);
+                } else {
+                    $differences = [...$differences, ...$this->tableEntryDifferences($context, "tables.{$table}", (array) $this->reader->tableEntry($table, $context, null, false), $entry, StructureFiles::CONTEXT_TABLE_KEYS, $node)];
+                }
+            }
+        }
+
         return $differences;
+    }
+
+    /**
+     * Where one table differs: its name and model, a column or a foreign key only one side has or
+     * the two describe differently, the columns in another order, its indexes, timestamps and soft
+     * deletes.
+     *
+     * @param  array<array-key, mixed>  $inCode
+     * @param  array<array-key, mixed>  $inJson
+     * @param  list<string>  $keys
+     * @return list<array{check: string, subject: string, message: string, node: string|null}>
+     */
+    private function tableEntryDifferences(string $context, string $at, array $inCode, array $inJson, array $keys, ?string $node): array
+    {
+        $file = $this->files->relativePath($context);
+        $differences = [];
+        $code = StructureFiles::canonicalTable($inCode, $keys);
+        $json = StructureFiles::canonicalTable($inJson, $keys);
+        $encode = fn (mixed $value): string => (string) json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        foreach (['name', 'model', 'timestamps', 'softDeletes', 'indexes'] as $key) {
+            if (in_array($key, $keys, true) && ($code[$key] ?? null) !== ($json[$key] ?? null)) {
+                $differences[] = $this->difference('matches', $file, sprintf('%s.%s is %s in the code but %s in the manifest', $at, $key, $encode($code[$key] ?? null), $encode($json[$key] ?? null)), $node);
+            }
+        }
+
+        foreach (['columns', 'foreignKeys'] as $part) {
+            /** @var array<string, mixed> $built */
+            $built = is_array($code[$part] ?? null) ? $code[$part] : [];
+            /** @var array<string, mixed> $designed */
+            $designed = is_array($json[$part] ?? null) ? $json[$part] : [];
+
+            foreach ($built as $column => $definition) {
+                if (! array_key_exists($column, $designed)) {
+                    $differences[] = $this->difference('in-json', $file, sprintf('does not list %s.%s.%s, which the migrations build as %s — add it (`%s --context=%s --sync` adds it, keeping what is not built yet)', $at, $part, $column, $encode($definition), self::IMPORT, $context), $node);
+                } elseif ($designed[$column] !== $definition) {
+                    $differences[] = $this->difference('matches', $file, sprintf('%s.%s.%s is %s in the code but %s in the manifest', $at, $part, $column, $encode($definition), $encode($designed[$column])), $node);
+                }
+            }
+
+            foreach (array_keys(array_diff_key($designed, $built)) as $column) {
+                $differences[] = $this->difference('in-code', $file, sprintf('lists %s.%s.%s, which the migrations do not build yet — build it, or take it out of the manifest', $at, $part, $column), $node);
+            }
+
+            $shared = array_keys(array_intersect_key($built, $designed));
+            $order = array_values(array_filter(array_keys($designed), fn (int|string $column): bool => in_array($column, $shared, true)));
+
+            if ($shared !== $order) {
+                $differences[] = $this->difference('matches', $file, sprintf('%s.%s is in the order %s in the code but %s in the manifest', $at, $part, implode(', ', $shared), implode(', ', $order)), $node);
+            }
+        }
+
+        return $differences;
+    }
+
+    /**
+     * Where an entity's table differs. One the code maps the entity to and no manifest lists is
+     * missing from the manifest, unless a context lists it under `tables`, which the project-wide
+     * comparison already names.
+     *
+     * @param  array<string, mixed>|null  $inCode
+     * @param  array<string, mixed>|null  $inJson
+     * @return list<array{check: string, subject: string, message: string, node: string|null}>
+     */
+    private function entityTableDifferences(string $context, string $name, ?array $inCode, ?array $inJson, ?string $node): array
+    {
+        $file = $this->files->relativePath($context);
+        $code = is_array($inCode['table'] ?? null) ? $inCode['table'] : null;
+        $json = is_array($inJson['table'] ?? null) ? $inJson['table'] : null;
+
+        if ($code !== null && $json === null) {
+            $table = (string) $code['name'];
+
+            if (isset($this->designedTables[$table])) {
+                return [];
+            }
+
+            return [$this->difference('in-json', $this->reader->classOf($context, 'entities', $name), sprintf(
+                'maps to the table %s, which %s does not list — add it under "entities.%s.table" (`%s --context=%s --sync` adds it, keeping what is not built yet)',
+                $table,
+                $file,
+                $name,
+                self::IMPORT,
+                $context,
+            ))];
+        }
+
+        if ($json === null) {
+            return [];
+        }
+
+        $table = is_string($json['name'] ?? null) ? $json['name'] : '';
+
+        if ($code !== null) {
+            return $this->tableEntryDifferences($context, "entities.{$name}.table", $code, $json, StructureFiles::TABLE_KEYS, $node);
+        }
+
+        if (! isset($this->reader->tables()->schema()[$table])) {
+            return [$this->difference('in-code', $file, sprintf('lists entities.%s.table %s, which no migration builds yet — build it, or take it out of the manifest', $name, $table), $node)];
+        }
+
+        $placement = $this->reader->tablePlacements()[$table] ?? null;
+
+        return [$this->difference('matches', $file, $placement !== null && $placement['entity'] !== null
+            ? sprintf('entities.%s.table is %s, which the code maps to %s entities.%s', $name, $table, $placement['context'], $placement['entity'])
+            : sprintf('entities.%s.table is %s, which the migrations build, but no model of %s maps to it — give app/Models/%s that table, and a root\'s repository its model', $name, $table, $name, is_string($json['model'] ?? null) ? $json['model'] : $name), $node)];
+    }
+
+    /**
+     * The graph node of an entry of a context's `tables`.
+     */
+    public static function tableNode(string $context, string $table): string
+    {
+        return "table:{$context}/{$table}";
+    }
+
+    private static function studly(string $snake): string
+    {
+        return str_replace(' ', '', ucwords(str_replace('_', ' ', $snake)));
     }
 
     /**
@@ -219,7 +436,7 @@ final class StructureComparer
             $differences[] = $this->difference('matches', $file, sprintf('entities.%s.aggregate is %s in the code but %s in the manifest', $name, json_encode($inCode['aggregate']), json_encode($inJson['aggregate'])), $node);
         }
 
-        $differences = [...$differences, ...$this->stateDifferences($context, $name, $inCode, $inJson, $node)];
+        $differences = [...$differences, ...$this->stateDifferences($context, $name, $inCode, $inJson, $node), ...$this->entityTableDifferences($context, $name, $inCode, $inJson, $node)];
 
         foreach (['behaviours', 'assertions'] as $group) {
             /** @var array<string, array{params: array<string, string>, throws: list<string>}> $code */

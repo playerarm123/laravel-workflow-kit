@@ -199,6 +199,7 @@ describe('StructureReader', function () {
                 'valueObjects' => [],
                 'exceptions' => [],
                 'entities' => [],
+                'tables' => [],
             ]);
         });
 
