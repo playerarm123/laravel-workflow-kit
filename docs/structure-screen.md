@@ -127,7 +127,7 @@ Each property lands last, after the ones the entity holds, and the card lists it
 
 ![Giving an entity its state](images/structure-entity-state.png)
 
-It leaves `create()` for you, because what a new crate starts with (`CrateStatus::Open`) is a rule you decide. It warns you, and PHPStan and the entity's test name the gap until `create()` passes the property. Map the property in the repository's `toModel()` and `toEntity()` too.
+It leaves `create()` for you, because what a new crate starts with (`CrateStatus::Open`) is a rule you decide. It warns you, and PHPStan and the entity's test name the gap until `create()` passes the property. Map the property in the repository's `toModel()` and `toEntity()` too, unless the manifest designs the entity's table: then `kit:apply` writes the mapping.
 
 ### 7. Add the use cases
 
@@ -394,7 +394,7 @@ Only what the code does not have yet can change:
 - A built card shows *The code already has it. Change the code and sync it, or replace it.* in place of Edit and Remove. Its **Description** still changes: it lives in the manifest alone.
 - An entity and a controller lock one method at a time: a built method shows a green tick, and the others keep their Edit and Remove icons. An entity's state locks the same way, one property at a time: a built property's tick reads *Built: read by status()*.
 - A child entity has a card of its own while the legend shows **Entity**, as the root does. Its panel takes state and methods the same way (the **+** beside **State** and **Methods**), and offers **Remove** while the code does not have the child and it lists nothing. A child's name in the aggregate's panel opens its card.
-- A built aggregate locks its name and repository, but its panel still takes new child entities. `kit:apply` builds each one with `make:entity --child`. A built child shows a green tick. The child's table, model and the repository's `syncChildren()` are still yours to write.
+- A built aggregate locks its name and repository, but its panel still takes new child entities. `kit:apply` builds each one with `make:entity --child`. A built child shows a green tick. The screen does not design the child's table yet. Write it into the manifest, and `kit:apply` builds the table, its model and, while the repository's mapping is not written yet, its `syncChildren()`.
 - A piece that others use cannot be renamed or removed until nothing uses it. Examples: an aggregate a use case injects or that holds an exception, an enum a value object's field names, an exception a method throws, a use case with a refusal of its own, `index` while a list page needs it.
 
 ### Syncing what is built from the code

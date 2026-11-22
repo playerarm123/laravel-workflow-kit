@@ -70,6 +70,8 @@ function structureManifestSpec(): array
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/MakeTableMigrationCommand.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/MakeTableModelCommand.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureTableWriter.php',
+            'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/MakeRepositoryMappingCommand.php',
+            'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureRepositoryMapping.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/KitDocs.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureCommands.php',
             'resources/views/kit/docs.blade.php',

@@ -11,6 +11,8 @@ use Illuminate\Support\Str;
 use Override;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\ResolvesDomain;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Concerns\WritesClassesFromStubs;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureFiles;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureTableWriter;
 use Playerarm123\LaravelWorkflowKit\WorkflowKit;
 
 use function Laravel\Prompts\select;
@@ -31,11 +33,19 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
      */
     protected ?array $payloads = null;
 
+    /**
+     * The table a manifest designs for the list's model, once read: `false` while unread.
+     *
+     * @var array<string, mixed>|false|null
+     */
+    protected array|false|null $designedListTable = false;
+
     #[Override]
     public function handle(): int
     {
         $this->forgetResolvedDomain();
         $this->payloads = null;
+        $this->designedListTable = false;
 
         if ($this->resolveDomain() === null) {
             $this->reportMissingDomain();
@@ -137,8 +147,91 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
             '{{ model }}' => (string) $this->listSubject(),
             '{{ namespacedModel }}' => (string) $this->namespacedModel(),
             '{{ modelVariable }}' => Str::camel((string) $this->listSubject()),
+            '{{ searchableColumns }}' => $this->searchableColumns(),
+            '{{ filterColumn }}' => $this->filterColumn(),
+            '{{ filterProperty }}' => Str::camel($this->filterColumn()),
+            '{{ rowColumns }}' => $this->rowColumns(),
             '{{ table }}' => (string) $this->tableName(),
         ];
+    }
+
+    /**
+     * The table a context manifest designs for the list's model (structure.md, "Tables"), whose
+     * columns the adapter's todos name, or null when none does.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function designedListTable(): ?array
+    {
+        if ($this->designedListTable !== false) {
+            return $this->designedListTable;
+        }
+
+        $subject = $this->listSubject();
+        $this->designedListTable = null;
+
+        foreach ($subject === null ? [] : (new StructureFiles(base_path()))->designedTables() as $name => $designed) {
+            if (($designed['table']['model'] ?? null) === $subject) {
+                return $this->designedListTable = ['name' => $name, ...$designed['table']];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The designed table's columns by name, with their definitions.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    protected function designedListColumns(): array
+    {
+        $columns = $this->designedListTable()['columns'] ?? [];
+
+        return is_array($columns) ? array_filter($columns, is_array(...)) : [];
+    }
+
+    /**
+     * A commented entry of SEARCHABLE_COLUMNS per text column the designed table holds, for a
+     * person to keep the ones the search runs across.
+     */
+    protected function searchableColumns(): string
+    {
+        $table = (string) $this->tableName();
+        $texts = array_keys(array_filter(
+            $this->designedListColumns(),
+            fn (array $column): bool => ! isset($column['enum']) && in_array($column['type'] ?? null, ['string', 'char', ...StructureTableWriter::TEXTS], true),
+        ));
+
+        return implode("\n", array_map(fn (string $column): string => "        // '{$table}.{$column}',", $texts === [] ? ['name'] : $texts));
+    }
+
+    /**
+     * The column the commented filter names: the designed table's first enum column, else `status`.
+     */
+    protected function filterColumn(): string
+    {
+        foreach ($this->designedListColumns() as $column => $definition) {
+            if (isset($definition['enum'])) {
+                return (string) $column;
+            }
+        }
+
+        return 'status';
+    }
+
+    /**
+     * A commented argument of the Row per column the designed table holds, for a person to keep
+     * the ones the Row carries.
+     */
+    protected function rowColumns(): string
+    {
+        $variable = Str::camel((string) $this->listSubject());
+
+        return implode('', array_map(
+            fn (string $column): string => '            // '.Str::camel($column).": \${$variable}->{$column},\n",
+            array_map(strval(...), array_keys($this->designedListColumns())),
+        ));
     }
 
     /**
@@ -433,8 +526,8 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
     }
 
     /**
-     * The table the adapter qualifies its columns with: the model's own when it exists,
-     * otherwise the one Laravel would give it.
+     * The table the adapter qualifies its columns with: the model's own when it exists, else the
+     * one a context manifest designs for it, otherwise the one Laravel would give it.
      */
     protected function tableName(): ?string
     {
@@ -444,9 +537,11 @@ class MakeUseCaseCommand extends GeneratorCommand implements PromptsForMissingIn
             return null;
         }
 
-        return class_exists($model) && is_subclass_of($model, Model::class)
-            ? (new $model)->getTable()
-            : Str::snake(Str::pluralStudly((string) $this->listSubject()));
+        return match (true) {
+            class_exists($model) && is_subclass_of($model, Model::class) => (new $model)->getTable(),
+            $this->designedListTable() !== null => (string) $this->designedListTable()['name'],
+            default => Str::snake(Str::pluralStudly((string) $this->listSubject())),
+        };
     }
 
     /**

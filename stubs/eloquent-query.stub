@@ -22,7 +22,7 @@ class {{ class }} extends EloquentListQuery implements {{ query }}
      * @var list<literal-string>
      */
     private const SEARCHABLE_COLUMNS = [
-        // '{{ table }}.name',
+{{ searchableColumns }}
     ];
 
     #[Override]
@@ -33,7 +33,7 @@ class {{ class }} extends EloquentListQuery implements {{ query }}
             // ->where('{{ table }}.owner_id', $criteria->ownerId)  the scope, first, when the list has one
             ->tap(fn (Builder $query) => $this->applySearch($query, $criteria->search, self::SEARCHABLE_COLUMNS))
             // one ->when() per filter, e.g.
-            // ->when($criteria->status !== null, fn (Builder $query) => $query->where('{{ table }}.status', $criteria->status))
+            // ->when($criteria->{{ filterProperty }} !== null, fn (Builder $query) => $query->where('{{ table }}.{{ filterColumn }}', $criteria->{{ filterProperty }}))
             ->when(! $criteria->createdAt->isEmpty(), fn (Builder $query) => $this->applyCreatedBetween(
                 $query,
                 $criteria->createdAt,
@@ -59,6 +59,6 @@ class {{ class }} extends EloquentListQuery implements {{ query }}
     {
         return new {{ rowType }}(
             id: ${{ modelVariable }}->id,
-        );
+{{ rowColumns }}        );
     }
 }
