@@ -205,6 +205,12 @@ final class StructurePlanner
             }
         }
 
+        foreach (array_keys($manifest['aggregates']) as $aggregate) {
+            if (StructureRepositoryMapping::designed($manifest, (string) $aggregate)) {
+                $steps[] = $this->mappingStep($context, (string) $aggregate, $manifest);
+            }
+        }
+
         foreach ($manifest['enums'] as $enum => $entry) {
             $domain = $entry['aggregate'] === null ? $context : "{$context}/{$entry['aggregate']}";
             $arguments = ['name' => $enum, '--domain' => $domain];
@@ -828,6 +834,30 @@ final class StructurePlanner
             'make:table-model',
             ['table' => $table],
             $nodes,
+        );
+    }
+
+    /**
+     * The repository's `toModel()` / `toEntity()`, and `syncChildren()` for each child table, written
+     * from the root's and the children's state and tables. It waits for the repository, the models
+     * and the state, and names a property or a column that does not map plainly, which a person
+     * maps by hand. It is done once neither todo `make:eloquent-repository` writes is left.
+     *
+     * @param  array<string, mixed>  $manifest
+     * @return PlannedStep
+     */
+    private function mappingStep(string $context, string $aggregate, array $manifest): array
+    {
+        $mapping = StructureRepositoryMapping::of($this->rootOf(), $context, $aggregate, $manifest, $this->reader);
+
+        return $this->generator(
+            4,
+            "mapping {$context}/{$aggregate}",
+            is_file($mapping['repository']) && StructureRepositoryMapping::mapped(StructureFiles::text($mapping['repository'])),
+            $mapping['problems'] === [] ? null : implode('; ', $mapping['problems']),
+            'make:repository-mapping',
+            ['aggregate' => $aggregate, '--domain' => "{$context}/{$aggregate}"],
+            ["aggregate:{$context}/{$aggregate}"],
         );
     }
 

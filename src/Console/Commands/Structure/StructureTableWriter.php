@@ -20,14 +20,14 @@ use ReflectionEnum;
  */
 final class StructureTableWriter
 {
-    private const array INTEGERS = [
+    public const array INTEGERS = [
         'integer', 'bigInteger', 'smallInteger', 'tinyInteger', 'mediumInteger',
         'unsignedInteger', 'unsignedBigInteger', 'unsignedSmallInteger', 'unsignedTinyInteger', 'unsignedMediumInteger',
     ];
 
-    private const array DATETIMES = ['dateTime', 'dateTimeTz', 'timestamp', 'timestampTz'];
+    public const array DATETIMES = ['dateTime', 'dateTimeTz', 'timestamp', 'timestampTz'];
 
-    private const array TEXTS = ['text', 'tinyText', 'mediumText', 'longText'];
+    public const array TEXTS = ['text', 'tinyText', 'mediumText', 'longText'];
 
     /**
      * What a design adds to the table the migrations built, or the whole design when they build no

@@ -127,7 +127,7 @@ property ใหม่จะต่อท้ายตัวที่ entity มี
 
 ![กำหนด state ให้ entity](images/structure-entity-state.png)
 
-`create()` ปล่อยให้เขียนเอง เพราะค่าเริ่มต้นของ crate ใหม่ (`CrateStatus::Open`) เป็นกฎที่เราเป็นคนกำหนด คำสั่งจะเตือนไว้ และ PHPStan กับเทสต์ของ entity จะฟ้องจนกว่า `create()` จะส่ง property นั้น อย่าลืม map property ใน `toModel()` และ `toEntity()` ของ repository ด้วย
+`create()` ปล่อยให้เขียนเอง เพราะค่าเริ่มต้นของ crate ใหม่ (`CrateStatus::Open`) เป็นกฎที่เราเป็นคนกำหนด คำสั่งจะเตือนไว้ และ PHPStan กับเทสต์ของ entity จะฟ้องจนกว่า `create()` จะส่ง property นั้น อย่าลืม map property ใน `toModel()` และ `toEntity()` ของ repository ด้วย เว้นแต่ manifest ออกแบบตารางของ entity ไว้แล้ว `kit:apply` จะเขียน mapping ให้
 
 ### 7. เพิ่ม use case
 
@@ -394,7 +394,7 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 - การ์ดที่สร้างแล้วจะขึ้นข้อความ *The code already has it. Change the code and sync it, or replace it.* แทนไอคอน Edit และ Remove แต่ยังแก้ **Description** ได้ เพราะมันอยู่แค่ใน manifest
 - entity กับ controller ล็อกทีละ method: method ที่สร้างแล้วจะมีเครื่องหมายถูกสีเขียว ส่วนที่เหลือยังมีไอคอน Edit และ Remove state ของ entity ก็ล็อกทีละ property แบบเดียวกัน เครื่องหมายถูกของ property ที่สร้างแล้วจะบอกว่า *Built: read by status()*
 - child entity มีการ์ดของตัวเองเมื่อ Legend แสดง **Entity** เหมือน root ใน panel เพิ่ม state และ method ได้แบบเดียวกัน (ปุ่ม **+** ข้างหัวข้อ **State** และ **Methods**) และมีไอคอน **Remove** ตราบที่โค้ดยังไม่มี child นั้นและยังไม่ได้ออกแบบอะไรไว้ กดชื่อ child ใน panel ของ aggregate เพื่อเปิดการ์ดของมันได้
-- aggregate ที่สร้างแล้วล็อกชื่อและ repository แต่ใน panel ยังเพิ่ม child entity ใหม่ได้ `kit:apply` จะสร้างให้ด้วย `make:entity --child` child ที่สร้างแล้วจะมีเครื่องหมายถูกสีเขียว ส่วนตารางของ child, model และ `syncChildren()` ใน repository ยังต้องเขียนเอง
+- aggregate ที่สร้างแล้วล็อกชื่อและ repository แต่ใน panel ยังเพิ่ม child entity ใหม่ได้ `kit:apply` จะสร้างให้ด้วย `make:entity --child` child ที่สร้างแล้วจะมีเครื่องหมายถูกสีเขียว หน้าจอยังออกแบบตารางของ child ไม่ได้ ให้เขียนตารางลง manifest เอง แล้ว `kit:apply` จะสร้างตาราง, model และ `syncChildren()` ใน repository ให้ ถ้า repository ยังไม่ได้เขียน mapping
 - ชิ้นที่ยังมีชิ้นอื่นใช้อยู่ เปลี่ยนชื่อหรือลบไม่ได้ จนกว่าจะไม่มีใครใช้ เช่น aggregate ที่ use case inject อยู่หรือมี exception สังกัดอยู่, enum ที่ field ของ value object อ้างถึง, exception ที่ method throw อยู่, use case ที่มี refusal ของตัวเอง, `index` ขณะที่ยังมีหน้ารายการต้องใช้
 
 ### Sync ของที่สร้างแล้วจากโค้ด

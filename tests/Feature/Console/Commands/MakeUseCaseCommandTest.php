@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Testing\PendingCommand;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureFiles;
 
 /**
  * Run make:use-case, answering the payload prompt unless the flags already settle it.
@@ -50,11 +51,12 @@ afterEach(function () {
     File::deleteDirectory(app_path('Application/Sampling'));
     File::deleteDirectory(base_path('tests/Feature/Application/Sampling'));
 
-    foreach (['EloquentListSamplingItemQuery', 'EloquentListSamplingItemsQuery', 'EloquentListSamplingLoadablesQuery', 'EloquentListSamplingParcelsQuery', 'EloquentListSamplingBinsQuery', 'EloquentReadSamplingItemQuery'] as $adapter) {
+    foreach (['EloquentListSamplingItemQuery', 'EloquentListSamplingItemsQuery', 'EloquentListSamplingLoadablesQuery', 'EloquentListSamplingParcelsQuery', 'EloquentListSamplingBinsQuery', 'EloquentListSamplingLedgersQuery', 'EloquentReadSamplingItemQuery'] as $adapter) {
         File::delete([queryAdapterPath($adapter), queryAdapterTestPath($adapter)]);
     }
 
     File::delete(app_path('Models/SamplingBin.php'));
+    File::delete(base_path(StructureFiles::DIRECTORY.'/SamplingLedgers.json'));
 });
 
 /**
@@ -732,6 +734,58 @@ it('writes the adapter of a list in full, reading through the model it is named 
         ->not->toMatch('#->paginate\(#')
         ->not->toMatch('#\b(I?LIKE)\b#')
         ->not->toMatch('#/\*\*\s*@var\b#');
+});
+
+it('names the columns of the table a manifest designs for the model in the adapter\'s todos', function () {
+    (new StructureFiles(base_path()))->write([
+        'context' => 'SamplingLedgers',
+        'aggregates' => [],
+        'services' => [],
+        'applicationServices' => [],
+        'ports' => [],
+        'useCases' => [],
+        'enums' => [],
+        'valueObjects' => [],
+        'exceptions' => [],
+        'entities' => [],
+        'tables' => [
+            'sampling_ledger_books' => [
+                'model' => 'SamplingLedger',
+                'columns' => [
+                    'title' => ['type' => 'string', 'length' => 120],
+                    'grade' => ['type' => 'string', 'length' => 20, 'enum' => 'LedgerGrade'],
+                    'memo' => ['type' => 'text'],
+                    'total_amount' => ['type' => 'unsignedBigInteger'],
+                ],
+                'foreignKeys' => [],
+                'indexes' => [],
+                'timestamps' => true,
+                'softDeletes' => false,
+            ],
+        ],
+    ]);
+
+    runMakeUseCase(['name' => 'ListSamplingLedgers', '--domain' => 'Sampling', '--query' => true], carries: null)
+        ->assertSuccessful();
+
+    expect(File::get(queryAdapterPath('EloquentListSamplingLedgersQuery')))
+        ->toContain(<<<'PHP'
+                private const SEARCHABLE_COLUMNS = [
+                    // 'sampling_ledger_books.title',
+                    // 'sampling_ledger_books.memo',
+                ];
+            PHP)
+        ->toContain("// ->when(\$criteria->grade !== null, fn (Builder \$query) => \$query->where('sampling_ledger_books.grade', \$criteria->grade))")
+        ->toContain("SamplingLedgerListSort::CreatedAt => 'sampling_ledger_books.created_at',")
+        ->toContain(<<<'PHP'
+                    return new SamplingLedgerListRow(
+                        id: $samplingLedger->id,
+                        // title: $samplingLedger->title,
+                        // grade: $samplingLedger->grade,
+                        // memo: $samplingLedger->memo,
+                        // totalAmount: $samplingLedger->total_amount,
+                    );
+            PHP);
 });
 
 it('writes the adapter test with every hook of the contract filled in', function () {

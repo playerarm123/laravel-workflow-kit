@@ -13,7 +13,7 @@ These live at fixed paths. `php artisan kit:install` writes them from the kit, a
 - `tests/Feature/Infra/Persistence/Eloquent/RepositoryContract.php`
 
 ## Scaffold, never hand-write
-Run `php artisan make:eloquent-repository {Aggregate} --domain={Context}/{Aggregate}`. It writes the repository, its exceptions, its log payload and a test file that already calls `repositoryContract()`. Then fill in the mapping and the contract hooks.
+Run `php artisan make:eloquent-repository {Aggregate} --domain={Context}/{Aggregate}`. It writes the repository, its exceptions, its log payload and a test file that already calls `repositoryContract()`. Then fill in the mapping and the contract hooks. When the context manifest designs the root's table, `php artisan make:repository-mapping {Aggregate} --domain={Context}/{Aggregate}` writes the mapping: `toModel()`, `toEntity()` and, for owned child tables, `newQuery()`, `write()` and a private mapping pair per child (structure.md, "Tables"). It names each property or column that does not map plainly, and leaves that mapping to you.
 
 ## The shape of a repository
 ```php
