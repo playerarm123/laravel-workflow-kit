@@ -11,6 +11,7 @@ import type { NodeChange, XYPosition } from '@xyflow/react';
 import {
     ArrowUpRight,
     Copy,
+    Database,
     FoldVertical,
     Pencil,
     Replace,
@@ -80,6 +81,7 @@ import {
 } from '@/kit/structure-node';
 import type { CardActions } from '@/kit/structure-node';
 import { StructureToolbar } from '@/kit/structure-toolbar';
+import { TablePage, tableHref, tablePlaceOf } from '@/kit/table-page';
 import type {
     ReplaceableSection,
     ResourceSection,
@@ -355,7 +357,11 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
         () => window.location.hash,
         () => '',
     );
-    const place = placeOf(hash);
+    const tablePlace = tablePlaceOf(hash);
+    const place: StructureTarget | null =
+        tablePlace === null
+            ? placeOf(hash)
+            : { view: 'context', name: tablePlace.context };
     const context = place?.view === 'context' ? place.name : null;
     const resource = place?.view === 'resource' ? place.name : null;
     const shared = context === SHARED;
@@ -644,13 +650,45 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
         <div className="flex h-screen flex-col bg-background text-foreground">
             <StructureToolbar
                 place={place}
+                table={tablePlace}
                 shared={shared}
+                graph={graph}
                 endpoints={endpoints}
                 commands={payload.commands}
-                onEdit={setEditing}
+                onEdit={(next) => {
+                    if (tablePlace !== null) {
+                        open({ view: 'context', name: tablePlace.context });
+                    }
+
+                    setEditing(next);
+                }}
                 onRun={setRunning}
             />
-            <div className="flex min-h-0 flex-1">
+            {tablePlace !== null && (
+                <TablePage
+                    key={hash}
+                    graph={graph}
+                    endpoints={endpoints}
+                    place={tablePlace}
+                    onSaved={(next, at) => {
+                        changed(
+                            next,
+                            `Saved ${at.entity === null ? (at.table ?? 'the table') : `${at.entity}'s table`}`,
+                            false,
+                        );
+                        window.location.hash = tableHref(at);
+                    }}
+                    onRemoved={(next, message) => {
+                        changedHere(next, message);
+                        open({ view: 'context', name: tablePlace.context });
+                    }}
+                />
+            )}
+            <div
+                className={
+                    tablePlace === null ? 'flex min-h-0 flex-1' : 'hidden'
+                }
+            >
                 <main className="min-w-0 flex-1">
                     <CardActionsContext value={actions}>
                         <ReactFlow
@@ -670,11 +708,24 @@ export function StructureScreen({ payload }: { payload: StructurePayload }) {
                                 node.type === 'structure' &&
                                 setSelectedId(node.id)
                             }
-                            onNodeDoubleClick={(_, node) =>
-                                node.type === 'structure' &&
-                                node.data.target !== null &&
-                                open(node.data.target)
-                            }
+                            onNodeDoubleClick={(_, node) => {
+                                if (node.type !== 'structure') {
+                                    return;
+                                }
+
+                                if (node.data.target !== null) {
+                                    open(node.data.target);
+                                } else if (
+                                    node.data.kind === 'entity' &&
+                                    context !== null
+                                ) {
+                                    window.location.hash = tableHref({
+                                        context,
+                                        entity: nameOf(node.data),
+                                        table: null,
+                                    });
+                                }
+                            }}
                             onNodeMouseEnter={(_, node) =>
                                 node.type === 'structure' &&
                                 setHoveredId(node.id)
@@ -1158,6 +1209,23 @@ function Details({
                 icon={ArrowUpRight}
                 label={`Open ${target.name}`}
                 onClick={() => open(target)}
+            />,
+        );
+    }
+
+    if (node.kind === 'entity' && context !== null) {
+        actions.push(
+            <IconAction
+                key="table"
+                icon={Database}
+                label={`Open ${name}'s table`}
+                onClick={() => {
+                    window.location.hash = tableHref({
+                        context,
+                        entity: name,
+                        table: null,
+                    });
+                }}
             />,
         );
     }

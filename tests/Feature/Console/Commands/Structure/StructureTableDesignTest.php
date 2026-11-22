@@ -226,12 +226,16 @@ describe('StructureGraph', function () {
     it('gives each designed table the status of the steps that build it, for the table page', function () {
         $editor = samplingPiersEditor();
         $vessel = $editor->proposedTable(SAMPLING_PIERS_CONTEXT, 'Vessel')['table'];
+        $vessel['columns'] = ['call_sign' => ['type' => 'string', 'length' => 12]];
         $tags = ['name' => 'vessel_tags', 'model' => null, 'columns' => ['tag' => ['type' => 'string', 'length' => 30]], 'foreignKeys' => ['vessel_id' => ['table' => 'vessels', 'onDelete' => 'cascade', 'index' => true]], 'indexes' => [], 'timestamps' => false, 'softDeletes' => false];
 
         expect($editor->saveTable(SAMPLING_PIERS_CONTEXT, samplingPiersVersion(), 'Vessel', null, $vessel))->toBe([])
             ->and($editor->saveTable(SAMPLING_PIERS_CONTEXT, samplingPiersVersion(), null, null, $tags))->toBe([]);
 
         $this->artisan('make:table-migration', ['table' => 'vessels', '--path' => samplingPiersMigrations()])->assertSuccessful();
+        $vessel['columns']['class'] = ['type' => 'string', 'length' => 20, 'enum' => SAMPLING_PIERS_CONTEXT.'/Pier/PierStatus'];
+
+        expect(samplingPiersEditor()->saveTable(SAMPLING_PIERS_CONTEXT, samplingPiersVersion(), 'Vessel', 'vessels', $vessel))->toBe([]);
 
         $reader = fn (): StructureReader => new StructureReader(base_path(), samplingPiersMigrations());
         $graph = (new StructureGraph(
@@ -241,9 +245,23 @@ describe('StructureGraph', function () {
             new StructureComparer($reader(), new StructureFiles(base_path()), fn (string $name): bool => str_contains($name, 'Sampling') && $name !== SAMPLING_PIERS_CONTEXT),
         ))->graph();
 
-        expect($graph['tables'][SAMPLING_PIERS_CONTEXT])->toBe([
-            'vessels' => ['entity' => 'Vessel', 'built' => true, 'status' => 'ready', 'reason' => null, 'command' => 'php artisan make:table-model vessels'],
-            'vessel_tags' => ['entity' => null, 'built' => false, 'status' => 'ready', 'reason' => null, 'command' => 'php artisan make:table-migration vessel_tags --path='.samplingPiersMigrations()],
+        $context = SAMPLING_PIERS_CONTEXT;
+
+        expect($graph['tables'][$context])->toBe([
+            'vessels' => [
+                'entity' => 'Vessel', 'built' => true, 'builtColumns' => ['call_sign'],
+                'status' => 'ready', 'reason' => null, 'command' => 'php artisan make:table-migration vessels --path='.samplingPiersMigrations(),
+                'model' => ['fillable' => ['call_sign', 'class'], 'casts' => ['class' => 'PierStatus'], 'relations' => []],
+                'parents' => [],
+                'children' => [['table' => 'vessel_tags', 'column' => 'vessel_id', 'context' => $context, 'entity' => null]],
+            ],
+            'vessel_tags' => [
+                'entity' => null, 'built' => false, 'builtColumns' => [],
+                'status' => 'ready', 'reason' => null, 'command' => 'php artisan make:table-migration vessel_tags --path='.samplingPiersMigrations(),
+                'model' => null,
+                'parents' => [['table' => 'vessels', 'column' => 'vessel_id', 'context' => $context, 'entity' => 'Vessel']],
+                'children' => [],
+            ],
         ]);
     });
 });

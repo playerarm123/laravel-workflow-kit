@@ -15,6 +15,8 @@ namespace Playerarm123\LaravelWorkflowKit\Console\Commands\Structure;
  *
  * @phpstan-import-type Step from StructurePlanner
  *
+ * @phpstan-type Neighbour array{table: string, column: string, context: string|null, entity: string|null}
+ * @phpstan-type TableStatus array{entity: string|null, built: bool, builtColumns: list<string>, status: string, reason: string|null, command: string|null, model: array{fillable: list<string>, casts: array<string, string>, relations: list<string>}|null, parents: list<Neighbour>, children: list<Neighbour>}
  * @phpstan-type Node array{id: string, kind: string, label: string, items: list<string>, status: string|null, reason: string|null, command: string|null, target: array{view: string, name: string}|null, editable: bool, variant: string|null, group: string|null, description: string|null}
  * @phpstan-type Edge array{id: string, source: string, target: string, label: string|null}
  * @phpstan-type View array{nodes: list<Node>, edges: list<Edge>}
@@ -65,7 +67,7 @@ final class StructureGraph
      * main menu declares, which a resource's menu entry may sit in, and `tables` each table a
      * context designs, with the status of the steps that build it.
      *
-     * @return array{overview: View, contexts: array<string, View>, resources: array<string, View>, byHand: list<Difference>, manifests: array<string, array<string, mixed>>, versions: array<string, string>, resourceManifests: array<string, array<string, mixed>>, resourceVersions: array<string, string>, resourceBuilt: array<string, list<string>>, entityMethodsBuilt: array<string, list<string>>, entityStateBuilt: array<string, list<string>>, childrenBuilt: array<string, list<string>>, outOfStep: array<string, list<string>>, resourceOutOfStep: array<string, list<string>>, menuGroups: list<array{key: string, title: string, icon: string}>, tables: array<string, array<string, array{entity: string|null, built: bool, status: string, reason: string|null, command: string|null}>>}
+     * @return array{overview: View, contexts: array<string, View>, resources: array<string, View>, byHand: list<Difference>, manifests: array<string, array<string, mixed>>, versions: array<string, string>, resourceManifests: array<string, array<string, mixed>>, resourceVersions: array<string, string>, resourceBuilt: array<string, list<string>>, entityMethodsBuilt: array<string, list<string>>, entityStateBuilt: array<string, list<string>>, childrenBuilt: array<string, list<string>>, outOfStep: array<string, list<string>>, resourceOutOfStep: array<string, list<string>>, menuGroups: list<array{key: string, title: string, icon: string}>, tables: array<string, array<string, TableStatus>>}
      */
     public function graph(): array
     {
@@ -137,11 +139,12 @@ final class StructureGraph
     /**
      * Each table a valid context manifest designs, by context and name, for the screen's table page:
      * the entity it maps to (null for one of the context's `tables`), whether the migrations build
-     * it, and the status of the steps that build it, its migration and its model, with the command
+     * it and which of its columns and foreign keys they build, what its model holds, the tables its
+     * foreign keys point at and the ones that point at it, and the status of the steps that build it, its migration and its model, with the command
      * of one that can run or the reason one waits.
      *
      * @param  list<Step>  $steps
-     * @return array<string, array<string, array{entity: string|null, built: bool, status: string, reason: string|null, command: string|null}>>
+     * @return array<string, array<string, TableStatus>>
      */
     private function tables(array $steps): array
     {
@@ -152,9 +155,10 @@ final class StructureGraph
         }
 
         $schema = $this->reader->tables()->schema();
+        $designedTables = $this->files->designedTables();
         $tables = [];
 
-        foreach ($this->files->designedTables() as $name => $designed) {
+        foreach ($designedTables as $name => $designed) {
             $model = $designed['table']['model'] ?? null;
             $status = ['status' => StructurePlanner::DONE, 'reason' => null, 'command' => null];
 
@@ -170,7 +174,37 @@ final class StructureGraph
                 }
             }
 
-            $tables[$designed['context']][(string) $name] = ['entity' => $designed['entity'], 'built' => isset($schema[$name]), ...$status];
+            $built = $schema[$name] ?? null;
+            $builtColumns = $built === null ? [] : array_map(strval(...), [...array_keys($built['columns']), ...array_keys($built['foreignKeys'])]);
+            $related = StructureTableWriter::related((string) $name, $designedTables, $this->reader);
+            $parents = [];
+            $children = [];
+
+            foreach ($designed['table']['foreignKeys'] ?? [] as $column => $key) {
+                $parent = is_array($key) && is_string($key['table'] ?? null) ? $key['table'] : null;
+
+                if ($parent !== null) {
+                    $parents[] = ['table' => $parent, 'column' => (string) $column, 'context' => $designedTables[$parent]['context'] ?? null, 'entity' => $designedTables[$parent]['entity'] ?? null];
+                }
+            }
+
+            foreach ($designedTables as $other => $entry) {
+                foreach ($entry['table']['foreignKeys'] ?? [] as $column => $key) {
+                    if (is_array($key) && ($key['table'] ?? null) === $name && $other !== $name) {
+                        $children[] = ['table' => (string) $other, 'column' => (string) $column, 'context' => $entry['context'], 'entity' => $entry['entity']];
+                    }
+                }
+            }
+
+            $tables[$designed['context']][(string) $name] = [
+                'entity' => $designed['entity'],
+                'built' => $built !== null,
+                'builtColumns' => $builtColumns,
+                ...$status,
+                'model' => is_string($model) ? StructureTableWriter::summary($model, StructureTableWriter::additions($designed['table'], null), $related) : null,
+                'parents' => $parents,
+                'children' => $children,
+            ];
         }
 
         return $tables;

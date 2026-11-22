@@ -58,6 +58,7 @@ function structureManifestSpec(): array
             'resources/js/kit/structure-node.tsx',
             'resources/js/kit/structure-screen.tsx',
             'resources/js/kit/structure-toolbar.tsx',
+            'resources/js/kit/table-page.tsx',
             'resources/js/kit/types.ts',
             'resources/js/kit/vocabulary-form.tsx',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/MakeEnumCommand.php',
