@@ -167,6 +167,38 @@ final class StructureFiles
     }
 
     /**
+     * Every table a valid context manifest designs, by its name: the context, the entity whose
+     * `table` it is (null for one under `tables`) with that entity's aggregate, and the design. A
+     * table designed twice keeps the first, and the check names the second (StructureComparer).
+     *
+     * @return array<string, array{context: string, entity: string|null, aggregate: string|null, table: array<string, mixed>}>
+     */
+    public function designedTables(): array
+    {
+        $designed = [];
+
+        foreach ($this->contexts() as $context) {
+            $manifest = $this->read($context);
+
+            if (! is_array($manifest) || $this->problems($context, $manifest) !== []) {
+                continue;
+            }
+
+            foreach ($manifest['entities'] as $entity => $entry) {
+                if (is_array($entry['table'] ?? null) && is_string($entry['table']['name'] ?? null)) {
+                    $designed[$entry['table']['name']] ??= ['context' => $context, 'entity' => (string) $entity, 'aggregate' => $entry['aggregate'], 'table' => $entry['table']];
+                }
+            }
+
+            foreach ($manifest[self::TABLES] as $table => $entry) {
+                $designed[(string) $table] ??= ['context' => $context, 'entity' => null, 'aggregate' => null, 'table' => $entry];
+            }
+        }
+
+        return $designed;
+    }
+
+    /**
      * The decoded manifest, or null when the file is not JSON.
      *
      * A file written before exceptions were designed reads what it predates from the code: the
@@ -398,7 +430,7 @@ final class StructureFiles
 
     /**
      * An entry's keys in the order given, the ones that are null or false left out, and any other
-     * key after them.
+     * key after them. A column's `default` is a value, not a flag, so a default of false stays.
      *
      * @param  array<array-key, mixed>  $entry
      * @param  list<string>  $keys
@@ -409,7 +441,7 @@ final class StructureFiles
         $ordered = [];
 
         foreach ([...$keys, ...array_diff(array_map(strval(...), array_keys($entry)), $keys)] as $key) {
-            if (array_key_exists($key, $entry) && $entry[$key] !== null && $entry[$key] !== false) {
+            if (array_key_exists($key, $entry) && $entry[$key] !== null && ($entry[$key] !== false || $key === 'default')) {
                 $ordered[$key] = $entry[$key];
             }
         }

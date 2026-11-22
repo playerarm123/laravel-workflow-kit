@@ -36,6 +36,11 @@ final class StructurePlanner
 
     public const array TYPE_READERS = ['resources/js/pages', 'resources/js/components'];
 
+    /**
+     * @var array<string, array{context: string, entity: string|null, aggregate: string|null, table: array<string, mixed>}>|null
+     */
+    private ?array $designedTables = null;
+
     public function __construct(
         private readonly StructureReader $reader,
         private readonly StructureFiles $files,
@@ -71,6 +76,17 @@ final class StructurePlanner
             }
         }
 
+        $byKey = [];
+
+        foreach ($steps as $step) {
+            if (isset($byKey[$step['key']])) {
+                $byKey[$step['key']]['nodes'] = array_values(array_unique([...$byKey[$step['key']]['nodes'], ...$step['nodes']]));
+            } else {
+                $byKey[$step['key']] = $step;
+            }
+        }
+
+        $steps = array_values($byKey);
         usort($steps, fn (array $a, array $b): int => $a['order'] <=> $b['order']);
 
         return array_map(function (array $step): array {
@@ -157,7 +173,9 @@ final class StructurePlanner
             }
 
             if ($entry['repository']) {
-                $steps[] = $this->generator(3, "repository {$context}/{$aggregate}", class_exists("App\\Infra\\Persistence\\Eloquent\\Repositories\\Eloquent{$aggregate}Repository"), $rootReady ? null : "the root {$aggregate}Entity comes first", 'make:eloquent-repository', ['name' => $aggregate, '--domain' => "{$context}/{$aggregate}"], ["aggregate:{$context}/{$aggregate}"]);
+                $model = $manifest['entities'][$aggregate]['table']['model'] ?? null;
+                $arguments = ['name' => $aggregate, '--domain' => "{$context}/{$aggregate}", ...(is_string($model) && $model !== $aggregate ? ['--model' => $model] : [])];
+                $steps[] = $this->generator(3, "repository {$context}/{$aggregate}", class_exists("App\\Infra\\Persistence\\Eloquent\\Repositories\\Eloquent{$aggregate}Repository"), $rootReady ? null : "the root {$aggregate}Entity comes first", 'make:eloquent-repository', $arguments, ["aggregate:{$context}/{$aggregate}"]);
             }
         }
 
@@ -177,6 +195,13 @@ final class StructurePlanner
                     $planned[$step['key']] = true;
                     $steps[] = $step;
                 }
+            }
+        }
+
+        foreach ($this->designedTables() as $table => $designed) {
+            if ($designed['context'] === $context) {
+                $node = $designed['entity'] === null ? StructureComparer::tableNode($context, $table) : StructureComparer::contextNode($context, 'entities', $designed['entity']);
+                $steps = [...$steps, ...$this->tableSteps($table, $designed, [$node])];
             }
         }
 
@@ -529,7 +554,13 @@ final class StructurePlanner
         $prefix = Str::kebab(Str::pluralStudly($model));
         $controllerClass = "App\\Http\\Controllers\\{$model}Controller";
 
-        $steps[] = $this->generator(8, "model {$model}", class_exists("App\\Models\\{$model}"), null, 'make:model', ['name' => $model, '--factory' => true], ["model:{$resource}"]);
+        $designed = array_filter($this->designedTables(), fn (array $designed): bool => ($designed['table']['model'] ?? null) === $model);
+
+        if ($designed === []) {
+            $steps[] = $this->generator(8, "model {$model}", class_exists("App\\Models\\{$model}"), null, 'make:model', ['name' => $model, '--factory' => true], ["model:{$resource}"]);
+        } else {
+            $steps[] = $this->tableModelStep((string) array_key_first($designed), $model, ["model:{$resource}"]);
+        }
 
         if ($manifest['policy'] !== null) {
             $steps[] = $this->generator(8, "policy {$model}", class_exists("App\\Policies\\{$model}Policy"), null, 'make:policy', ['name' => $model], ["policy:{$resource}"]);
@@ -732,6 +763,80 @@ final class StructurePlanner
             'nodes' => ["page:{$resource}/{$menuPage}"],
             'swap' => null,
         ];
+    }
+
+    /**
+     * The steps of a table a context designs (structure.md, "Tables"): its migration, which waits
+     * for every table a foreign key points at, and its model with the factory, which waits for the
+     * enums its columns name. The migration is done once the migrations build everything the
+     * design lists; what they build another way is the check's to name.
+     *
+     * @param  array{context: string, entity: string|null, aggregate: string|null, table: array<string, mixed>}  $designed
+     * @param  list<string>  $nodes
+     * @return list<PlannedStep>
+     */
+    private function tableSteps(string $table, array $designed, array $nodes): array
+    {
+        $tables = $this->reader->tables();
+        $schema = $tables->schema();
+        $built = $schema[$table] ?? null;
+        $missing = [];
+
+        foreach ($designed['table']['foreignKeys'] ?? [] as $key) {
+            $parent = is_array($key) && is_string($key['table'] ?? null) ? $key['table'] : null;
+
+            if ($parent !== null && $parent !== $table && ! isset($schema[$parent])) {
+                $missing[] = $parent;
+            }
+        }
+
+        $missing = array_values(array_unique($missing));
+        $arguments = ['table' => $table, ...($tables->folder() === null ? [] : ['--path' => $tables->folder()])];
+
+        $steps = [$this->generator(
+            3,
+            "migration {$table}",
+            $built !== null && StructureTableWriter::addsNothing(StructureTableWriter::additions($designed['table'], $built)),
+            $missing === [] ? null : sprintf('the table%s %s %s first', count($missing) === 1 ? '' : 's', implode(', ', $missing), count($missing) === 1 ? 'comes' : 'come'),
+            'make:table-migration',
+            $arguments,
+            $nodes,
+        )];
+
+        $model = $designed['table']['model'] ?? null;
+
+        if (is_string($model)) {
+            $steps[] = $this->tableModelStep($table, $model, $nodes);
+        }
+
+        return $steps;
+    }
+
+    /**
+     * @param  list<string>  $nodes
+     * @return PlannedStep
+     */
+    private function tableModelStep(string $table, string $model, array $nodes): array
+    {
+        $missing = StructureTableWriter::related($table, $this->designedTables(), $this->reader)['missing'];
+
+        return $this->generator(
+            3,
+            "model {$model}",
+            class_exists("App\\Models\\{$model}"),
+            $missing === [] ? null : implode(', ', $missing).(count($missing) === 1 ? ' is' : ' are').' not built yet',
+            'make:table-model',
+            ['table' => $table],
+            $nodes,
+        );
+    }
+
+    /**
+     * @return array<string, array{context: string, entity: string|null, aggregate: string|null, table: array<string, mixed>}>
+     */
+    private function designedTables(): array
+    {
+        return $this->designedTables ??= $this->files->designedTables();
     }
 
     /**

@@ -77,6 +77,10 @@ $table->foreignUuid('agent_id')->index()->constrained('agents')->cascadeOnDelete
 
 **Why:** a migration runs once on every database, years apart. One that loads a model breaks when the model is renamed, and one that writes rows skips every rule the write path holds. A `down()` that misses a table only shows up on the day someone has to roll back.
 
+## Scaffold
+
+For a table a context manifest designs (structure.md), run `php artisan make:table-migration {table}`, or let `kit:apply` run it. It writes the migration in the shape this file gives it, from the design: the one that creates the table, or, once the table is built, a new one that adds what the design gained. A change to what is already built is written by hand, as a new migration.
+
 ## Stepping outside this file
 
 Use `rule-overrides.json` with `"rule": "migrations"`, exactly as stack.md describes. The `subject` is the migration's path from the project root for a source check, the table (`{table}` or `{table}.{column}`) for a schema check. Only the user may add an entry.
