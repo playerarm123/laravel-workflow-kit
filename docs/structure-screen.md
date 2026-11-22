@@ -375,6 +375,14 @@ Every name is StudlyCase (methods and fields camelCase), and must not be taken i
 
 In the enum and value object forms, rows move up with the arrow and go with the cross. Removing a case also removes every move that led to it. Renaming one keeps them.
 
+### Tables
+
+Double-click an entity's card, or use the database icon in its panel, to open the page of the table it is stored in. A table that maps to no entity, such as a join table, is one of the context's own: open it from **Tables** in the header, where **New table** (also under **Add**) starts one.
+
+The page shows the entity's state on the left, with the column each property maps to. An entity with no table yet starts from the one its state proposes: a `Money` as an integer in minor units, an enum as a string long enough for every case, a `?T` as nullable, a `{x}Id` as a foreign key to that aggregate's table, and a child's foreign key to its root, which cascades. Choose each foreign key's delete behaviour and write what null means in each nullable column's comment, then **Add table**.
+
+The editor refuses what migrations.md refuses before anything is written: `float`, `enum()` or `json()`, an enum column too short for its cases, a nullable column that does not say what null means, and a foreign key with no parent table, no delete behaviour or no index it leads. Once the migrations build the table, what they build is locked: add columns, foreign keys and indexes, and `kit:apply` writes a migration that adds just them. Below the form, the page lists what the model holds and draws the tables next to this one; click one to open it. `kit:apply` then builds the migration, the model and its factory, and the repository's `toModel()` / `toEntity()`.
+
 ### HTTP resource pieces
 
 | Form | Fields | Refused when |

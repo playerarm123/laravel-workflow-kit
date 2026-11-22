@@ -791,7 +791,7 @@ final class StructurePlanner
         foreach ($designed['table']['foreignKeys'] ?? [] as $key) {
             $parent = is_array($key) && is_string($key['table'] ?? null) ? $key['table'] : null;
 
-            if ($parent !== null && $parent !== $table && ! isset($schema[$parent])) {
+            if ($parent !== null && $parent !== $table && ! isset($schema[$parent]) && ! in_array($parent, $tables->frameworkTables(), true)) {
                 $missing[] = $parent;
             }
         }

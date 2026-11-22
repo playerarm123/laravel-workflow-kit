@@ -2,6 +2,7 @@ import {
     BookOpen,
     ChevronDown,
     CircleHelp,
+    Database,
     FileText,
     Plus,
     Settings2,
@@ -30,10 +31,13 @@ import type { CommandRequest } from '@/kit/command-runner';
 import { styleOf } from '@/kit/node-styles';
 import type { Editing } from '@/kit/panel-sections';
 import { IconAction } from '@/kit/panel-table';
+import { tableHref } from '@/kit/table-page';
+import type { TablePlace } from '@/kit/table-page';
 import type {
     ResourceSection,
     StructureCommand,
     StructureEndpoints,
+    StructureGraph,
     StructureNodeKind,
     StructureSection,
     StructureTarget,
@@ -170,14 +174,19 @@ function MenuItems({
  */
 export function StructureToolbar({
     place,
+    table,
     shared,
+    graph,
     endpoints,
     commands,
     onEdit,
     onRun,
 }: {
     place: StructureTarget | null;
+    /** The table page open now, inside the context `place` names */
+    table: TablePlace | null;
     shared: boolean;
+    graph: StructureGraph;
     endpoints: StructureEndpoints;
     commands: StructureCommand[];
     onEdit: (editing: Editing) => void;
@@ -185,6 +194,13 @@ export function StructureToolbar({
 }) {
     const context = place?.view === 'context' ? place.name : null;
     const resource = place?.view === 'resource' ? place.name : null;
+    const tables = Object.entries(
+        context === null ? {} : (graph.tables[context] ?? {}),
+    );
+    const newTable =
+        context === null
+            ? '#'
+            : tableHref({ context, entity: null, table: null });
 
     return (
         <header className="flex items-center justify-between gap-4 border-b px-4 py-2">
@@ -201,11 +217,31 @@ export function StructureToolbar({
                         <>
                             <BreadcrumbSeparator />
                             <BreadcrumbItem>
+                                {table === null ? (
+                                    <BreadcrumbPage>
+                                        {place.view === 'context'
+                                            ? 'Context'
+                                            : 'HTTP resource'}{' '}
+                                        {place.name}
+                                    </BreadcrumbPage>
+                                ) : (
+                                    <BreadcrumbLink
+                                        href={`#context/${encodeURIComponent(place.name)}`}
+                                    >
+                                        Context {place.name}
+                                    </BreadcrumbLink>
+                                )}
+                            </BreadcrumbItem>
+                        </>
+                    )}
+                    {table !== null && (
+                        <>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
                                 <BreadcrumbPage>
-                                    {place.view === 'context'
-                                        ? 'Context'
-                                        : 'HTTP resource'}{' '}
-                                    {place.name}
+                                    {table.entity !== null
+                                        ? `${table.entity}'s table`
+                                        : (table.table ?? 'New table')}
                                 </BreadcrumbPage>
                             </BreadcrumbItem>
                         </>
@@ -241,6 +277,57 @@ export function StructureToolbar({
                         </DropdownMenuContent>
                     </DropdownMenu>
                 )}
+                {context !== null && !shared && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="outline">
+                                <Database />
+                                Tables
+                                <ChevronDown className="opacity-60" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-64">
+                            {tables.length === 0 && (
+                                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                                    No table designed yet
+                                </DropdownMenuLabel>
+                            )}
+                            {tables.map(([name, status]) => (
+                                <DropdownMenuItem key={name} asChild>
+                                    <a
+                                        href={tableHref({
+                                            context,
+                                            entity: status?.entity ?? null,
+                                            table:
+                                                (status?.entity ?? null) ===
+                                                null
+                                                    ? name
+                                                    : null,
+                                        })}
+                                    >
+                                        <Database />
+                                        <span className="font-mono">
+                                            {name}
+                                        </span>
+                                        {status?.entity !== null &&
+                                            status?.entity !== undefined && (
+                                                <span className="ml-auto text-xs text-muted-foreground">
+                                                    {status.entity}
+                                                </span>
+                                            )}
+                                    </a>
+                                </DropdownMenuItem>
+                            ))}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem asChild>
+                                <a href={newTable}>
+                                    <Plus />
+                                    New table
+                                </a>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
                 {context !== null && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -262,6 +349,14 @@ export function StructureToolbar({
                                             items={group.items}
                                             onEdit={onEdit}
                                         />
+                                        {group.label === 'Domain' && (
+                                            <DropdownMenuItem asChild>
+                                                <a href={newTable}>
+                                                    <Database />
+                                                    Table
+                                                </a>
+                                            </DropdownMenuItem>
+                                        )}
                                     </DropdownMenuGroup>
                                 ),
                             )}

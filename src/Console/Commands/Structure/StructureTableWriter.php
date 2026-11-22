@@ -164,6 +164,39 @@ final class StructureTableWriter
     }
 
     /**
+     * What the model a design names holds, for the structure screen's table page: its fillable
+     * columns, each cast `make:table-model` writes (an enum by its name, built or not), and its relations, each as `{method}(): {Kind}
+     * {Model}`.
+     *
+     * @param  Design  $design
+     * @param  Related  $related
+     * @return array{fillable: list<string>, casts: array<string, string>, relations: list<string>}
+     */
+    public static function summary(string $model, array $design, array $related): array
+    {
+        $casts = [];
+
+        foreach ($design['columns'] as $column => $definition) {
+            $enum = $related['enums'][$column] ?? (is_string($definition['enum'] ?? null) ? str_replace('/', '\\', $definition['enum']) : null);
+            $cast = $enum === null ? self::castOf($definition)[1] : class_basename($enum);
+
+            if ($cast !== null) {
+                $casts[(string) $column] = trim($cast, "'");
+            }
+        }
+
+        if ($design['softDeletes']) {
+            $casts['deleted_at'] = 'datetime';
+        }
+
+        return [
+            'fillable' => array_map(strval(...), [...array_keys($design['foreignKeys']), ...array_keys($design['columns'])]),
+            'casts' => $casts,
+            'relations' => array_map(fn (array $relation): string => "{$relation['method']}(): {$relation['kind']} {$relation['model']}", self::relations($model, $related)),
+        ];
+    }
+
+    /**
      * The model of a table (models.md): `KeyedByUuid` and `HasFactory`, `#[Fillable]` with every
      * column a repository fills, one `@property` per column typed as its cast returns, `casts()`,
      * and a relation per foreign key whose parent has a model and per table whose foreign key

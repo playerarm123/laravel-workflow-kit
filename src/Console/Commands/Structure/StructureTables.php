@@ -98,6 +98,11 @@ final class StructureTables
     private ?array $models = null;
 
     /**
+     * @var list<string>|null
+     */
+    private ?array $frameworkTables = null;
+
+    /**
      * @param  string|null  $migrations  the folder the migrations live in, `database/migrations` when null
      */
     public function __construct(
@@ -146,6 +151,32 @@ final class StructureTables
         }
 
         return $this->schema = $tables;
+    }
+
+    /**
+     * The tables Laravel's own migrations and the ones its packages publish build (`users`,
+     * `sessions`, `jobs`), which the manifest leaves out but a designed foreign key may point at.
+     *
+     * @return list<string>
+     */
+    public function frameworkTables(): array
+    {
+        if ($this->frameworkTables !== null) {
+            return $this->frameworkTables;
+        }
+
+        $tables = [];
+        $directory = $this->migrations ?? $this->root.'/'.self::MIGRATIONS;
+        $files = glob($directory.'/*.php') ?: [];
+        sort($files);
+
+        foreach ($files as $file) {
+            if ($this->isFrameworkMigration(basename($file))) {
+                $this->replay($tables, StructureFiles::text($file));
+            }
+        }
+
+        return $this->frameworkTables = array_map(strval(...), array_keys($tables));
     }
 
     /**

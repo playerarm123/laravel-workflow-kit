@@ -105,6 +105,9 @@ class KitServiceProvider extends ServiceProvider
                     'removeChild' => route('kit.structure.children.remove', ['context' => '__CONTEXT__']),
                     'syncPiece' => route('kit.structure.pieces.sync', ['context' => '__CONTEXT__']),
                     'saveDescription' => route('kit.structure.descriptions.store', ['context' => '__CONTEXT__']),
+                    'saveTable' => route('kit.structure.tables.store', ['context' => '__CONTEXT__']),
+                    'removeTable' => route('kit.structure.tables.remove', ['context' => '__CONTEXT__']),
+                    'proposedTable' => route('kit.structure.tables.proposed', ['context' => '__CONTEXT__', 'entity' => '__ENTITY__']),
                     'createResource' => route('kit.structure.resources.store'),
                     'saveResource' => route('kit.structure.resources.update', ['resource' => '__RESOURCE__']),
                     'saveMenu' => route('kit.structure.resources.menu', ['resource' => '__RESOURCE__']),
@@ -237,6 +240,29 @@ class KitServiceProvider extends ServiceProvider
                     $request->string('name')->toString(),
                 ),
             ))->name('.children.remove');
+
+            Route::post('contexts/{context}/tables', fn (Request $request, string $context): JsonResponse => $this->answer(
+                $this->structureEditor()->saveTable(
+                    $context,
+                    $request->string('version')->toString(),
+                    $request->filled('entity') ? $request->string('entity')->toString() : null,
+                    $request->filled('previous') ? $request->string('previous')->toString() : null,
+                    is_array($request->input('table')) ? $request->input('table') : [],
+                ),
+            ))->name('.tables.store');
+
+            Route::post('contexts/{context}/tables/remove', fn (Request $request, string $context): JsonResponse => $this->answer(
+                $this->structureEditor()->removeTable(
+                    $context,
+                    $request->string('version')->toString(),
+                    $request->filled('entity') ? $request->string('entity')->toString() : null,
+                    $request->string('name')->toString(),
+                ),
+            ))->name('.tables.remove');
+
+            Route::get('contexts/{context}/tables/proposed/{entity}', fn (string $context, string $entity): JsonResponse => new JsonResponse(
+                $this->structureEditor()->proposedTable($context, $entity) ?? ['table' => null, 'unmapped' => []],
+            ))->name('.tables.proposed');
 
             Route::post('contexts/{context}/sync', fn (Request $request, string $context): JsonResponse => $this->answer(
                 $this->structureEditor()->sync(

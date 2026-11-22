@@ -118,6 +118,63 @@ export type EntityEntry = Described & {
     state: Record<string, string>;
     behaviours: Partial<Record<string, EntityMethod>>;
     assertions: Partial<Record<string, EntityMethod>>;
+    /** The table the entity is stored in, with its name; absent while it has none */
+    table?: TableDesign;
+};
+
+/** What a delete of the parent does to a row that points at it (migrations.md). */
+export type OnDelete = 'cascade' | 'restrict' | 'null' | 'noAction';
+
+/**
+ * A column of a designed table: the Blueprint method that builds it, with its size and flags, the
+ * enum the model casts it to, and the comment above it.
+ */
+export type TableColumn = {
+    type: string;
+    length?: number;
+    precision?: number;
+    scale?: number;
+    enum?: string;
+    nullable?: boolean;
+    unique?: boolean;
+    index?: boolean;
+    default?: string | number | boolean;
+    comment?: string;
+};
+
+export type TableForeignKey = {
+    table: string;
+    onDelete?: OnDelete;
+    nullable?: boolean;
+    unique?: boolean;
+    index?: boolean;
+    comment?: string;
+};
+
+export type TableIndex = {
+    columns: string[];
+    unique: boolean;
+    comment?: string;
+};
+
+/**
+ * A table a manifest designs (structure.md, "Tables"): an entity's carries its `name`, one of a
+ * context's `tables` is keyed by it and may say what it is for.
+ */
+export type TableDesign = Described & {
+    name?: string;
+    model: string | null;
+    columns: Partial<Record<string, TableColumn>>;
+    foreignKeys: Partial<Record<string, TableForeignKey>>;
+    indexes: TableIndex[];
+    timestamps: boolean;
+    softDeletes: boolean;
+};
+
+/** The table an entity's state proposes, with each property it leaves out and why. */
+export type ProposedTable = {
+    table: TableDesign | null;
+    unmapped: Partial<Record<string, string>>;
 };
 
 /**
@@ -183,6 +240,8 @@ export type ContextManifest = {
     valueObjects: Partial<Record<string, ValueObjectEntry>>;
     exceptions: Partial<Record<string, ExceptionEntry>>;
     entities: Partial<Record<string, EntityEntry>>;
+    /** The tables no entity maps to, by name */
+    tables: Partial<Record<string, TableDesign>>;
 };
 
 export type ResourceSection = 'controller' | 'actions' | 'pages';
@@ -239,6 +298,43 @@ export type StructureGraph = {
     resourceOutOfStep: Partial<Record<string, string[]>>;
     /** The groups app/Http/Navigation.php declares, which a menu entry may sit in */
     menuGroups: { key: string; title: string; icon: string }[];
+    /** Each table a context designs, by context and name, with the status of the steps that build it */
+    tables: Partial<
+        Record<string, Partial<Record<string, StructureTableStatus>>>
+    >;
+};
+
+export type StructureTableStatus = {
+    /** The entity the table maps to, or null for one of the context's tables */
+    entity: string | null;
+    /** Whether the migrations build it already, which locks what they build */
+    built: boolean;
+    /** The columns and foreign keys the migrations build, which the page leaves as they are */
+    builtColumns: string[];
+    status: StructureStatus;
+    reason: string | null;
+    command: string | null;
+    /** What the model the table names holds; null for a table no model maps to */
+    model: {
+        fillable: string[];
+        casts: Partial<Record<string, string>>;
+        relations: string[];
+    } | null;
+    /** The tables its foreign keys point at */
+    parents: TableNeighbour[];
+    /** The designed tables whose foreign keys point at it */
+    children: TableNeighbour[];
+};
+
+/**
+ * A table next to another in the ER diagram, by the foreign key column that ties them, with the
+ * context and entity that design it; both null for one no manifest designs (`users`).
+ */
+export type TableNeighbour = {
+    table: string;
+    column: string;
+    context: string | null;
+    entity: string | null;
 };
 
 /**
@@ -261,6 +357,10 @@ export type StructureEndpoints = {
     removeChild: string;
     syncPiece: string;
     saveDescription: string;
+    saveTable: string;
+    removeTable: string;
+    /** `__ENTITY__` stands for the entity whose state proposes the table */
+    proposedTable: string;
     createResource: string;
     saveResource: string;
     saveMenu: string;

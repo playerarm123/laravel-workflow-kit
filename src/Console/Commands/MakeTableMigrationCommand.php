@@ -38,12 +38,13 @@ class MakeTableMigrationCommand extends Command
 
         $path = $this->option('path');
         $folder = is_string($path) && $path !== '' ? (str_starts_with($path, '/') ? $path : base_path($path)) : base_path(StructureTables::MIGRATIONS);
-        $schema = (new StructureTables(base_path(), $folder))->schema();
+        $tables = new StructureTables(base_path(), $folder);
+        $schema = $tables->schema();
 
         foreach ($designed['table']['foreignKeys'] ?? [] as $key) {
             $parent = is_array($key) && is_string($key['table'] ?? null) ? $key['table'] : null;
 
-            if ($parent !== null && $parent !== $name && ! isset($schema[$parent])) {
+            if ($parent !== null && $parent !== $name && ! isset($schema[$parent]) && ! in_array($parent, $tables->frameworkTables(), true)) {
                 $this->components->error(sprintf('The table %s, which %s points at, is not built yet: write its migration first.', $parent, $name));
 
                 return self::FAILURE;

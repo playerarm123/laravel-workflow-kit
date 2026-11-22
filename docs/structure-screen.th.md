@@ -375,6 +375,14 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 
 ในฟอร์ม enum และ value object กดลูกศรเพื่อเลื่อนแถวขึ้น กดกากบาทเพื่อลบแถว ลบ case แล้วการเปลี่ยนสถานะที่ไปถึง case นั้นจะหายไปด้วย แต่ถ้าเปลี่ยนชื่อ case การเปลี่ยนสถานะยังอยู่ครบ
 
+### ตาราง
+
+ดับเบิลคลิกการ์ดของ entity หรือกดไอคอนฐานข้อมูลใน panel ของมัน เพื่อเปิดหน้าตารางที่ entity นั้นเก็บอยู่ ตารางที่ไม่ได้ map กับ entity ไหน เช่น join table เป็นตารางของ context เอง เปิดได้จากเมนู **Tables** ที่หัวหน้า และกด **New table** (มีใน **Add** ด้วย) เพื่อสร้างใหม่
+
+ด้านซ้ายของหน้าแสดง state ของ entity พร้อมบอกว่าแต่ละ property map ไป column ไหน entity ที่ยังไม่มีตารางจะเริ่มจากตารางที่เสนอจาก state ให้ เช่น `Money` เป็นจำนวนเต็มหน่วยย่อย, enum เป็น string ที่ยาวพอสำหรับทุก case, `?T` เป็น nullable, `{x}Id` เป็น foreign key ไปตารางของ aggregate นั้น และ child ได้ foreign key ไป root แบบ cascade ให้เลือกพฤติกรรมตอนลบของแต่ละ foreign key และเขียน comment ของ column ที่ nullable ว่า null หมายถึงอะไร แล้วกด **Add table**
+
+editor จะปฏิเสธสิ่งที่ migrations.md ห้ามก่อนเขียนลง manifest ได้แก่ `float`, `enum()` หรือ `json()`, column ที่ cast เป็น enum แต่ยาวไม่พอสำหรับทุก case, column ที่ nullable แต่ไม่บอกว่า null หมายถึงอะไร และ foreign key ที่ไม่มีตารางแม่, ไม่ได้เลือกพฤติกรรมตอนลบ หรือไม่มี index ที่ขึ้นต้นด้วยมัน เมื่อ migration สร้างตารางแล้ว ส่วนที่สร้างแล้วจะถูกล็อก แต่ยังเพิ่ม column, foreign key และ index ใหม่ได้ แล้ว `kit:apply` จะเขียน migration ที่เพิ่มเฉพาะส่วนนั้น ใต้ฟอร์มแสดงสิ่งที่ model มี และวาดตารางข้างเคียง คลิกเพื่อเปิดหน้าของตารางนั้นได้ จากนั้น `kit:apply` จะสร้าง migration, model กับ factory และ `toModel()` / `toEntity()` ของ repository ให้
+
 ### ชิ้นใน HTTP resource
 
 | ฟอร์ม | ช่อง | ถูกปฏิเสธเมื่อ |
