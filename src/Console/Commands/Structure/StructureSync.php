@@ -92,12 +92,148 @@ final class StructureSync
 
         $entities = $this->syncEntities($manifest['entities'], $code['entities'], $prune);
         $manifest['entities'] = $entities['entities'];
+        $tables = $this->syncTables($context, $manifest[StructureFiles::TABLES], $code[StructureFiles::TABLES], $prune);
+        $manifest[StructureFiles::TABLES] = $tables['tables'];
 
         return [
             'manifest' => $manifest,
-            'changes' => [...$changes, ...$entities['changes']],
-            'kept' => [...$kept, ...$entities['kept']],
+            'changes' => [...$changes, ...$entities['changes'], ...$tables['changes']],
+            'kept' => [...$kept, ...$entities['kept'], ...$tables['kept']],
         ];
+    }
+
+    /**
+     * A context's `tables` merged with the code's: every table it lists that the migrations build
+     * and no entity maps to takes the code's shape, wherever the code would place it, and the
+     * code's tables of this context that no other context lists are added. One it lists that is not
+     * built is kept unless `$prune` takes it out.
+     *
+     * @param  array<array-key, mixed>  $designed
+     * @param  array<string, array<string, mixed>>  $placed
+     * @return array{tables: array<string, mixed>, changes: list<string>, kept: list<string>}
+     */
+    private function syncTables(string $context, array $designed, array $placed, bool $prune): array
+    {
+        $changes = [];
+        $kept = [];
+        $placements = $this->reader->tablePlacements();
+        $elsewhere = $this->tablesDesignedOutside($context);
+        $built = [];
+
+        foreach ($placed as $table => $entry) {
+            if (! isset($elsewhere[$table]) || array_key_exists($table, $designed)) {
+                $built[$table] = $entry;
+            }
+        }
+
+        foreach (array_keys($designed) as $table) {
+            $table = (string) $table;
+
+            // A table the migrations build that no entity maps to, even one the code cannot place.
+            if (! isset($built[$table]) && array_key_exists($table, $placements) && ($placements[$table]['entity'] ?? null) === null) {
+                $built[$table] = (array) $this->reader->tableEntry($table, $context, null, false);
+            }
+        }
+
+        foreach ($built as $table => $entry) {
+            $merged = $this->withIntent($entry, $designed[$table] ?? null);
+            $change = $this->tableChange(StructureFiles::TABLES.".{$table}", $designed[$table] ?? null, $merged, StructureFiles::CONTEXT_TABLE_KEYS);
+
+            if ($change !== null) {
+                $changes[] = $change;
+            }
+
+            $designed[$table] = $merged;
+        }
+
+        foreach (array_keys(array_diff_key($designed, $built)) as $table) {
+            if ($prune) {
+                unset($designed[$table]);
+                $changes[] = StructureFiles::TABLES.".{$table}: removed";
+            } else {
+                $kept[] = StructureFiles::TABLES.".{$table}";
+            }
+        }
+
+        ksort($designed);
+
+        return ['tables' => $designed, 'changes' => $changes, 'kept' => $kept];
+    }
+
+    /**
+     * The tables the other contexts' manifests design, in an entity or under `tables`.
+     *
+     * @return array<string, true>
+     */
+    private function tablesDesignedOutside(string $context): array
+    {
+        $designed = [];
+
+        foreach ($this->files->contexts() as $other) {
+            $manifest = $other === $context ? null : $this->files->read($other);
+
+            if (! is_array($manifest)) {
+                continue;
+            }
+
+            foreach (is_array($manifest[StructureFiles::TABLES] ?? null) ? array_keys($manifest[StructureFiles::TABLES]) : [] as $table) {
+                $designed[(string) $table] = true;
+            }
+
+            foreach (is_array($manifest['entities'] ?? null) ? $manifest['entities'] : [] as $entry) {
+                if (is_array($entry) && is_string($entry['table']['name'] ?? null)) {
+                    $designed[$entry['table']['name']] = true;
+                }
+            }
+        }
+
+        return $designed;
+    }
+
+    /**
+     * One line saying how a table changes, or null when it does not, read in canonical form, so a
+     * column's or an index's order counts and a flag left out is a flag that is false.
+     *
+     * @param  list<string>  $keys
+     */
+    private function tableChange(string $path, mixed $before, mixed $after, array $keys): ?string
+    {
+        if (! is_array($before)) {
+            return "{$path}: added";
+        }
+
+        $before = StructureFiles::canonicalTable($before, $keys);
+        $after = is_array($after) ? StructureFiles::canonicalTable($after, $keys) : [];
+        $changed = [];
+
+        foreach (array_unique([...array_keys($after), ...array_keys($before)]) as $key) {
+            $was = $before[$key] ?? null;
+            $now = $after[$key] ?? null;
+
+            if (! in_array($key, ['columns', 'foreignKeys'], true) || ! is_array($was) || ! is_array($now)) {
+                if ($was !== $now) {
+                    $changed[] = sprintf('%s %s → %s', $key, $this->json($was), $this->json($now));
+                }
+
+                continue;
+            }
+
+            // Column by column, so a sync says which one moved rather than the whole map.
+            foreach (array_unique([...array_keys($now), ...array_keys($was)]) as $column) {
+                if (($was[$column] ?? null) !== ($now[$column] ?? null)) {
+                    $changed[] = sprintf('%s.%s %s → %s', $key, $column, $this->json($was[$column] ?? null), $this->json($now[$column] ?? null));
+                }
+            }
+
+            $shared = array_keys(array_intersect_key($was, $now));
+            $order = array_values(array_filter(array_keys($now), fn (int|string $column): bool => in_array($column, $shared, true)));
+
+            if ($shared !== $order) {
+                $changed[] = sprintf('%s: order %s → %s', $key, implode(', ', $shared), implode(', ', $order));
+            }
+        }
+
+        return $changed === [] ? null : $path.': '.implode(', ', $changed);
     }
 
     /**
@@ -386,7 +522,7 @@ final class StructureSync
         $kept = [];
 
         foreach ($built as $entity => $entry) {
-            /** @var array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
+            /** @var array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>, table?: array<string, mixed>} $entry */
             $current = $designed[$entity] ?? null;
 
             if (is_array($current) && $current['aggregate'] !== $entry['aggregate']) {
@@ -397,6 +533,23 @@ final class StructureSync
             $changes = [...$changes, ...$state['changes']];
             $kept = [...$kept, ...$state['kept']];
             $merged = $this->withIntent(['aggregate' => $entry['aggregate'], 'state' => $state['state'], 'behaviours' => [], 'assertions' => []], $current);
+            $table = is_array($entry['table'] ?? null) ? $entry['table'] : null;
+            $designedTable = is_array($current['table'] ?? null) ? $current['table'] : null;
+
+            if ($table !== null) {
+                $change = $this->tableChange("entities.{$entity}.table", $designedTable, $table, StructureFiles::TABLE_KEYS);
+
+                if ($change !== null) {
+                    $changes[] = $change;
+                }
+
+                $merged['table'] = $table;
+            } elseif ($designedTable !== null && $prune) {
+                $changes[] = "entities.{$entity}.table: removed";
+            } elseif ($designedTable !== null) {
+                $kept[] = "entities.{$entity}.table";
+                $merged['table'] = $designedTable;
+            }
 
             foreach (['behaviours', 'assertions'] as $group) {
                 /** @var array<string, mixed> $methods */
@@ -427,13 +580,14 @@ final class StructureSync
             $designed[$entity] = $merged;
         }
 
-        /** @var array<string, array{state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>}> $unbuilt */
+        /** @var array<string, array{state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>, table?: array<string, mixed>|null}> $unbuilt */
         $unbuilt = array_diff_key($designed, $built);
 
         foreach ($unbuilt as $entity => $entry) {
             $paths = [
                 ...array_map(fn (int|string $property): string => "entities.{$entity}.state.{$property}", array_keys($entry['state'])),
                 ...array_map(fn (int|string $method): string => "entities.{$entity}.{$method}", [...array_keys($entry['behaviours']), ...array_keys($entry['assertions'])]),
+                ...(is_array($entry['table'] ?? null) ? ["entities.{$entity}.table"] : []),
             ];
 
             foreach ($paths as $path) {
@@ -449,7 +603,7 @@ final class StructureSync
             }
         }
 
-        // An entity with no state, no method and no description left has no entry (structure.md).
+        // An entity with no state, no method, no description and no table left has no entry (structure.md).
         return [
             'entities' => array_filter($designed, fn (mixed $entry): bool => is_array($entry) && ! StructureFiles::listsNothing($entry)),
             'changes' => $changes,
@@ -466,7 +620,7 @@ final class StructureSync
 
         return is_array($manifest)
             ? StructureFiles::withDefaults($manifest)
-            : ['context' => $context, ...array_fill_keys(array_keys(StructureFiles::SECTIONS), [])];
+            : ['context' => $context, ...array_fill_keys([...array_keys(StructureFiles::SECTIONS), StructureFiles::TABLES], [])];
     }
 
     /**

@@ -124,7 +124,7 @@ describe('StructureEditor', function () {
     describe('createContext', function () {
         it('writes the empty manifest of a new context', function () {
             expect(samplingEditor()->createContext(SAMPLING_EDIT_NEW))->toBe([])
-                ->and(samplingEditManifest(SAMPLING_EDIT_NEW))->toBe(['context' => SAMPLING_EDIT_NEW, 'aggregates' => [], 'services' => [], 'applicationServices' => [], 'ports' => [], 'useCases' => [], 'enums' => [], 'valueObjects' => [], 'exceptions' => [], 'entities' => []]);
+                ->and(samplingEditManifest(SAMPLING_EDIT_NEW))->toBe(['context' => SAMPLING_EDIT_NEW, 'aggregates' => [], 'services' => [], 'applicationServices' => [], 'ports' => [], 'useCases' => [], 'enums' => [], 'valueObjects' => [], 'exceptions' => [], 'entities' => [], 'tables' => []]);
         });
 
         it('refuses a name that is not a new context of the project', function (string $name, string $message) {

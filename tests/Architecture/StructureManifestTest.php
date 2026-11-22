@@ -23,6 +23,7 @@ function structureManifestSpec(): array
     return [
         'kit_files' => [
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureReader.php',
+            'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureTables.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureFiles.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureComparer.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructurePlanner.php',

@@ -46,8 +46,52 @@ final class StructureFiles
         'enums' => ['description' => 'string|null', 'aggregate' => 'string|null', 'backing' => ['string', 'int', null], 'cases' => 'map', 'transitions' => 'transitions'],
         'valueObjects' => ['description' => 'string|null', 'aggregate' => 'string|null', 'fields' => 'map:string'],
         'exceptions' => ['description' => 'string|null', 'kind' => ['refusal', 'value', 'application'], 'aggregate' => 'string|null', 'useCase' => 'string|null'],
-        'entities' => ['description' => 'string|null', 'aggregate' => 'string', 'state' => 'map:string', 'behaviours' => 'methods', 'assertions' => 'methods'],
+        'entities' => ['description' => 'string|null', 'aggregate' => 'string', 'state' => 'map:string', 'behaviours' => 'methods', 'assertions' => 'methods', 'table' => 'table'],
     ];
+
+    /**
+     * The section of a context's manifest that holds the tables no entity maps to (a join table, a
+     * projection a list reads), keyed by table name. It sits after SECTIONS, and is not one of them,
+     * because a table's name is snake_case and its entry is a table, not a piece.
+     */
+    public const string TABLES = 'tables';
+
+    /**
+     * The keys of an entity's `table`, in the order the canonical form writes them.
+     */
+    public const array TABLE_KEYS = ['name', 'model', 'columns', 'foreignKeys', 'indexes', 'timestamps', 'softDeletes'];
+
+    /**
+     * The keys of an entry of `tables`, in the order the canonical form writes them. `model` is null
+     * for a table no model maps to.
+     */
+    public const array CONTEXT_TABLE_KEYS = ['description', 'model', 'columns', 'foreignKeys', 'indexes', 'timestamps', 'softDeletes'];
+
+    /**
+     * The keys of a column, in canonical order. `type` is the Blueprint method that builds it
+     * (`string`, `unsignedBigInteger`, `jsonb`); `enum` names the enum the model casts it to,
+     * written as a state's type is. The rest are left out while they are null or false.
+     */
+    public const array COLUMN_KEYS = ['type', 'length', 'precision', 'scale', 'enum', 'nullable', 'unique', 'index', 'default', 'comment'];
+
+    /**
+     * The keys of a foreign key, in canonical order: the `{x}_id` column of
+     * `foreignUuid('{x}_id')->constrained('{table}')`, and the stem of its `{onDelete}OnDelete()`.
+     */
+    public const array FOREIGN_KEY_KEYS = ['table', 'onDelete', 'nullable', 'unique', 'index', 'comment'];
+
+    /**
+     * The keys of an index that spans more than one column, or a column the table does not list.
+     */
+    public const array INDEX_KEYS = ['columns', 'unique', 'comment'];
+
+    /**
+     * The columns a table has without listing them: the uuid key, timestamps() and softDeletes().
+     */
+    public const array IMPLIED_COLUMNS = ['id', 'created_at', 'updated_at', 'deleted_at'];
+
+    /** A table's or a column's name. */
+    public const string SNAKE_NAME = '/^[a-z][a-z0-9_]*$/';
 
     /**
      * The shared kernel, whose manifest lists only the enums and value objects every context may
@@ -62,7 +106,7 @@ final class StructureFiles
      * canonical form writes them, so the next save or `kit:import` adds them to the file. `read()`
      * takes them from the code instead, so a project that already has exceptions stays green.
      */
-    public const array DEFAULTS = ['exceptions' => [], 'services.exception' => false, 'applicationServices' => [], 'entities.state' => []];
+    public const array DEFAULTS = ['exceptions' => [], 'services.exception' => false, 'applicationServices' => [], 'entities.state' => [], 'tables' => []];
 
     /**
      * Keys only a manifest holds: what the design intends while the code catches up, and what a
@@ -83,8 +127,12 @@ final class StructureFiles
      */
     public const string ENTITY_ID = 'id';
 
+    /**
+     * @param  string|null  $migrations  the folder the migrations live in, `database/migrations` when null
+     */
     public function __construct(
         private readonly string $root,
+        private readonly ?string $migrations = null,
     ) {}
 
     public function path(string $context): string
@@ -142,7 +190,7 @@ final class StructureFiles
      */
     private function upgraded(string $context, array $document): array
     {
-        $predates = ! array_key_exists('exceptions', $document);
+        $predates = ! array_key_exists('exceptions', $document) || ! array_key_exists(self::TABLES, $document);
         $services = is_array($document['services'] ?? null) ? $document['services'] : [];
 
         foreach ($services as $service) {
@@ -153,10 +201,29 @@ final class StructureFiles
             return $document;
         }
 
-        $built = (new StructureReader($this->root))->read($context);
+        $built = (new StructureReader($this->root, $this->migrations))->read($context);
 
         if (! array_key_exists('exceptions', $document)) {
             $document['exceptions'] = $built['exceptions'];
+        }
+
+        // Before tables were designed, the manifest said nothing about them: what is built is what was meant.
+        if (! array_key_exists(self::TABLES, $document)) {
+            $document[self::TABLES] = $built[self::TABLES];
+
+            foreach ($built['entities'] as $name => $entity) {
+                if (($entity['table'] ?? null) === null || (is_array($document['entities'] ?? null) && is_array($document['entities'][$name] ?? null) && array_key_exists('table', $document['entities'][$name]))) {
+                    continue;
+                }
+
+                if (! is_array($document['entities'] ?? null)) {
+                    $document['entities'] = [];
+                }
+
+                $document['entities'][$name] = is_array($document['entities'][$name] ?? null)
+                    ? [...$document['entities'][$name], 'table' => $entity['table']]
+                    : ['aggregate' => $entity['aggregate'], 'state' => [], 'behaviours' => [], 'assertions' => [], 'table' => $entity['table']];
+            }
         }
 
         foreach ($services as $name => $service) {
@@ -182,6 +249,10 @@ final class StructureFiles
 
         if (! array_key_exists('applicationServices', $document)) {
             $document['applicationServices'] = self::DEFAULTS['applicationServices'];
+        }
+
+        if (! array_key_exists(self::TABLES, $document)) {
+            $document[self::TABLES] = self::DEFAULTS['tables'];
         }
 
         if (is_array($document['services'] ?? null)) {
@@ -254,11 +325,13 @@ final class StructureFiles
                 foreach (self::SECTIONS[$section] as $key => $kind) {
                     $value = $entry[$key] ?? null;
 
-                    if ($value === null && in_array($key, self::INTENT_KEYS, true)) {
+                    if ($value === null && (in_array($key, self::INTENT_KEYS, true) || $kind === 'table')) {
                         continue;
                     }
 
-                    if (is_array($value) && $kind === 'methods') {
+                    if (is_array($value) && $kind === 'table') {
+                        $value = self::encodeTable(self::canonicalTable($value, self::TABLE_KEYS));
+                    } elseif (is_array($value) && $kind === 'methods') {
                         $value = self::encodeMethods($value);
                     } elseif (is_array($value) && $kind === 'transitions') {
                         $value = (object) self::orderedTransitions($value, is_array($entry['cases'] ?? null) ? $entry['cases'] : []);
@@ -275,7 +348,93 @@ final class StructureFiles
             }, $entries);
         }
 
+        /** @var array<string, array<string, mixed>> $tables */
+        $tables = is_array($manifest[self::TABLES] ?? null) ? $manifest[self::TABLES] : [];
+        ksort($tables);
+        $document[self::TABLES] = (object) array_map(fn (array $table): object => self::encodeTable(self::canonicalTable($table, self::CONTEXT_TABLE_KEYS)), $tables);
+
         return json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n";
+    }
+
+    /**
+     * A table in canonical form: its keys in the order given, each column's and foreign key's keys
+     * in theirs with the ones that say nothing (null, false) left out, columns and foreign keys in
+     * the order the migration builds them, and indexes in the order it adds them. A description is
+     * left out while it is null. A key the shape does not know is kept at the end, for problems()
+     * to name. Both the file and the comparison read a table through it, so `"nullable": false` and
+     * no `nullable` at all are the same table.
+     *
+     * @param  array<array-key, mixed>  $table
+     * @param  list<string>  $keys  TABLE_KEYS or CONTEXT_TABLE_KEYS
+     * @return array<string, mixed>
+     */
+    public static function canonicalTable(array $table, array $keys): array
+    {
+        $canonical = [];
+
+        foreach ($keys as $key) {
+            $value = $table[$key] ?? null;
+
+            if ($key === 'description' && $value === null) {
+                continue;
+            }
+
+            $canonical[$key] = match ($key) {
+                'columns' => is_array($value) ? array_map(fn (mixed $column): mixed => is_array($column) ? self::orderedKeys($column, self::COLUMN_KEYS) : $column, $value) : $value,
+                'foreignKeys' => is_array($value) ? array_map(fn (mixed $key): mixed => is_array($key) ? self::orderedKeys($key, self::FOREIGN_KEY_KEYS) : $key, $value) : $value,
+                'indexes' => is_array($value) ? array_map(fn (mixed $index): mixed => is_array($index)
+                    ? ['columns' => $index['columns'] ?? null, 'unique' => $index['unique'] ?? false, ...self::orderedKeys(array_diff_key($index, ['columns' => true, 'unique' => true]), self::INDEX_KEYS)]
+                    : $index, $value) : $value,
+                default => $value,
+            };
+        }
+
+        foreach (array_diff_key($table, array_flip($keys)) as $key => $value) {
+            $canonical[(string) $key] = $value;
+        }
+
+        return $canonical;
+    }
+
+    /**
+     * An entry's keys in the order given, the ones that are null or false left out, and any other
+     * key after them.
+     *
+     * @param  array<array-key, mixed>  $entry
+     * @param  list<string>  $keys
+     * @return array<string, mixed>
+     */
+    public static function orderedKeys(array $entry, array $keys): array
+    {
+        $ordered = [];
+
+        foreach ([...$keys, ...array_diff(array_map(strval(...), array_keys($entry)), $keys)] as $key) {
+            if (array_key_exists($key, $entry) && $entry[$key] !== null && $entry[$key] !== false) {
+                $ordered[$key] = $entry[$key];
+            }
+        }
+
+        return $ordered;
+    }
+
+    /**
+     * A canonical table as JSON writes it, its maps as objects even when empty.
+     *
+     * @param  array<string, mixed>  $table
+     */
+    private static function encodeTable(array $table): object
+    {
+        foreach (['columns', 'foreignKeys'] as $key) {
+            if (is_array($table[$key] ?? null)) {
+                $table[$key] = (object) array_map(fn (mixed $entry): mixed => is_array($entry) ? (object) $entry : $entry, $table[$key]);
+            }
+        }
+
+        if (is_array($table['indexes'] ?? null)) {
+            $table['indexes'] = array_values(array_map(fn (mixed $index): mixed => is_array($index) ? (object) $index : $index, $table['indexes']));
+        }
+
+        return (object) $table;
     }
 
     /**
@@ -341,7 +500,7 @@ final class StructureFiles
             $problems[] = sprintf('says "context": %s, but the file is named %s.json', json_encode($document['context'] ?? null), $context);
         }
 
-        foreach (array_diff(array_keys($document), ['context', 'description', ...array_keys(self::SECTIONS)]) as $key) {
+        foreach (array_diff(array_keys($document), ['context', 'description', ...array_keys(self::SECTIONS), self::TABLES]) as $key) {
             $problems[] = sprintf('has an unknown key "%s"', $key);
         }
 
@@ -376,7 +535,219 @@ final class StructureFiles
             }
         }
 
+        $tables = $document[self::TABLES];
+
+        if (! is_array($tables)) {
+            $problems[] = sprintf('has no "%s" object', self::TABLES);
+        } elseif ($context === self::SHARED && $tables !== []) {
+            $problems[] = sprintf('"%s" must be empty, because the shared kernel has no tables', self::TABLES);
+        } else {
+            foreach ($tables as $name => $table) {
+                $problems = [...$problems, ...self::tableProblems(self::TABLES.'.'.$name, (string) $name, $table, self::CONTEXT_TABLE_KEYS)];
+            }
+        }
+
         return $problems;
+    }
+
+    /**
+     * What is wrong with the shape of a table, one line per fault, each starting with where it
+     * sits (`tables.{name}` or `entities.{Entity}.table`). Only the shape: which delete behaviour a
+     * foreign key should have, or whether a nullable column says why, is a design rule the editor
+     * holds (migrations.md), so a table read back from a migration that breaks one still reads.
+     *
+     * @param  list<string>  $keys  TABLE_KEYS or CONTEXT_TABLE_KEYS
+     * @return list<string>
+     */
+    public static function tableProblems(string $at, ?string $name, mixed $table, array $keys): array
+    {
+        if (! is_array($table)) {
+            return [sprintf('%s: is not an object', $at)];
+        }
+
+        $problems = [];
+        $name ??= is_string($table['name'] ?? null) ? $table['name'] : null;
+
+        foreach (array_diff(array_map(strval(...), array_keys($table)), $keys) as $key) {
+            $problems[] = sprintf('%s: has an unknown key "%s"', $at, $key);
+        }
+
+        if ($name === null || preg_match(self::SNAKE_NAME, $name) !== 1) {
+            $problems[] = sprintf('%s: %s must be a snake_case table name', $at, in_array('name', $keys, true) ? '"name"' : 'the key');
+        }
+
+        if (in_array('description', $keys, true) && ! self::isDescription($table['description'] ?? null)) {
+            $problems[] = sprintf('%s: "description" must be text of at most %d characters, or null', $at, self::DESCRIPTION_LENGTH);
+        }
+
+        $model = $table['model'] ?? null;
+
+        if (! (($model === null && ! in_array('name', $keys, true)) || (is_string($model) && preg_match('/^[A-Z][A-Za-z0-9]*$/', $model) === 1))) {
+            $problems[] = sprintf('%s: "model" must name a class of app/Models%s', $at, in_array('name', $keys, true) ? '' : ', or be null');
+        }
+
+        foreach (['timestamps', 'softDeletes'] as $flag) {
+            if (! is_bool($table[$flag] ?? null)) {
+                $problems[] = sprintf('%s: "%s" must be true or false', $at, $flag);
+            }
+        }
+
+        $columns = $table['columns'] ?? null;
+        $foreignKeys = $table['foreignKeys'] ?? null;
+
+        if (! is_array($columns) || ($columns !== [] && array_is_list($columns))) {
+            $problems[] = sprintf('%s: "columns" must be an object of column names', $at);
+            $columns = [];
+        }
+
+        if (! is_array($foreignKeys) || ($foreignKeys !== [] && array_is_list($foreignKeys))) {
+            $problems[] = sprintf('%s: "foreignKeys" must be an object of column names', $at);
+            $foreignKeys = [];
+        }
+
+        foreach ([...array_keys($columns), ...array_keys($foreignKeys)] as $column) {
+            if (preg_match(self::SNAKE_NAME, (string) $column) !== 1) {
+                $problems[] = sprintf('%s: %s is not a snake_case column name', $at, $column);
+            } elseif (in_array($column, self::IMPLIED_COLUMNS, true)) {
+                $problems[] = sprintf('%s: lists %s, which the uuid key, timestamps or softDeletes already add — leave it out', $at, $column);
+            }
+        }
+
+        foreach (array_keys(array_intersect_key($columns, $foreignKeys)) as $column) {
+            $problems[] = sprintf('%s: %s is both a column and a foreign key — a foreign key is its own column', $at, $column);
+        }
+
+        foreach ($columns as $column => $definition) {
+            $problems = [...$problems, ...self::columnProblems("{$at}.columns.{$column}", $definition)];
+        }
+
+        foreach ($foreignKeys as $column => $definition) {
+            $problems = [...$problems, ...self::foreignKeyProblems("{$at}.foreignKeys.{$column}", $definition)];
+        }
+
+        $indexes = $table['indexes'] ?? null;
+
+        if (! is_array($indexes) || ! array_is_list($indexes)) {
+            return [...$problems, sprintf('%s: "indexes" must be a list', $at)];
+        }
+
+        $known = [...array_map(strval(...), array_keys($columns)), ...array_map(strval(...), array_keys($foreignKeys)), 'id'];
+
+        if (($table['timestamps'] ?? false) === true) {
+            $known = [...$known, 'created_at', 'updated_at'];
+        }
+
+        if (($table['softDeletes'] ?? false) === true) {
+            $known[] = 'deleted_at';
+        }
+
+        foreach ($indexes as $i => $index) {
+            $listed = is_array($index) ? ($index['columns'] ?? null) : null;
+
+            if (! is_array($index) || array_diff(array_map(strval(...), array_keys($index)), self::INDEX_KEYS) !== [] || ! is_bool($index['unique'] ?? null) || ! self::isNames($listed) || $listed === [] || ! self::isComment($index['comment'] ?? null)) {
+                $problems[] = sprintf('%s.indexes[%d]: must be {"columns": [names], "unique": true or false}, with an optional "comment"', $at, $i);
+
+                continue;
+            }
+
+            foreach (array_diff($listed, $known) as $column) {
+                $problems[] = sprintf('%s.indexes[%d]: names %s, which is no column of the table', $at, $i, $column);
+            }
+        }
+
+        return $problems;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function columnProblems(string $at, mixed $column): array
+    {
+        if (! is_array($column)) {
+            return [sprintf('%s: is not an object', $at)];
+        }
+
+        $problems = [];
+
+        foreach (array_diff(array_map(strval(...), array_keys($column)), self::COLUMN_KEYS) as $key) {
+            $problems[] = sprintf('%s: has an unknown key "%s"', $at, $key);
+        }
+
+        if (! is_string($column['type'] ?? null) || preg_match('/^[a-z][A-Za-z]*$/', $column['type']) !== 1) {
+            $problems[] = sprintf('%s: "type" must be the Blueprint method that builds it, such as string or unsignedBigInteger', $at);
+        }
+
+        foreach (['length', 'precision', 'scale'] as $size) {
+            if (isset($column[$size]) && (! is_int($column[$size]) || $column[$size] < 0)) {
+                $problems[] = sprintf('%s: "%s" must be a whole number', $at, $size);
+            }
+        }
+
+        if (isset($column['enum']) && (! is_string($column['enum']) || $column['enum'] === '')) {
+            $problems[] = sprintf('%s: "enum" must name the enum the model casts it to', $at);
+        }
+
+        foreach (['nullable', 'unique', 'index'] as $flag) {
+            if (isset($column[$flag]) && ! is_bool($column[$flag])) {
+                $problems[] = sprintf('%s: "%s" must be true or false', $at, $flag);
+            }
+        }
+
+        if (isset($column['default']) && ! is_scalar($column['default'])) {
+            $problems[] = sprintf('%s: "default" must be a string, a number or true or false', $at);
+        }
+
+        if (! self::isComment($column['comment'] ?? null)) {
+            $problems[] = sprintf('%s: "comment" must be text', $at);
+        }
+
+        return $problems;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function foreignKeyProblems(string $at, mixed $key): array
+    {
+        if (! is_array($key)) {
+            return [sprintf('%s: is not an object', $at)];
+        }
+
+        $problems = [];
+
+        foreach (array_diff(array_map(strval(...), array_keys($key)), self::FOREIGN_KEY_KEYS) as $unknown) {
+            $problems[] = sprintf('%s: has an unknown key "%s"', $at, $unknown);
+        }
+
+        if (! is_string($key['table'] ?? null) || preg_match(self::SNAKE_NAME, $key['table']) !== 1) {
+            $problems[] = sprintf('%s: "table" must name the parent table', $at);
+        }
+
+        if (isset($key['onDelete']) && ! in_array($key['onDelete'], StructureTables::ON_DELETE, true)) {
+            $problems[] = sprintf('%s: "onDelete" must be one of %s', $at, implode(', ', StructureTables::ON_DELETE));
+        }
+
+        foreach (['nullable', 'unique', 'index'] as $flag) {
+            if (isset($key[$flag]) && ! is_bool($key[$flag])) {
+                $problems[] = sprintf('%s: "%s" must be true or false', $at, $flag);
+            }
+        }
+
+        if (! self::isComment($key['comment'] ?? null)) {
+            $problems[] = sprintf('%s: "comment" must be text', $at);
+        }
+
+        return $problems;
+    }
+
+    private static function isComment(mixed $value): bool
+    {
+        return $value === null || (is_string($value) && trim($value) !== '');
+    }
+
+    private static function isNames(mixed $value): bool
+    {
+        return is_array($value) && array_is_list($value) && array_filter($value, fn (mixed $item): bool => ! is_string($item)) === [];
     }
 
     /**
@@ -398,13 +769,14 @@ final class StructureFiles
     }
 
     /**
-     * Whether an entity's entry says nothing at all, so the manifest leaves it out (structure.md).
+     * Whether an entity's entry says nothing at all, so the manifest leaves it out (structure.md): no
+     * state, no method, no description and no table.
      *
      * @param  array<array-key, mixed>  $entry
      */
     public static function listsNothing(array $entry): bool
     {
-        return ($entry['state'] ?? []) === [] && ($entry['behaviours'] ?? []) === [] && ($entry['assertions'] ?? []) === [] && ($entry['description'] ?? null) === null;
+        return ($entry['state'] ?? []) === [] && ($entry['behaviours'] ?? []) === [] && ($entry['assertions'] ?? []) === [] && ($entry['description'] ?? null) === null && ($entry['table'] ?? null) === null;
     }
 
     /**
@@ -571,7 +943,11 @@ final class StructureFiles
         }
 
         if (self::listsNothing($entry)) {
-            $problems[] = sprintf('entities.%s: lists no state, no behaviour, no assertion and no description, so leave it out', $name);
+            $problems[] = sprintf('entities.%s: lists no state, no behaviour, no assertion, no description and no table, so leave it out', $name);
+        }
+
+        if (($entry['table'] ?? null) !== null) {
+            $problems = [...$problems, ...self::tableProblems("entities.{$name}.table", null, $entry['table'], self::TABLE_KEYS)];
         }
 
         foreach (array_keys($entry['state']) as $property) {
@@ -637,6 +1013,7 @@ final class StructureFiles
                 $kind === 'map' => $this->isMapOf($value, fn (mixed $item): bool => $item === null || is_string($item) || is_int($item)),
                 $kind === 'map:string' => $this->isMapOf($value, fn (mixed $item): bool => is_string($item) && $item !== ''),
                 $kind === 'methods' => $this->isMethods($value),
+                $kind === 'table' => $value === null || is_array($value),
                 $kind === 'transitions' => $value === null || $this->isMapOf($value, fn (mixed $next): bool => is_array($next) && array_is_list($next) && array_filter($next, fn (mixed $case): bool => ! is_string($case)) === []),
                 default => is_string($value) && $value !== '',
             };
@@ -652,6 +1029,7 @@ final class StructureFiles
                         $kind === 'map' => 'an object of names to a string, an int or null',
                         $kind === 'map:string' => 'an object of names to a type',
                         $kind === 'methods' => 'an object of camelCase method names, each with "params" (names to a type) and "throws" (a list of exceptions)',
+                        $kind === 'table' => 'the table the entity maps to, or left out',
                         $kind === 'transitions' => 'null, or an object of each case to the list of cases it may become',
                         default => $kind,
                     },
