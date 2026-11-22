@@ -239,6 +239,20 @@ export type StructureGraph = {
     resourceOutOfStep: Partial<Record<string, string[]>>;
     /** The groups app/Http/Navigation.php declares, which a menu entry may sit in */
     menuGroups: { key: string; title: string; icon: string }[];
+    /** Each table a context designs, by context and name, with the status of the steps that build it */
+    tables: Partial<
+        Record<string, Partial<Record<string, StructureTableStatus>>>
+    >;
+};
+
+export type StructureTableStatus = {
+    /** The entity the table maps to, or null for one of the context's tables */
+    entity: string | null;
+    /** Whether the migrations build it already, which locks what they build */
+    built: boolean;
+    status: StructureStatus;
+    reason: string | null;
+    command: string | null;
 };
 
 /**

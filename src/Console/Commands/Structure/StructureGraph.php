@@ -62,14 +62,16 @@ final class StructureGraph
      * `{Entity}.{property}`, and `childrenBuilt` each child entity, as `{Aggregate}.{Child}`.
      * `outOfStep` and `resourceOutOfStep` name each built entry the code describes another way, by
      * the path StructureSync takes it back from the code with. `menuGroups` are the groups the
-     * main menu declares, which a resource's menu entry may sit in.
+     * main menu declares, which a resource's menu entry may sit in, and `tables` each table a
+     * context designs, with the status of the steps that build it.
      *
-     * @return array{overview: View, contexts: array<string, View>, resources: array<string, View>, byHand: list<Difference>, manifests: array<string, array<string, mixed>>, versions: array<string, string>, resourceManifests: array<string, array<string, mixed>>, resourceVersions: array<string, string>, resourceBuilt: array<string, list<string>>, entityMethodsBuilt: array<string, list<string>>, entityStateBuilt: array<string, list<string>>, childrenBuilt: array<string, list<string>>, outOfStep: array<string, list<string>>, resourceOutOfStep: array<string, list<string>>, menuGroups: list<array{key: string, title: string, icon: string}>}
+     * @return array{overview: View, contexts: array<string, View>, resources: array<string, View>, byHand: list<Difference>, manifests: array<string, array<string, mixed>>, versions: array<string, string>, resourceManifests: array<string, array<string, mixed>>, resourceVersions: array<string, string>, resourceBuilt: array<string, list<string>>, entityMethodsBuilt: array<string, list<string>>, entityStateBuilt: array<string, list<string>>, childrenBuilt: array<string, list<string>>, outOfStep: array<string, list<string>>, resourceOutOfStep: array<string, list<string>>, menuGroups: list<array{key: string, title: string, icon: string}>, tables: array<string, array<string, array{entity: string|null, built: bool, status: string, reason: string|null, command: string|null}>>}
      */
     public function graph(): array
     {
         $differences = $this->comparer->differences();
-        $this->statuses = $this->statuses($this->planner->steps(), $differences);
+        $steps = $this->planner->steps();
+        $this->statuses = $this->statuses($steps, $differences);
 
         $contexts = [];
         $contextManifests = [];
@@ -128,7 +130,50 @@ final class StructureGraph
             'outOfStep' => $outOfStep,
             'resourceOutOfStep' => $resourceOutOfStep,
             'menuGroups' => $this->reader->menuGroups(),
+            'tables' => $this->tables($steps),
         ];
+    }
+
+    /**
+     * Each table a valid context manifest designs, by context and name, for the screen's table page:
+     * the entity it maps to (null for one of the context's `tables`), whether the migrations build
+     * it, and the status of the steps that build it, its migration and its model, with the command
+     * of one that can run or the reason one waits.
+     *
+     * @param  list<Step>  $steps
+     * @return array<string, array<string, array{entity: string|null, built: bool, status: string, reason: string|null, command: string|null}>>
+     */
+    private function tables(array $steps): array
+    {
+        $byKey = [];
+
+        foreach ($steps as $step) {
+            $byKey[$step['key']] = $step;
+        }
+
+        $schema = $this->reader->tables()->schema();
+        $tables = [];
+
+        foreach ($this->files->designedTables() as $name => $designed) {
+            $model = $designed['table']['model'] ?? null;
+            $status = ['status' => StructurePlanner::DONE, 'reason' => null, 'command' => null];
+
+            foreach (["migration {$name}", ...(is_string($model) ? ["model {$model}"] : [])] as $key) {
+                $step = $byKey[$key] ?? null;
+
+                if ($step !== null) {
+                    $status = $this->worse(self::STEP_RANK, $status, [
+                        'status' => $step['state'],
+                        'reason' => $step['reason'],
+                        'command' => $step['state'] === StructurePlanner::READY ? StructurePlanner::describe($step) : null,
+                    ]);
+                }
+            }
+
+            $tables[$designed['context']][(string) $name] = ['entity' => $designed['entity'], 'built' => isset($schema[$name]), ...$status];
+        }
+
+        return $tables;
     }
 
     /**

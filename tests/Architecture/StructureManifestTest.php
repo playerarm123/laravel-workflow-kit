@@ -34,6 +34,7 @@ function structureManifestSpec(): array
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/KitApplyCommand.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureGraph.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureEditor.php',
+            'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureTableDesign.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureResourceEditor.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/Structure/StructureSwapper.php',
             'vendor/playerarm123/laravel-workflow-kit/src/Console/Commands/KitRetireCommand.php',

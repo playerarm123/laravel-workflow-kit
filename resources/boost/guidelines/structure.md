@@ -28,7 +28,7 @@ These live at fixed paths. *Check `kit-files`.* The ones marked *package* ship i
 - *package:* `src/Console/Commands/KitSetupCommand.php` (`kit:setup`) with `Setup/`, which sets up a project made from Laravel's React starter kit: the stack's packages, the kit's files, the config and wiring, and the files in `resources/kit/setup` it writes once
 - *package:* `src/Console/Commands/KitUiAddCommand.php` (`kit:ui-add`) with `Setup/UiComponents.php`, which adds shadcn components through the project's own CLI and settles their packages and files the way stack.md wants them
 - *package:* `src/Console/Commands/KitPlanCommand.php` (`kit:plan`), `KitApplyCommand.php` (`kit:apply`) and `KitRetireCommand.php` (`kit:retire`), with `Structure/StructureSwapper.php`, which points code at a replacement
-- *package:* `src/Console/Commands/Structure/StructureGraph.php`, which builds what the screen draws, with `StructureEditor.php` and `StructureResourceEditor.php`, which write what it changes in a context and in an HTTP resource
+- *package:* `src/Console/Commands/Structure/StructureGraph.php`, which builds what the screen draws, with `StructureEditor.php` and `StructureResourceEditor.php`, which write what it changes in a context and in an HTTP resource, and `StructureTableDesign.php`, which checks a table the editor designs and proposes one from an entity's state
 - `app/Providers/KitServiceProvider.php`, listed in `bootstrap/providers.php`, with `resources/views/kit/structure.blade.php` and the Vite entry `resources/js/kit/structure.tsx`, listed in `vite.config.ts`, and the screen it draws, in the rest of `resources/js/kit/`
 - *package:* `src/Console/Commands/MakeEnumCommand.php`, which takes over Laravel's `make:enum`, and `src/Console/Commands/MakeValueObjectCommand.php` (`make:value-object`), with `stubs/value-object.stub` and `stubs/value-object-test.stub`
 - *package:* `src/Console/Commands/MakeTableMigrationCommand.php` (`make:table-migration`) and `src/Console/Commands/MakeTableModelCommand.php` (`make:table-model`), which write a designed table's migration, model and factory through `Structure/StructureTableWriter.php`
@@ -321,9 +321,22 @@ The structure screen changes the manifests too. From the overview, create a cont
   - an exception ends with `Exception`. A refusal or an invalid value belongs to an aggregate of its own context, a use case's refusal to a use case of its own context or to none, and the shared kernel holds invalid values only (exceptions.md);
   - a property of an entity's state is camelCase, never `id`, and has a type a field could name;
   - an exception a method throws ends with `Exception`. One of the entity's own aggregate is named bare, and `kit:apply` builds it when it is missing; one of the shared kernel or of another aggregate is one a manifest designs or the code already has;
+  - a table (`StructureTableDesign`, migrations.md and models.md) has a snake_case name no manifest designs elsewhere and no migration builds yet. An entity's table names its model. Each column is built by a Blueprint method the kit writes, never `float()`, `double()`, `enum()` or `json()`. A decimal names its precision and scale, and a column that casts to an enum holds its values: a string as long as the longest case, or an integer for an int-backed one. A nullable column or foreign key says in its comment what null means. A foreign key is named `{x}_id`, points at a table a manifest designs, a migration builds or Laravel's own migrations build (`users`), chooses its delete behaviour (nullable when it sets null) and has an index it leads;
+  - a table the migrations build keeps its name, its model once one maps to it, every column, foreign key and index they build, and its timestamps and soft deletes. It takes new ones, which the migration step adds;
 - that the manifest did not change on disk since the page loaded.
 
-A refused change comes back under the field that holds it, and nothing is written. The screen does not design tables yet: write a table into the manifest by hand, or let `kit:import --sync` read it from the migrations.
+A refused change comes back under the field that holds it, and nothing is written.
+
+The editor designs a table as a whole: an entity's when the change names the entity, else one of the context's `tables`. A table the migrations do not build yet can be removed, and moving one between the two places is a remove and a save. For an entity with no table, it proposes one from the state:
+- each property as the column its snake_case name leads to: a `string`, an `int` as an integer, a `bool` as a boolean, an `array` as jsonb, and a `DateTimeImmutable` as a timestamp;
+- `Money` as an unsigned big integer in minor units, `Percent`, `Duration` and `TimeOfDay` as the integer they hold, and `CalendarDate` as a date;
+- an enum as a string of at least 20 that fits every case, or an integer for an int-backed one, cast to the enum;
+- a value object as jsonb, which the mapping step waits on until the model casts it;
+- a `?T` as nullable, with a comment the editor refuses until it says what null means;
+- a `{x}Id` that names another aggregate as a foreign key to that aggregate's table, with its delete behaviour still to choose;
+- for a child, a foreign key to the root's table that cascades.
+
+The property that holds a root's children is left out, and so is one that has no column of its own, such as a `float` or a pure enum. The proposal names each of those. The structure screen's table page that draws this is not built yet: until it is, write a table into the manifest by hand, or let `kit:import --sync` read it from the migrations.
 
 **Do**
 - Describe any card, built or not, from its panel's **Description**: a piece, an entity, a context or a resource. Only the manifest holds a description, so writing one never turns a check red. *Review only.*

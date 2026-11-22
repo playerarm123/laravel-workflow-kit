@@ -397,6 +397,145 @@ final class StructureEditor
     }
 
     /**
+     * Designs a table: an entity's, when `$entity` names one, else one of the context's `tables`,
+     * which map to no entity. `$previous` names the table the design replaces, and is null for a
+     * new one. The design keeps the rules of migrations.md and models.md (StructureTableDesign),
+     * and a table the migrations build keeps what it is built with: what it gains, `kit:apply`
+     * adds with a migration of its own.
+     *
+     * @param  array<string, mixed>  $table  the design, with its `name`
+     * @return array<string, list<string>> what is wrong, by field; empty when it was written
+     */
+    public function saveTable(string $context, string $version, ?string $entity, ?string $previous, array $table): array
+    {
+        $manifest = $this->manifest($context);
+        $refused = $this->tableRefusal($context, $manifest, $version, $entity, $previous, saving: true);
+
+        if ($refused !== null || $manifest === null) {
+            return $refused ?? [];
+        }
+
+        $table = StructureFiles::canonicalTable(array_intersect_key($table, array_flip([...StructureFiles::TABLE_KEYS, ...($entity === null ? ['description'] : [])])), $entity === null ? ['name', ...StructureFiles::CONTEXT_TABLE_KEYS] : StructureFiles::TABLE_KEYS);
+        $errors = $this->tableDesign()->errors($context, $manifest, $entity, $previous, $table);
+
+        if ($errors !== []) {
+            return $errors;
+        }
+
+        $name = (string) $table['name'];
+
+        if ($entity !== null) {
+            /** @var array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>} $entry */
+            $entry = $manifest['entities'][$entity] ?? self::emptyEntity((string) $this->holderOf($manifest, $entity));
+            $entry['table'] = $table;
+
+            return $this->writeChecked($context, self::withEntity($manifest, $entity, $entry));
+        }
+
+        unset($table['name']);
+        /** @var array<string, mixed> $tables */
+        $tables = $manifest[StructureFiles::TABLES];
+        $written = [];
+
+        foreach ($tables as $key => $was) {
+            $written[$key === $previous ? $name : (string) $key] = $key === $previous ? $table : $was;
+        }
+
+        $written[$name] = $table;
+        $manifest[StructureFiles::TABLES] = $written;
+
+        return $this->writeChecked($context, $manifest);
+    }
+
+    /**
+     * Takes a table out of the design while the migrations do not build it yet: an entity's, when
+     * `$entity` names one, else one of the context's `tables`. Moving a table between the two is a
+     * remove and a save.
+     *
+     * @return array<string, list<string>> what is wrong, by field; empty when it was removed
+     */
+    public function removeTable(string $context, string $version, ?string $entity, string $name): array
+    {
+        $manifest = $this->manifest($context);
+        $refused = $this->tableRefusal($context, $manifest, $version, $entity, $name, saving: false);
+
+        if ($refused !== null || $manifest === null) {
+            return $refused ?? [];
+        }
+
+        if (isset($this->reader->tables()->schema()[$name])) {
+            return ['name' => ["The migrations build {$name}, so the design keeps it. Drop it with a migration of your own."]];
+        }
+
+        if ($entity === null) {
+            /** @var array<string, mixed> $tables */
+            $tables = $manifest[StructureFiles::TABLES];
+            unset($tables[$name]);
+            $manifest[StructureFiles::TABLES] = $tables;
+
+            return $this->writeChecked($context, $manifest);
+        }
+
+        /** @var array{aggregate: string, state: array<string, string>, behaviours: array<string, mixed>, assertions: array<string, mixed>, table?: array<string, mixed>} $entry */
+        $entry = $manifest['entities'][$entity];
+        unset($entry['table']);
+
+        return $this->writeChecked($context, self::withEntity($manifest, $entity, $entry));
+    }
+
+    /**
+     * The table an entity's state proposes, for the screen to start a design from, with each
+     * property it cannot place and why; null when the context has no such entity.
+     *
+     * @return array{table: array<string, mixed>, unmapped: array<string, string>}|null
+     */
+    public function proposedTable(string $context, string $entity): ?array
+    {
+        $manifest = $this->manifest($context);
+
+        return $manifest === null || $this->entityRefusal($context, $manifest, $entity) !== null
+            ? null
+            : $this->tableDesign()->proposed($context, $manifest, $entity);
+    }
+
+    /**
+     * Why no table of this manifest can change here: the manifest, its version, the shared kernel,
+     * an entity of no aggregate, or a `$previous` the manifest does not design there. A new table
+     * of an entity that has one already changes that one instead.
+     *
+     * @param  array<string, mixed>|null  $manifest
+     * @return array<string, list<string>>|null
+     */
+    private function tableRefusal(string $context, ?array $manifest, string $version, ?string $entity, ?string $previous, bool $saving): ?array
+    {
+        $refused = match (true) {
+            $manifest === null => ['context' => ["{$context} has no manifest the screen can change. Fix it by hand first."]],
+            $version !== $this->files->version($context) => ['version' => ['The manifest changed since this page loaded. Reload it, then make the change again.']],
+            $context === StructureFiles::SHARED => ['context' => ['The shared kernel has no tables.']],
+            default => $entity === null ? null : $this->entityRefusal($context, $manifest, $entity),
+        };
+
+        if ($refused !== null || $manifest === null) {
+            return $refused;
+        }
+
+        $designed = $entity === null
+            ? ($previous !== null && array_key_exists($previous, $manifest[StructureFiles::TABLES]) ? $previous : null)
+            : ($manifest['entities'][$entity]['table']['name'] ?? null);
+
+        return match (true) {
+            $previous !== null && $designed !== $previous => ['name' => ["The manifest designs no table {$previous}".($entity === null ? '' : " for {$entity}").'.']],
+            $saving && $previous === null && $entity !== null && $designed !== null => ['name' => ["{$entity} is stored in {$designed} already: change that table."]],
+            default => null,
+        };
+    }
+
+    private function tableDesign(): StructureTableDesign
+    {
+        return new StructureTableDesign($this->files, $this->reader);
+    }
+
+    /**
      * Adds a child entity to an aggregate, built or not. A built aggregate keeps its name and its
      * repository, but takes new children the way a built entity takes new methods: kit:apply
      * builds each one the code does not have yet.
