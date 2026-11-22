@@ -106,6 +106,14 @@ final class StructureTables
     ) {}
 
     /**
+     * The folder the migrations are read from, when it is not `database/migrations`.
+     */
+    public function folder(): ?string
+    {
+        return $this->migrations;
+    }
+
+    /**
      * Every table the project's own migrations build, in the order they first build them.
      *
      * @return array<string, Table>

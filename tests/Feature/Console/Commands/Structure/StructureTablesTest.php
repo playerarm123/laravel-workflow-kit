@@ -518,3 +518,65 @@ describe('StructureGraph', function () {
         ])->and($node('entity:'.SAMPLING_TABLES_CONTEXT.'/Strap'))->toMatchArray(['items' => ['table straps'], 'status' => StructurePlanner::DONE]);
     });
 });
+
+describe('StructurePlanner', function () {
+    /**
+     * The steps of this file's context and the resource that names its Strap model, as title,
+     * state, reason, the command a person would type and the nodes each one builds.
+     *
+     * @return array<string, array{0: string, 1: string|null, 2: string, 3: list<string>}>
+     */
+    function samplingTablesSteps(): array
+    {
+        $planner = new StructurePlanner(samplingTablesReader(), samplingTablesFiles(), new StructureMarkers(storage_path('framework/testing/sampling-tables')));
+        $steps = [];
+
+        foreach ($planner->steps([SAMPLING_TABLES_CONTEXT], ['SamplingTablesStrap']) as $step) {
+            if (preg_match('/^(migration|model|repository) /', $step['title']) === 1) {
+                $steps[$step['title']] = [$step['state'], $step['reason'], StructurePlanner::describe($step), $step['nodes']];
+            }
+        }
+
+        return $steps;
+    }
+
+    beforeEach(fn () => samplingTablesFiles()->writeResource(['resource' => 'SamplingTablesStrap', 'model' => 'Strap', 'controller' => [], 'actions' => [], 'policy' => null, 'pages' => []]));
+
+    afterEach(fn () => File::delete(base_path(StructureFiles::HTTP_DIRECTORY.'/SamplingTablesStrap.json')));
+
+    it('finds every table and model the manifest designs built, and builds the model of a resource the context designs through the table', function () {
+        $manifest = samplingTablesManifest();
+        $manifest['aggregates']['Hamper']['repository'] = true;
+        samplingTablesFiles()->write($manifest);
+        $folder = samplingTablesMigrations();
+        $entity = fn (string $name): string => 'entity:'.SAMPLING_TABLES_CONTEXT."/{$name}";
+
+        expect(samplingTablesSteps())->toBe([
+            'repository '.SAMPLING_TABLES_CONTEXT.'/Hamper' => [StructurePlanner::DONE, null, 'php artisan make:eloquent-repository Hamper --domain='.SAMPLING_TABLES_CONTEXT.'/Hamper --model=SamplingTablesHamper', ['aggregate:'.SAMPLING_TABLES_CONTEXT.'/Hamper']],
+            'migration sampling_hampers' => [StructurePlanner::DONE, null, "php artisan make:table-migration sampling_hampers --path={$folder}", [$entity('Hamper')]],
+            'model SamplingTablesHamper' => [StructurePlanner::DONE, null, 'php artisan make:table-model sampling_hampers', [$entity('Hamper')]],
+            'migration straps' => [StructurePlanner::DONE, null, "php artisan make:table-migration straps --path={$folder}", [$entity('Strap')]],
+            'model Strap' => [StructurePlanner::DONE, null, 'php artisan make:table-model straps', [$entity('Strap'), 'model:SamplingTablesStrap']],
+            'migration hamper_labels' => [StructurePlanner::DONE, null, "php artisan make:table-migration hamper_labels --path={$folder}", ['table:'.SAMPLING_TABLES_CONTEXT.'/hamper_labels']],
+        ]);
+    });
+
+    it('plans the migration of what a table adds once the tables it points at are built, and the model once its enums are', function () {
+        $manifest = samplingTablesManifest();
+        $manifest['entities']['Hamper']['table']['columns']['colour'] = ['type' => 'string', 'length' => 20];
+        $manifest['tables']['sampling_lids'] = [
+            'model' => 'SamplingTablesLid',
+            'columns' => ['shade' => ['type' => 'string', 'length' => 20, 'enum' => SAMPLING_TABLES_CONTEXT.'/Hamper/LidShade']],
+            'foreignKeys' => ['box_id' => ['table' => 'sampling_boxes', 'onDelete' => 'cascade', 'index' => true], 'hamper_id' => ['table' => 'sampling_hampers', 'onDelete' => 'cascade', 'index' => true]],
+            'indexes' => [],
+            'timestamps' => false,
+            'softDeletes' => false,
+        ];
+        samplingTablesFiles()->write($manifest);
+        $steps = samplingTablesSteps();
+
+        expect($steps['migration sampling_hampers'][0])->toBe(StructurePlanner::READY)
+            ->and($steps['migration sampling_lids'])->toBe([StructurePlanner::WAITING, 'the table sampling_boxes comes first', 'php artisan make:table-migration sampling_lids --path='.samplingTablesMigrations(), ['table:'.SAMPLING_TABLES_CONTEXT.'/sampling_lids']])
+            ->and($steps['model SamplingTablesLid'])->toBe([StructurePlanner::WAITING, SAMPLING_TABLES_CONTEXT.'/Hamper/LidShade is not built yet', 'php artisan make:table-model sampling_lids', ['table:'.SAMPLING_TABLES_CONTEXT.'/sampling_lids']]);
+    });
+});

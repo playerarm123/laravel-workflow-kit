@@ -115,7 +115,7 @@ public function definition(): array
 
 ## Scaffold, never hand-write
 
-Run `php artisan make:model {Model} --factory`. The stubs write `KeyedByUuid`, `#[Fillable([])]`, `casts()`, `@use HasFactory` and a factory that fills `id`. Then add a `@property` line per column, the fillable columns, the casts and the relations. Without `--factory` the model has no factory, and the `factory` check names it.
+Run `php artisan make:model {Model} --factory`. The stubs write `KeyedByUuid`, `#[Fillable([])]`, `casts()`, `@use HasFactory` and a factory that fills `id`. Then add a `@property` line per column, the fillable columns, the casts and the relations. Without `--factory` the model has no factory, and the `factory` check names it. For a table a context manifest designs, `php artisan make:table-model {table}` writes all of that from the design, and `kit:apply` runs it (structure.md).
 
 ## Stepping outside this file
 

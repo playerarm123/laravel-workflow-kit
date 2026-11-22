@@ -29,6 +29,8 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeFormRequestCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeListPageCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakePolicyCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakePortCommand;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeTableMigrationCommand;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeTableModelCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeUseCaseCommand;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\MakeValueObjectCommand;
 
@@ -75,6 +77,8 @@ final class WorkflowKitServiceProvider extends ServiceProvider
             MakeFormRequestCommand::class,
             MakeListPageCommand::class,
             MakePortCommand::class,
+            MakeTableMigrationCommand::class,
+            MakeTableModelCommand::class,
             MakeUseCaseCommand::class,
             MakeValueObjectCommand::class,
         ]);
