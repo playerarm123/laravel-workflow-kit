@@ -17,8 +17,8 @@ use Throwable;
  * Only what migrations.md lets a migration say is read: columns, `foreignUuid()->constrained()`
  * with its delete behaviour, indexes, `timestamps()` and `softDeletes()`. The uuid key every table
  * opens with is implied, so it is left out. A polymorphic reference (a `{x}_id` uuid beside a
- * `{x}_type` string, with no foreign key) is written by hand, so its pair of columns is left out and
- * listed by handWritten().
+ * `{x}_type` string, with no foreign key) is written by hand, so its pair of columns, and every index
+ * that names either of them, is left out and listed by handWritten().
  *
  * The migrations Laravel and its packages publish keep their own idioms, and the kit's own audit
  * log table is the kit's, so neither is read.
@@ -698,6 +698,10 @@ final class StructureTables
             if ($id !== null && $id['type'] === 'uuid' && in_array($definition['type'], ['string', 'char'], true)) {
                 unset($table['columns'][$column], $table['columns']["{$stem}_id"]);
                 $this->handWritten[$name][] = "{$stem}_type/{$stem}_id";
+                $table['indexes'] = array_values(array_filter(
+                    $table['indexes'],
+                    fn (array $index): bool => array_intersect($index['columns'], [$column, "{$stem}_id"]) === [],
+                ));
             }
         }
 

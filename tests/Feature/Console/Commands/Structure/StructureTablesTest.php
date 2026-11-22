@@ -87,6 +87,9 @@ PHP),
             $table->uuid('owner_id');
             $table->string('owner_type', 40);
             $table->unique(['hamper_id', 'tag']);
+            $table->unique(['hamper_id', 'owner_type', 'owner_id']);
+            $table->index(['owner_type', 'owner_id']);
+            $table->index('owner_id');
         });
 
         Schema::create('sampling_scratch', function (Blueprint $table) {
