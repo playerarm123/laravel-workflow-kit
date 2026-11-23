@@ -325,7 +325,7 @@ Every card carries the status `kit:plan` gives the steps that build it:
 | **done** | Built. | The piece in full. |
 | **ready** | `kit:apply` can build it now. | The exact command. |
 | **waiting** | Something comes first: another piece, or code a person writes. | What it waits for. |
-| **differs** | Built, but not the way the manifest says. | The check's own message. |
+| **differs** | Built, but not the way the manifest says, or a table the database holds another way than its migrations build it. | The check's own message. |
 
 Elsewhere cards carry no status; their own context shows it.
 
@@ -382,6 +382,8 @@ Double-click an entity's card, or use the database icon in its panel, to open th
 The page shows the entity's state on the left, with the column each property maps to. An entity with no table yet starts from the one its state proposes: a `Money` as an integer in minor units, an enum as a string long enough for every case, a `?T` as nullable, a `{x}Id` as a foreign key to that aggregate's table, and a child's foreign key to its root, which cascades. Choose each foreign key's delete behaviour and write what null means in each nullable column's comment, then **Add table**.
 
 The editor refuses what migrations.md refuses before anything is written: `float`, `enum()` or `json()`, an enum column too short for its cases, a nullable column that does not say what null means, and a foreign key with no parent table, no delete behaviour or no index it leads. Once the migrations build the table, what they build is locked: add columns, foreign keys and indexes, and `kit:apply` writes a migration that adds just them. Below the form, the page lists what the model holds and draws the tables next to this one; click one to open it. `kit:apply` then builds the migration, the model and its factory, and the repository's `toModel()` / `toEntity()`.
+
+Once the migrations build the table, the page compares them with the database the app is connected to. Its header says the database holds the table as the migrations build it, or lists where the two differ: a migration not run yet (run `php artisan migrate`), a column, a foreign key or an index only one side has, another type, length, nullability or delete behaviour. The table then reads **differs**, and so does the entity's card in the context view. `kit:plan` lists the same under **Differs from the database**. With no database to connect to, the page says the schema could not be read, so what it shows is only what the migrations say.
 
 ### HTTP resource pieces
 

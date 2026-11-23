@@ -251,6 +251,7 @@ describe('StructureGraph', function () {
             'vessels' => [
                 'entity' => 'Vessel', 'built' => true, 'builtColumns' => ['call_sign'],
                 'status' => 'ready', 'reason' => null, 'command' => 'php artisan make:table-migration vessels --path='.samplingPiersMigrations(),
+                'schema' => null,
                 'model' => ['fillable' => ['call_sign', 'class'], 'casts' => ['class' => 'PierStatus'], 'relations' => []],
                 'parents' => [],
                 'children' => [['table' => 'vessel_tags', 'column' => 'vessel_id', 'context' => $context, 'entity' => null]],
@@ -258,6 +259,7 @@ describe('StructureGraph', function () {
             'vessel_tags' => [
                 'entity' => null, 'built' => false, 'builtColumns' => [],
                 'status' => 'ready', 'reason' => null, 'command' => 'php artisan make:table-migration vessel_tags --path='.samplingPiersMigrations(),
+                'schema' => null,
                 'model' => null,
                 'parents' => [['table' => 'vessels', 'column' => 'vessel_id', 'context' => $context, 'entity' => 'Vessel']],
                 'children' => [],
