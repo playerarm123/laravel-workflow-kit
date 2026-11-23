@@ -314,6 +314,15 @@ export type StructureTableStatus = {
     status: StructureStatus;
     reason: string | null;
     command: string | null;
+    /**
+     * What the database holds against what the migrations build: whether it could be read, why
+     * not, and where the two differ; null while the migrations do not build the table
+     */
+    schema: {
+        read: boolean;
+        message: string | null;
+        differences: string[];
+    } | null;
     /** What the model the table names holds; null for a table no model maps to */
     model: {
         fillable: string[];

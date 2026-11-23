@@ -325,7 +325,7 @@ side panel ก็มีรายการ **By hand** สำหรับคว�
 | **done** | สร้างแล้ว | รายละเอียดทั้งหมดของชิ้นนั้น |
 | **ready** | `kit:apply` สร้างได้ทันที | คำสั่งที่จะรัน |
 | **waiting** | ต้องมีอย่างอื่นก่อน อาจเป็นชิ้นอื่น หรือโค้ดที่คนต้องเขียน | สิ่งที่รออยู่ |
-| **differs** | สร้างแล้วแต่ไม่ตรงกับที่ manifest บอก | ข้อความจาก check |
+| **differs** | สร้างแล้วแต่ไม่ตรงกับที่ manifest บอก หรือตารางในฐานข้อมูลไม่ตรงกับที่ migration สร้าง | ข้อความจาก check |
 
 การ์ด Elsewhere ไม่มีสถานะ ให้ไปดูใน context ของมันเอง
 
@@ -382,6 +382,8 @@ action ที่ใช้กับการ์ดได้จะเป็นไ�
 ด้านซ้ายของหน้าแสดง state ของ entity พร้อมบอกว่าแต่ละ property map ไป column ไหน entity ที่ยังไม่มีตารางจะเริ่มจากตารางที่เสนอจาก state ให้ เช่น `Money` เป็นจำนวนเต็มหน่วยย่อย, enum เป็น string ที่ยาวพอสำหรับทุก case, `?T` เป็น nullable, `{x}Id` เป็น foreign key ไปตารางของ aggregate นั้น และ child ได้ foreign key ไป root แบบ cascade ให้เลือกพฤติกรรมตอนลบของแต่ละ foreign key และเขียน comment ของ column ที่ nullable ว่า null หมายถึงอะไร แล้วกด **Add table**
 
 editor จะปฏิเสธสิ่งที่ migrations.md ห้ามก่อนเขียนลง manifest ได้แก่ `float`, `enum()` หรือ `json()`, column ที่ cast เป็น enum แต่ยาวไม่พอสำหรับทุก case, column ที่ nullable แต่ไม่บอกว่า null หมายถึงอะไร และ foreign key ที่ไม่มีตารางแม่, ไม่ได้เลือกพฤติกรรมตอนลบ หรือไม่มี index ที่ขึ้นต้นด้วยมัน เมื่อ migration สร้างตารางแล้ว ส่วนที่สร้างแล้วจะถูกล็อก แต่ยังเพิ่ม column, foreign key และ index ใหม่ได้ แล้ว `kit:apply` จะเขียน migration ที่เพิ่มเฉพาะส่วนนั้น ใต้ฟอร์มแสดงสิ่งที่ model มี และวาดตารางข้างเคียง คลิกเพื่อเปิดหน้าของตารางนั้นได้ จากนั้น `kit:apply` จะสร้าง migration, model กับ factory และ `toModel()` / `toEntity()` ของ repository ให้
+
+เมื่อ migration สร้างตารางแล้ว หน้านี้จะเทียบ migration กับฐานข้อมูลที่แอปเชื่อมอยู่ หัวหน้าจะบอกว่าฐานข้อมูลมีตารางตรงกับที่ migration สร้าง หรือไล่รายการที่ไม่ตรงกัน ได้แก่ migration ที่ยังไม่ได้รัน (ให้รัน `php artisan migrate`), column, foreign key หรือ index ที่มีอยู่ฝั่งเดียว, ชนิด ความยาว nullable หรือพฤติกรรมตอนลบที่ต่างกัน ตารางจะขึ้น **differs** และการ์ดของ entity ใน context view ก็ขึ้นเหมือนกัน `kit:plan` แสดงรายการเดียวกันไว้ใต้ **Differs from the database** ถ้าเชื่อมฐานข้อมูลไม่ได้ หน้าจะบอกว่าอ่าน schema ไม่ได้ สิ่งที่แสดงจึงเป็นแค่สิ่งที่ migration บอก ยังไม่ได้ยืนยันกับฐานข้อมูล
 
 ### ชิ้นใน HTTP resource
 

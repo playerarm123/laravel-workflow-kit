@@ -11,7 +11,9 @@ use Illuminate\Support\Str;
  *
  * Every step is `done` when the code already has it, `ready` when it can run now, or `waiting`
  * with the reason, which is code a person has to fill in first (a Command's fields, a list Row's
- * keys). A plan is read from the code as it stands, so planning again after a run picks up where
+ * keys). A table the migrations build also gets a `schema` step while the database holds it
+ * another way (StructureLiveSchema): it `differs` with what the check found, and no generator
+ * runs it. A plan is read from the code as it stands, so planning again after a run picks up where
  * the run stopped. What no generator writes, such as a second repository or a method outside the
  * resource ones, is left to StructureComparer's differences.
  *
@@ -27,6 +29,8 @@ final class StructurePlanner
 
     public const string WAITING = 'waiting';
 
+    public const string DIFFERS = 'differs';
+
     private const array RESOURCE_METHODS = ['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'];
 
     /**
@@ -41,11 +45,39 @@ final class StructurePlanner
      */
     private ?array $designedTables = null;
 
+    /**
+     * The tables whose live schema went unread because the database could not be reached.
+     *
+     * @var list<string>
+     */
+    private array $unread = [];
+
+    /**
+     * @param  StructureLiveSchema|null  $live  the database's schema the migrations are compared with; none when null
+     */
     public function __construct(
         private readonly StructureReader $reader,
         private readonly StructureFiles $files,
         private readonly StructureMarkers $markers,
+        private readonly ?StructureLiveSchema $live = null,
     ) {}
+
+    /**
+     * The database's schema the plan compares the migrations with, or null when it compares none.
+     */
+    public function live(): ?StructureLiveSchema
+    {
+        return $this->live;
+    }
+
+    /**
+     * Why the database's schema could not be read, when a table the migrations build was left
+     * uncompared for it; null otherwise.
+     */
+    public function unreadSchema(): ?string
+    {
+        return $this->unread === [] ? null : $this->live?->unreadable();
+    }
 
     /**
      * Every step of the manifests named, or of all of them when none is named, in the order they
@@ -775,7 +807,8 @@ final class StructurePlanner
      * The steps of a table a context designs (structure.md, "Tables"): its migration, which waits
      * for every table a foreign key points at, and its model with the factory, which waits for the
      * enums its columns name. The migration is done once the migrations build everything the
-     * design lists; what they build another way is the check's to name.
+     * design lists; what they build another way is the check's to name. Once they build it, a
+     * `schema` step names where the database holds it another way, such as a migration not run.
      *
      * @param  array{context: string, entity: string|null, aggregate: string|null, table: array<string, mixed>}  $designed
      * @param  list<string>  $nodes
@@ -813,6 +846,26 @@ final class StructurePlanner
 
         if (is_string($model)) {
             $steps[] = $this->tableModelStep($table, $model, $nodes);
+        }
+
+        $differences = $built === null ? [] : $this->live?->differences($table);
+
+        if ($differences === null) {
+            $this->unread[] = $table;
+        } elseif ($differences !== []) {
+            $steps[] = [
+                'order' => 3,
+                'key' => "schema {$table}",
+                'title' => "schema {$table}",
+                'state' => self::DIFFERS,
+                'reason' => implode('; ', $differences),
+                'command' => null,
+                'arguments' => [],
+                'marker' => null,
+                'line' => null,
+                'nodes' => $nodes,
+                'swap' => null,
+            ];
         }
 
         return $steps;

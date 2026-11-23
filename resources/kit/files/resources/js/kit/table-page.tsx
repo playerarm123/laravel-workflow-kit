@@ -600,10 +600,41 @@ export function TablePage({
                             </Button>
                         </div>
                     </div>
-                    {status?.reason !== null &&
-                        status?.reason !== undefined && (
+                    {status?.status === 'waiting' && status.reason !== null && (
+                        <p className="text-muted-foreground">
+                            Waits: {status.reason}
+                        </p>
+                    )}
+                    {status?.schema?.read === false && (
+                        <p className="text-amber-700 dark:text-amber-400">
+                            The schema could not be read
+                            {status.schema.message !== null &&
+                                ` (${status.schema.message})`}
+                            , so what this page shows is what the migrations
+                            say, not what the database holds.
+                        </p>
+                    )}
+                    {status?.schema !== null &&
+                        status?.schema !== undefined &&
+                        status.schema.differences.length > 0 && (
+                            <div className="text-destructive">
+                                <p>Differs from the database:</p>
+                                <ul className="list-disc pl-5">
+                                    {status.schema.differences.map(
+                                        (difference) => (
+                                            <li key={difference}>
+                                                {difference}
+                                            </li>
+                                        ),
+                                    )}
+                                </ul>
+                            </div>
+                        )}
+                    {status?.schema?.read === true &&
+                        status.schema.differences.length === 0 && (
                             <p className="text-muted-foreground">
-                                Waits: {status.reason}
+                                The database holds it as the migrations build
+                                it.
                             </p>
                         )}
                     {status?.command !== null &&

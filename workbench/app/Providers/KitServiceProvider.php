@@ -15,6 +15,7 @@ use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureComparer
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureEditor;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureFiles;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureGraph;
+use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureLiveSchema;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureMarkers;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructurePlanner;
 use Playerarm123\LaravelWorkflowKit\Console\Commands\Structure\StructureReader;
@@ -398,10 +399,12 @@ class KitServiceProvider extends ServiceProvider
     {
         $root = base_path();
 
+        $reader = new StructureReader($root);
+
         return new StructureGraph(
             new StructureReader($root),
             new StructureFiles($root),
-            new StructurePlanner(new StructureReader($root), new StructureFiles($root), new StructureMarkers($root)),
+            new StructurePlanner($reader, new StructureFiles($root), new StructureMarkers($root), new StructureLiveSchema($reader->tables())),
             new StructureComparer(new StructureReader($root), new StructureFiles($root), fn (string $name): bool => false),
         );
     }

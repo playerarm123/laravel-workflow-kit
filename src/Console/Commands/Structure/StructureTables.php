@@ -93,6 +93,11 @@ final class StructureTables
     private array $handWritten = [];
 
     /**
+     * @var array<string, list<string>>
+     */
+    private array $migrationsOf = [];
+
+    /**
      * @var array<string, array{class: class-string, table: string, casts: array<string, string>}>|null
      */
     private ?array $models = null;
@@ -139,7 +144,9 @@ final class StructureTables
                 continue;
             }
 
+            $before = $tables;
             $this->replay($tables, StructureFiles::text($file));
+            $this->touched($before, $tables, basename($file, '.php'));
         }
 
         foreach (self::KIT_TABLES as $table) {
@@ -151,6 +158,44 @@ final class StructureTables
         }
 
         return $this->schema = $tables;
+    }
+
+    /**
+     * The migrations that build or change a table, by their name in the `migrations` table, in the
+     * order they run. A table renamed keeps the migrations of its old name.
+     *
+     * @return list<string>
+     */
+    public function migrationsOf(string $table): array
+    {
+        $this->schema();
+
+        return $this->migrationsOf[$table] ?? [];
+    }
+
+    /**
+     * Notes the migration against each table it created, changed, renamed or dropped.
+     *
+     * @param  array<string, Table>  $before
+     * @param  array<string, Table>  $after
+     */
+    private function touched(array $before, array $after, string $migration): void
+    {
+        $gone = array_diff_key($before, $after);
+        $inherited = [];
+
+        foreach (array_keys($gone) as $table) {
+            $inherited = [...$inherited, ...($this->migrationsOf[$table] ?? [])];
+            $this->migrationsOf[$table][] = $migration;
+        }
+
+        foreach ($after as $table => $definition) {
+            if (! isset($before[$table])) {
+                $this->migrationsOf[$table] = [...$inherited, $migration];
+            } elseif ($before[$table] !== $definition) {
+                $this->migrationsOf[$table][] = $migration;
+            }
+        }
     }
 
     /**

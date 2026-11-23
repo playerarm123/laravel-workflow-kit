@@ -16,7 +16,8 @@ namespace Playerarm123\LaravelWorkflowKit\Console\Commands\Structure;
  * @phpstan-import-type Step from StructurePlanner
  *
  * @phpstan-type Neighbour array{table: string, column: string, context: string|null, entity: string|null}
- * @phpstan-type TableStatus array{entity: string|null, built: bool, builtColumns: list<string>, status: string, reason: string|null, command: string|null, model: array{fillable: list<string>, casts: array<string, string>, relations: list<string>}|null, parents: list<Neighbour>, children: list<Neighbour>}
+ * @phpstan-type LiveSchema array{read: bool, message: string|null, differences: list<string>}
+ * @phpstan-type TableStatus array{entity: string|null, built: bool, builtColumns: list<string>, status: string, reason: string|null, command: string|null, schema: LiveSchema|null, model: array{fillable: list<string>, casts: array<string, string>, relations: list<string>}|null, parents: list<Neighbour>, children: list<Neighbour>}
  * @phpstan-type Node array{id: string, kind: string, label: string, items: list<string>, status: string|null, reason: string|null, command: string|null, target: array{view: string, name: string}|null, editable: bool, variant: string|null, group: string|null, description: string|null}
  * @phpstan-type Edge array{id: string, source: string, target: string, label: string|null}
  * @phpstan-type View array{nodes: list<Node>, edges: list<Edge>}
@@ -24,7 +25,7 @@ namespace Playerarm123\LaravelWorkflowKit\Console\Commands\Structure;
  */
 final class StructureGraph
 {
-    public const string DIFFERS = 'differs';
+    public const string DIFFERS = StructurePlanner::DIFFERS;
 
     /**
      * The one line on the card of an entity that lists no state and no method yet.
@@ -140,8 +141,11 @@ final class StructureGraph
      * Each table a valid context manifest designs, by context and name, for the screen's table page:
      * the entity it maps to (null for one of the context's `tables`), whether the migrations build
      * it and which of its columns and foreign keys they build, what its model holds, the tables its
-     * foreign keys point at and the ones that point at it, and the status of the steps that build it, its migration and its model, with the command
-     * of one that can run or the reason one waits.
+     * foreign keys point at and the ones that point at it, and the status of the steps that build
+     * it, its migration and its model, with the command of one that can run and the reason one
+     * waits or the table differs. `schema` is what the database holds against what the migrations
+     * build: whether it could be read, why not, and where the two differ (StructureLiveSchema); it is
+     * null while the migrations do not build the table, or when the plan compares no database.
      *
      * @param  list<Step>  $steps
      * @return array<string, array<string, TableStatus>>
@@ -161,20 +165,21 @@ final class StructureGraph
         foreach ($designedTables as $name => $designed) {
             $model = $designed['table']['model'] ?? null;
             $status = ['status' => StructurePlanner::DONE, 'reason' => null, 'command' => null];
+            $command = null;
 
-            foreach (["migration {$name}", ...(is_string($model) ? ["model {$model}"] : [])] as $key) {
+            foreach (["migration {$name}", ...(is_string($model) ? ["model {$model}"] : []), "schema {$name}"] as $key) {
                 $step = $byKey[$key] ?? null;
 
                 if ($step !== null) {
-                    $status = $this->worse(self::STEP_RANK, $status, [
-                        'status' => $step['state'],
-                        'reason' => $step['reason'],
-                        'command' => $step['state'] === StructurePlanner::READY ? StructurePlanner::describe($step) : null,
-                    ]);
+                    $ready = $step['state'] === StructurePlanner::READY ? StructurePlanner::describe($step) : null;
+                    $command ??= $ready;
+                    $status = $this->worse(self::STEP_RANK, $status, ['status' => $step['state'], 'reason' => $step['reason'], 'command' => $ready]);
                 }
             }
 
+            $status['command'] = $command;
             $built = $schema[$name] ?? null;
+            $differences = $built === null ? null : $this->planner->live()?->differences((string) $name);
             $builtColumns = $built === null ? [] : array_map(strval(...), [...array_keys($built['columns']), ...array_keys($built['foreignKeys'])]);
             $related = StructureTableWriter::related((string) $name, $designedTables, $this->reader);
             $parents = [];
@@ -201,6 +206,11 @@ final class StructureGraph
                 'built' => $built !== null,
                 'builtColumns' => $builtColumns,
                 ...$status,
+                'schema' => $built === null || $this->planner->live() === null ? null : [
+                    'read' => $differences !== null,
+                    'message' => $differences === null ? $this->planner->live()->unreadable() : null,
+                    'differences' => $differences ?? [],
+                ],
                 'model' => is_string($model) ? StructureTableWriter::summary($model, StructureTableWriter::additions($designed['table'], null), $related) : null,
                 'parents' => $parents,
                 'children' => $children,

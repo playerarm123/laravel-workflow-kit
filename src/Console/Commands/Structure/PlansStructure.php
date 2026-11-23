@@ -10,15 +10,29 @@ use Composer\Autoload\ClassLoader;
  * the `--context` and `--resource` filters, and how a plan is printed.
  *
  * The markers are read from the container when a test binds them to a scratch root, so a run
- * never writes into the project's own provider and route files from a test.
+ * never writes into the project's own provider and route files from a test, and so is the reader,
+ * so a test can point it at migrations of its own.
  *
  * @phpstan-import-type Step from StructurePlanner
  */
 trait PlansStructure
 {
+    /**
+     * The planner of the last plan, which knows whether it could read the database's schema.
+     */
+    private ?StructurePlanner $lastPlanner = null;
+
     protected function markers(): StructureMarkers
     {
         return app()->bound(StructureMarkers::class) ? app(StructureMarkers::class) : new StructureMarkers(base_path());
+    }
+
+    /**
+     * A fresh reader each time, as a run writes the code it reads.
+     */
+    protected function structureReader(): StructureReader
+    {
+        return app()->bound(StructureReader::class) ? app(StructureReader::class) : new StructureReader(base_path());
     }
 
     /**
@@ -37,7 +51,9 @@ trait PlansStructure
     {
         $this->forgetMissingClasses();
 
-        return new StructurePlanner(new StructureReader(base_path()), new StructureFiles(base_path()), $this->markers());
+        $reader = $this->structureReader();
+
+        return $this->lastPlanner = new StructurePlanner($reader, new StructureFiles(base_path()), $this->markers(), new StructureLiveSchema($reader->tables()));
     }
 
     /**
@@ -91,7 +107,8 @@ trait PlansStructure
     }
 
     /**
-     * Prints the steps still to run and what is left to do by hand.
+     * Prints the steps still to run, the tables the database holds another way than their
+     * migrations, and what is left to do by hand.
      *
      * The comparer's `in-code` differences name the pieces the steps are about to build, so they
      * are printed only once no step is left. What is left then is what no generator writes.
@@ -103,7 +120,8 @@ trait PlansStructure
     {
         $ready = array_values(array_filter($steps, fn (array $step): bool => $step['state'] === StructurePlanner::READY));
         $waiting = array_values(array_filter($steps, fn (array $step): bool => $step['state'] === StructurePlanner::WAITING));
-        $done = count($steps) - count($ready) - count($waiting);
+        $differs = array_values(array_filter($steps, fn (array $step): bool => $step['state'] === StructurePlanner::DIFFERS));
+        $done = count($steps) - count($ready) - count($waiting) - count($differs);
 
         if ($ready !== []) {
             $this->components->info(sprintf('Ready to run (%d):', count($ready)));
@@ -119,6 +137,20 @@ trait PlansStructure
             foreach ($waiting as $step) {
                 $this->components->twoColumnDetail($step['title'], (string) $step['reason']);
             }
+        }
+
+        if ($differs !== []) {
+            $this->components->warn(sprintf('Differs from the database (%d):', count($differs)));
+
+            foreach ($differs as $step) {
+                $this->components->twoColumnDetail($step['title'], (string) $step['reason']);
+            }
+        }
+
+        $unread = $this->lastPlanner?->unreadSchema();
+
+        if ($unread !== null) {
+            $this->components->warn(sprintf('The database schema could not be read (%s), so the tables are compared with their migrations only.', $unread));
         }
 
         $this->components->info(sprintf('Done: %d of %d steps.', $done, count($steps)));
@@ -151,7 +183,7 @@ trait PlansStructure
     private function differences(): array
     {
         $differences = (new StructureComparer(
-            new StructureReader(base_path()),
+            $this->structureReader(),
             new StructureFiles(base_path()),
             fn (string $name): bool => false,
         ))->differences();
